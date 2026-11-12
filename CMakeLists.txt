@@ -66,6 +66,11 @@ add_library(plumnin_core STATIC
   src/core/gb/gb_ppu.cpp
   src/core/gb/gb_apu.cpp
   src/core/gb/gb_cart.cpp
+  src/core/nes/nes.cpp
+  src/core/nes/nes_cpu.cpp
+  src/core/nes/nes_ppu.cpp
+  src/core/nes/nes_apu.cpp
+  src/core/nes/nes_cart.cpp
   src/core/system.cpp
   src/core/cheats.cpp
   src/core/rewind.cpp
@@ -266,6 +271,16 @@ if(PLUMNIN_BUILD_TESTS)
   set(GB_TEST_ROMS "" CACHE PATH "Folder of the game-boy-test-roms release, for the gb_test_roms test")
   if(GB_TEST_ROMS)
     add_test(NAME gb_test_roms COMMAND gb-test-roms ${GB_TEST_ROMS})
+  endif()
+
+  # The NES's test ROMs, when their folder is given: -DNES_TEST_ROMS=path/to/nes-test-roms
+  # (a clone of https://github.com/christopherpow/nes-test-roms).
+  add_executable(nes-test-roms tests/nes_test_roms.cpp)
+  target_include_directories(nes-test-roms PRIVATE third_party/stb)
+  target_link_libraries(nes-test-roms PRIVATE plumnin_core)
+  set(NES_TEST_ROMS "" CACHE PATH "Folder of the nes-test-roms repository, for the nes_test_roms test")
+  if(NES_TEST_ROMS)
+    add_test(NAME nes_test_roms COMMAND nes-test-roms ${NES_TEST_ROMS})
   endif()
 
   # Every text in tr() has its translation in every .po (tools/i18n.py --update adds the new ones).
