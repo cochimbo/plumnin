@@ -1,2 +1,82 @@
+<p align="center"><img src="src/frontend/assets/icon.png" alt="The plumnin plum" width="128"></p>
+
 # plumnin
-Nintendo retro emulator with cool features
+
+A **Game Boy**, **Game Boy Color**, **NES** and **Super Nintendo** emulator for Windows
+and Linux with a **pseudo-3D** effect that pulls the console's layers apart and puts them
+at different depths. It is the Nintendo sibling of
+[plumsg](https://github.com/cochimbo/plumsg), the Mega Drive emulator, and inherits its
+frontend, its 3D view, its library, netplay and the tools around them.
+
+## Status
+
+**No console is emulated yet.** This first version is the base the consoles will be built
+on:
+
+- The frontend from plumsg: the menus, the game library (covers, details and media from
+  ScreenScraper and libretro-database, console tabs for the four consoles), savestates
+  with thumbnails, rewind, run-ahead, fast forward and slow motion, cheats (with
+  RetroArch's lists from internet), each game's own options and controls, RetroAchievements,
+  GIF and video recording, console mode for playing from the sofa (Steam Deck, ROG
+  Ally...), and the interface in Spanish, English, French and Portuguese.
+- The 2D and pseudo-3D views, with the xBR and Anime4K upscalers and the scanline and
+  CRT filters.
+- Netplay over UDP with rollback.
+- `plumnin-headless`, the emulator without a window, for tests, CI and reproducing bugs.
+- A common interface for the consoles (`src/core/console.h`): each console only has to
+  run its frames, draw its layers into a `VideoFrame` and describe its state. Savestates,
+  run-ahead, netplay and the achievements are built on it once for all of them.
+- A **test pattern** (`src/core/test_console.h`) that behaves like a console (a sprite the
+  pads move, two planes, a tone), so that everything above can be tried and tested now
+  and without any commercial ROM: `plumnin --test-pattern [gb|gbc|nes|snes]`.
+
+Opening a game says that its console is not emulated yet. The plan, in order:
+
+1. This base.
+2. Game Boy and Game Boy Color.
+3. NES.
+4. Super Nintendo.
+
+What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIOS, the
+32X, the light guns, the Roland synthesizer with its instrument editor and score, and the
+library's 3D shelf with the consoles' models) is not here.
+
+## Building
+
+You need CMake 3.16+, a C++17 compiler and SDL2 (if it is not installed, CMake downloads
+it). Dear ImGui and rcheevos are downloaded by themselves.
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+./build/plumnin --test-pattern
+```
+
+`-DPLUMNIN_BUILD_FRONTEND=OFF` builds only the core, `plumnin-headless` and the core tests,
+without SDL2 or OpenGL.
+
+On Windows, the `windows-installer.yml` workflow builds the installer with Inno Setup (see
+[installer/README.md](installer/README.md)). The same workflow builds the Linux AppImage
+with `tools/linux/make-appimage.sh <build dir> <version>`.
+
+## Tests
+
+- `core_tests`: the savestates, rewind, run-ahead, netplay (two sessions over a simulated
+  network that loses and reorders packets), RetroAchievements against a made-up server,
+  the 3D planes, cheats, the library's names, ScreenScraper's and libretro-database's
+  answers, all on the test pattern.
+- `frontend_tests`: the settings files, each game's own options and the crash reports.
+- `headless`: `plumnin-headless` end to end: hashes, savestates, input scripts, recordings
+  and netplay between two processes.
+- `i18n`: every text in the interface has its translation (`tools/i18n.py`).
+
+```sh
+./build/plumnin-headless --test-rom --system gb --frames 300 --do "60-120 right a" --png out.png
+./build/plumnin-headless --help
+```
+
+## License
+
+MIT (see [LICENSE](LICENSE)). plumnin does not include any game or BIOS. See
+[PRIVACY.md](PRIVACY.md) for what it connects to.

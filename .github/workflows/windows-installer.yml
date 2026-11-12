@@ -1,0 +1,232 @@
+name: Windows installer
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Tag to create and publish as a release (e.g. v0.0.1-alpha). Leave empty to only build.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+env:
+  SDL2_VERSION: 2.30.9
+  APP_EXE: plumnin.exe
+  # Set when a v* tag is pushed, or when the workflow is run by hand with a release_tag.
+  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || inputs.release_tag }}
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Only documentation changed?
+        id: changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: bash tools/ci/needs-build.sh
+
+      - name: Check for emulator sources
+        id: src
+        shell: pwsh
+        run: |
+          if ("${{ steps.changes.outputs.build }}" -ne "true") { "present=false" >> $env:GITHUB_OUTPUT }
+          elseif (Test-Path CMakeLists.txt) { "present=true" >> $env:GITHUB_OUTPUT }
+          else {
+            "present=false" >> $env:GITHUB_OUTPUT
+            Write-Host "::notice::No CMakeLists.txt at the repo root yet; skipping the installer build."
+          }
+
+      - name: Download SDL2 (MSVC development package)
+        if: steps.src.outputs.present == 'true'
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP\sdl2.zip"
+          Invoke-WebRequest "https://github.com/libsdl-org/SDL/releases/download/release-$env:SDL2_VERSION/SDL2-devel-$env:SDL2_VERSION-VC.zip" -OutFile $zip
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\sdl2"
+          "SDL2_ROOT=$env:RUNNER_TEMP\sdl2\SDL2-$env:SDL2_VERSION" >> $env:GITHUB_ENV
+
+      - name: Compute version
+        if: steps.src.outputs.present == 'true'
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG) {
+            if ($env:RELEASE_TAG -notmatch '^v\d') { Write-Host "::error::release_tag must look like v1.2.3"; exit 1 }
+            $v = $env:RELEASE_TAG.Substring(1)
+          }
+          else { $v = "0.0.0-dev.$env:GITHUB_RUN_NUMBER" }
+          "APP_VERSION=$v" >> $env:GITHUB_ENV
+
+      - name: Build emulator (Release)
+        if: steps.src.outputs.present == 'true'
+        shell: pwsh
+        env:
+          # ScreenScraper's developer account for plumnin; empty if the secrets are not set.
+          SS_DEVID: ${{ secrets.SCREENSCRAPER_DEVID }}
+          SS_DEVPASSWORD: ${{ secrets.SCREENSCRAPER_DEVPASSWORD }}
+        run: |
+          # A release shows its own version in About and crash reports; other builds, git describe.
+          $version = if ($env:RELEASE_TAG) { "-DPLUMNIN_VERSION=$env:APP_VERSION" } else { "-DPLUMNIN_VERSION=" }
+          cmake -S . -B build -A x64 "-DCMAKE_PREFIX_PATH=$env:SDL2_ROOT/cmake" "-DSDL2_DIR=$env:SDL2_ROOT/cmake" $version `
+            "-DPLUMNIN_SCREENSCRAPER_DEVID=$env:SS_DEVID" "-DPLUMNIN_SCREENSCRAPER_DEVPASSWORD=$env:SS_DEVPASSWORD"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build build --config Release --parallel
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Stage files for the installer
+        if: steps.src.outputs.present == 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $exes = Get-ChildItem build -Recurse -Filter *.exe | Where-Object { $_.FullName -notmatch '\\CMakeFiles\\' }
+          $exe = $exes | Where-Object Name -eq $env:APP_EXE | Select-Object -First 1
+          if (-not $exe) {
+            if ($exes.Count -ne 1) {
+              Write-Host "::error::Could not find $env:APP_EXE in build/. Found: $($exes.Name -join ', ')"
+              exit 1
+            }
+            $exe = $exes[0]
+            Write-Host "::warning::$env:APP_EXE not found; packaging $($exe.Name) instead."
+            "APP_EXE=$($exe.Name)" >> $env:GITHUB_ENV
+          }
+          Copy-Item $exe.FullName dist\
+          # Prefer an SDL2.dll produced by the build (e.g. FetchContent); else use the downloaded one.
+          $dll = Get-ChildItem build -Recurse -Filter SDL2.dll | Select-Object -First 1
+          if ($dll) { Copy-Item $dll.FullName dist\ } else { Copy-Item "$env:SDL2_ROOT\lib\x64\SDL2.dll" dist\ }
+          if (Test-Path "$env:SDL2_ROOT\README-SDL.txt") { Copy-Item "$env:SDL2_ROOT\README-SDL.txt" dist\ }
+          Get-ChildItem dist
+
+      - name: Build installer (Inno Setup)
+        if: steps.src.outputs.present == 'true'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+          & $iscc "/DAppVersion=$env:APP_VERSION" "/DAppExeName=$env:APP_EXE" "/DSourceDir=$env:GITHUB_WORKSPACE\dist" "/DOutputDir=$env:GITHUB_WORKSPACE\dist-installer" installer\plumnin.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Upload installer
+        if: steps.src.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: plumnin-windows-installer
+          path: dist-installer/*.exe
+
+      - name: Attach installer to release
+        if: steps.src.outputs.present == 'true' && env.RELEASE_TAG != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          # Only used when the tag does not exist yet (manual run): tag the built commit.
+          target_commitish: ${{ github.sha }}
+          files: dist-installer/*.exe
+          # Tags with a suffix (v0.0.1-alpha, v1.0.0-rc1) are published as prereleases.
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
+          generate_release_notes: true
+
+  # The Linux build: one AppImage that runs on most desktops and on the Steam Deck without
+  # Proton. Built on the oldest supported Ubuntu so it runs with older glibc versions too.
+  appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Only documentation changed?
+        id: changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: bash tools/ci/needs-build.sh
+
+      - name: Install SDL2's build dependencies
+        if: steps.changes.outputs.build == 'true'
+        # SDL2 itself is built from source (the same version as on Windows) and linked in
+        # statically; these are the headers of what it talks to: X11, Wayland, the sound
+        # servers, the pads (udev) and the input methods. It loads them when it runs.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
+            libxfixes-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev libegl-dev libgl-dev \
+            libgles-dev libpulse-dev libasound2-dev libpipewire-0.3-dev libudev-dev libdbus-1-dev libibus-1.0-dev \
+            libfuse2 file xvfb
+
+      - name: Compute version
+        if: steps.changes.outputs.build == 'true'
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            [[ "$RELEASE_TAG" =~ ^v[0-9] ]] || { echo "::error::release_tag must look like v1.2.3"; exit 1; }
+            echo "APP_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+          else
+            echo "APP_VERSION=0.0.0-dev.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build emulator (Release)
+        if: steps.changes.outputs.build == 'true'
+        env:
+          SS_DEVID: ${{ secrets.SCREENSCRAPER_DEVID }}
+          SS_DEVPASSWORD: ${{ secrets.SCREENSCRAPER_DEVPASSWORD }}
+        run: |
+          version=""
+          if [ -n "$RELEASE_TAG" ]; then version="$APP_VERSION"; fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPLUMNIN_BUILD_TESTS=OFF -DPLUMNIN_VERSION="$version" \
+            -DPLUMNIN_SCREENSCRAPER_DEVID="$SS_DEVID" -DPLUMNIN_SCREENSCRAPER_DEVPASSWORD="$SS_DEVPASSWORD"
+          cmake --build build --parallel --target plumnin
+
+      - name: Build AppImage
+        if: steps.changes.outputs.build == 'true'
+        run: bash tools/linux/make-appimage.sh build "$APP_VERSION" dist-appimage
+
+      - name: Check that it starts
+        if: steps.changes.outputs.build == 'true'
+        # A few seconds in a virtual screen: it must open its window without a missing library.
+        run: |
+          app=$(ls dist-appimage/*.AppImage)
+          chmod +x "$app"
+          set +e
+          HOME=$RUNNER_TEMP/home timeout 10 xvfb-run -a -s "-screen 0 1280x720x24" "$app"
+          rc=$?
+          set -e
+          if [ "$rc" -ne 124 ]; then echo "::error::plumnin exited with $rc before 10 seconds"; exit 1; fi
+
+      - name: Upload AppImage
+        if: steps.changes.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: plumnin-linux-appimage
+          path: dist-appimage/*.AppImage
+
+  # After the Windows job, which creates the release when the run is a manual one, so
+  # the two do not both try to create it.
+  appimage-release:
+    needs: [installer, appimage]
+    if: needs.appimage.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != '')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: plumnin-linux-appimage
+          path: dist-appimage
+      - name: Attach AppImage to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          files: dist-appimage/*.AppImage
+          prerelease: ${{ contains(env.RELEASE_TAG, '-') }}
