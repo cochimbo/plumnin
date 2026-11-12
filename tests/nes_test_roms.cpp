@@ -4,7 +4,7 @@
 //
 //   nes-test-roms ROOT              the suite below; exit code 1 if one that should pass fails
 //   nes-test-roms ROOT --all        also the ones not expected to pass yet
-//   nes-test-roms --run ROM [--frames N] [--png OUT] [--pad BUTTONS]   one ROM, to look at it
+//   nes-test-roms --run ROM [--frames N] [--png OUT] [--pad BUTTONS] [--pal]   one ROM, to look at it
 //
 // A test passes in one of three ways, depending on how it reports:
 //   status     blargg's newer ones: 0 at 6000 once DE B0 61 is at 6001 (0x81 asks for a reset)
@@ -49,6 +49,7 @@ struct Test {
     const char* pad = "";  // buttons held from the start (cpu_timing_test: B for every instruction)
     const char* words = "Passed";  // for Screen: any of these, split by '|'
     int submapper = -1;            // >= 0: the header is rewritten as NES 2.0 with this submapper
+    bool pal = false;              // run on a PAL console, whatever the header says
 
 };
 
@@ -163,6 +164,17 @@ const Test kTests[] = {
     {"blargg_apu_2005.07.30/11.len_reload_timing.nes", Kind::Screen, 300, true, "", "$01"},
     // These print a CRC of what they saw; which of those listed depends on how the
     // processor and the PPU line up at power on.
+    // The same on a PAL console.
+    {"pal_apu_tests/01.len_ctr.nes", Kind::F8, 300, true, "", "Passed", -1, true},
+    {"pal_apu_tests/02.len_table.nes", Kind::F8, 300, true, "", "Passed", -1, true},
+    {"pal_apu_tests/03.irq_flag.nes", Kind::F8, 300, true, "", "Passed", -1, true},
+    {"pal_apu_tests/04.clock_jitter.nes", Kind::F8, 300, true, "", "Passed", -1, true},
+    {"pal_apu_tests/05.len_timing_mode0.nes", Kind::F8, 300, true, "", "Passed", -1, true},
+    {"pal_apu_tests/06.len_timing_mode1.nes", Kind::F8, 300, true, "", "Passed", -1, true},
+    {"pal_apu_tests/07.irq_flag_timing.nes", Kind::F8, 300, true, "", "Passed", -1, true},
+    {"pal_apu_tests/08.irq_timing.nes", Kind::F8, 300, true, "", "Passed", -1, true},
+    {"pal_apu_tests/10.len_halt_timing.nes", Kind::F8, 300, true, "", "Passed", -1, true},
+    {"pal_apu_tests/11.len_reload_timing.nes", Kind::F8, 300, true, "", "Passed", -1, true},
     {"dmc_dma_during_read4/dma_2007_read.nes", Kind::Screen, 120, true, "", "159A7A8F|5E3DF9C4"},
     {"dmc_dma_during_read4/dma_2007_write.nes", Kind::Screen, 120},
     {"dmc_dma_during_read4/dma_4016_read.nes", Kind::Screen, 120},
@@ -176,8 +188,21 @@ const Test kTests[] = {
     {"mmc3_test_2/rom_singles/3-A12_clocking.nes", Kind::Status, 600},
     {"mmc3_test_2/rom_singles/4-scanline_timing.nes", Kind::Status, 600},
     {"mmc3_test_2/rom_singles/5-MMC3.nes", Kind::Status, 600},
-    // For the older MMC3A: its header made NES 2.0 with submapper 4, as the chip is told apart.
+    // The older MMC3A and the MMC6 behave otherwise: their headers made NES 2.0 with the
+    // submapper (4 and 1) that tells those chips apart.
     {"mmc3_test_2/rom_singles/6-MMC3_alt.nes", Kind::Status, 600, true, "", "Passed", 4},
+    {"mmc3_test/1-clocking.nes", Kind::Status, 600},
+    {"mmc3_test/2-details.nes", Kind::Status, 600},
+    {"mmc3_test/3-A12_clocking.nes", Kind::Status, 600},
+    {"mmc3_test/4-scanline_timing.nes", Kind::Status, 600},
+    {"mmc3_test/5-MMC3.nes", Kind::Status, 600},
+    {"mmc3_test/6-MMC6.nes", Kind::Status, 600, true, "", "Passed", 1},
+    {"mmc3_irq_tests/1.Clocking.nes", Kind::F8, 200},
+    {"mmc3_irq_tests/2.Details.nes", Kind::F8, 200},
+    {"mmc3_irq_tests/3.A12_clocking.nes", Kind::F8, 200},
+    {"mmc3_irq_tests/4.Scanline_timing.nes", Kind::F8, 200},
+    {"mmc3_irq_tests/5.MMC3_rev_A.nes", Kind::F8, 200, true, "", "Passed", 4},
+    {"mmc3_irq_tests/6.MMC3_rev_B.nes", Kind::F8, 200},
 };
 
 struct Result {
@@ -315,11 +340,13 @@ bool writePng(const Nes& nes, const std::string& path) {
 int runOne(int argc, char** argv) {
     std::string rom, png, pad;
     int frames = 600;
+    bool pal = false;
     for (int i = 2; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "--frames" && i + 1 < argc) frames = std::atoi(argv[++i]);
         else if (a == "--png" && i + 1 < argc) png = argv[++i];
         else if (a == "--pad" && i + 1 < argc) pad = argv[++i];
+        else if (a == "--pal") pal = true;
         else rom = a;
     }
     std::string error;
@@ -328,6 +355,7 @@ int runOne(int argc, char** argv) {
         std::fprintf(stderr, "%s: %s\n", rom.c_str(), error.c_str());
         return 2;
     }
+    if (pal) nes->setRegion(plumnin::Region::EuropePal);
     Test t{rom.c_str(), Kind::Status, frames};
     t.pad = pad.c_str();
     const Result r = runTest(*nes, t);
@@ -357,7 +385,10 @@ int main(int argc, char** argv) {
         auto nes = load(path, &error, t.submapper);
         Result r;
         if (!nes) r.detail = error;
-        else r = runTest(*nes, t);
+        else {
+            if (t.pal) nes->setRegion(plumnin::Region::EuropePal);
+            r = runTest(*nes, t);
+        }
         std::printf("%s %s%s%s\n", r.pass ? "pass" : "FAIL", t.path, r.pass ? "" : "  ", r.pass ? "" : r.detail.c_str());
         if (r.pass) {
             ++passed;

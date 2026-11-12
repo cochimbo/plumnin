@@ -171,7 +171,7 @@ public:
                 if (!odd) {
                     if (info_.mirroring != Mirroring::FourScreen)
                         setMirroring(value & 1 ? Mirroring::Horizontal : Mirroring::Vertical);
-                } else {
+                } else if (info_.submapper != 1) {  // the MMC6 protects its RAM otherwise: left open
                     ramEnabled_ = value & 0x80;
                     ramWritable_ = !(value & 0x40);
                 }
@@ -206,9 +206,10 @@ protected:
         } else {
             --counter_;
         }
-        // The older MMC3A (NES 2.0 submapper 4) gives no IRQ when it reloads a 0 after
-        // having counted down to 0 by itself.
-        if (counter_ == 0 && irqEnabled_ && !(natural && info_.submapper == 4)) irq_ = true;
+        // The older MMC3A (NES 2.0 submapper 4) and the MMC6 (submapper 1) give no IRQ
+        // when they reload a 0 after having counted down to 0 by themselves.
+        const bool old = info_.submapper == 4 || info_.submapper == 1;
+        if (counter_ == 0 && irqEnabled_ && !(natural && old)) irq_ = true;
     }
     virtual void update() {
         if (select_ & 0x40) setPrg8(0, -2), setPrg8(2, regs_[6]);
