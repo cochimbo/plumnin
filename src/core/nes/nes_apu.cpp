@@ -60,6 +60,7 @@ void Apu::power(bool pal) {
     noise_ = Noise{};
     dmc_ = Dmc{};
     fiveStep_ = false;
+    last4017_ = 0;
     reset();
     acc_ = sampleClock_ = dc_ = 0;
     accCycles_ = 0;
@@ -78,13 +79,13 @@ void Apu::reset() {
     dmc_.period = static_cast<uint16_t>(kDmc[pal_][0] - 1);
     dmc_.timer = dmc_.period;
     noise_.period = static_cast<uint16_t>(kNoise[pal_][0] - 1);
-    // The frame counter acts as if 4017 were written (with its mode) a few cycles
-    // before the first instruction.
-    irqInhibit_ = false;
+    // The frame counter acts as if 4017 were written again with its last value (0 at
+    // power) a few cycles before the first instruction.
     frameIrq_ = dmcIrq_ = false;
     frameCycle_ = 0;
     frameStep_ = 0;
-    newMode_ = fiveStep_ ? 0x80 : 0x00;
+    newMode_ = last4017_;
+    irqInhibit_ = last4017_ & 0x40;
     writeDelay_ = 3;
     blockTick_ = 0;
     dmcRequest_ = dmcAbort_ = false;
@@ -360,6 +361,7 @@ void Apu::write(uint16_t address, uint8_t v, uint64_t cycle) {
         }
         case 0x4017:
             newMode_ = v;
+            last4017_ = v;
             writeDelay_ = (cycle & 1) ? 4 : 3;
             irqInhibit_ = v & 0x40;
             if (irqInhibit_) frameIrq_ = false;

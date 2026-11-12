@@ -9,7 +9,7 @@
 // A test passes in one of three ways, depending on how it reports:
 //   status     blargg's newer ones: 0 at 6000 once DE B0 61 is at 6001 (0x81 asks for a reset)
 //   f8         blargg's older ones: 1 in zero page F8 after a number of frames
-//   screen     the words it prints on screen once done ("Passed", "PASSED")
+//   screen     the words it prints on screen once done ("Passed", "PASSED", "$01" for the 2005 ones)
 
 #include <algorithm>
 #include <array>
@@ -47,7 +47,9 @@ struct Test {
     int frames;
     bool expected = true;  // false: known to fail for now
     const char* pad = "";  // buttons held from the start (cpu_timing_test: B for every instruction)
-    const char* words = "Passed";
+    const char* words = "Passed";  // for Screen: any of these, split by '|'
+    int submapper = -1;            // >= 0: the header is rewritten as NES 2.0 with this submapper
+
 };
 
 const Test kTests[] = {
@@ -91,11 +93,11 @@ const Test kTests[] = {
     {"cpu_reset/ram_after_reset.nes", Kind::Status, 600},
     {"cpu_reset/registers.nes", Kind::Status, 600},
     // Picture.
-    {"blargg_ppu_tests_2005.09.15b/palette_ram.nes", Kind::F8, 120},
-    {"blargg_ppu_tests_2005.09.15b/power_up_palette.nes", Kind::F8, 120},
-    {"blargg_ppu_tests_2005.09.15b/sprite_ram.nes", Kind::F8, 120},
-    {"blargg_ppu_tests_2005.09.15b/vbl_clear_time.nes", Kind::F8, 120},
-    {"blargg_ppu_tests_2005.09.15b/vram_access.nes", Kind::F8, 120},
+    {"blargg_ppu_tests_2005.09.15b/palette_ram.nes", Kind::Screen, 120, true, "", "$01"},
+    {"blargg_ppu_tests_2005.09.15b/power_up_palette.nes", Kind::Screen, 120, true, "", "$01"},
+    {"blargg_ppu_tests_2005.09.15b/sprite_ram.nes", Kind::Screen, 120, true, "", "$01"},
+    {"blargg_ppu_tests_2005.09.15b/vbl_clear_time.nes", Kind::Screen, 120, true, "", "$01"},
+    {"blargg_ppu_tests_2005.09.15b/vram_access.nes", Kind::Screen, 120, true, "", "$01"},
     {"ppu_vbl_nmi/rom_singles/01-vbl_basics.nes", Kind::Status, 600},
     {"ppu_vbl_nmi/rom_singles/02-vbl_set_time.nes", Kind::Status, 600},
     {"ppu_vbl_nmi/rom_singles/03-vbl_clear_time.nes", Kind::Status, 600},
@@ -148,22 +150,24 @@ const Test kTests[] = {
     {"apu_reset/irq_flag_cleared.nes", Kind::Status, 600},
     {"apu_reset/len_ctrs_enabled.nes", Kind::Status, 600},
     {"apu_reset/works_immediately.nes", Kind::Status, 600},
-    {"blargg_apu_2005.07.30/01.len_ctr.nes", Kind::F8, 300},
-    {"blargg_apu_2005.07.30/02.len_table.nes", Kind::F8, 300},
-    {"blargg_apu_2005.07.30/03.irq_flag.nes", Kind::F8, 300},
-    {"blargg_apu_2005.07.30/04.clock_jitter.nes", Kind::F8, 300},
-    {"blargg_apu_2005.07.30/05.len_timing_mode0.nes", Kind::F8, 300},
-    {"blargg_apu_2005.07.30/06.len_timing_mode1.nes", Kind::F8, 300},
-    {"blargg_apu_2005.07.30/07.irq_flag_timing.nes", Kind::F8, 300},
-    {"blargg_apu_2005.07.30/08.irq_timing.nes", Kind::F8, 300},
-    {"blargg_apu_2005.07.30/09.reset_timing.nes", Kind::F8, 300},
-    {"blargg_apu_2005.07.30/10.len_halt_timing.nes", Kind::F8, 300},
-    {"blargg_apu_2005.07.30/11.len_reload_timing.nes", Kind::F8, 300},
-    {"dmc_dma_during_read4/dma_2007_read.nes", Kind::Status, 600},
-    {"dmc_dma_during_read4/dma_2007_write.nes", Kind::Status, 600},
-    {"dmc_dma_during_read4/dma_4016_read.nes", Kind::Status, 600},
-    {"dmc_dma_during_read4/double_2007_read.nes", Kind::Status, 600},
-    {"dmc_dma_during_read4/read_write_2007.nes", Kind::Status, 600},
+    {"blargg_apu_2005.07.30/01.len_ctr.nes", Kind::Screen, 300, true, "", "$01"},
+    {"blargg_apu_2005.07.30/02.len_table.nes", Kind::Screen, 300, true, "", "$01"},
+    {"blargg_apu_2005.07.30/03.irq_flag.nes", Kind::Screen, 300, true, "", "$01"},
+    {"blargg_apu_2005.07.30/04.clock_jitter.nes", Kind::Screen, 300, true, "", "$01"},
+    {"blargg_apu_2005.07.30/05.len_timing_mode0.nes", Kind::Screen, 300, true, "", "$01"},
+    {"blargg_apu_2005.07.30/06.len_timing_mode1.nes", Kind::Screen, 300, true, "", "$01"},
+    {"blargg_apu_2005.07.30/07.irq_flag_timing.nes", Kind::Screen, 300, true, "", "$01"},
+    {"blargg_apu_2005.07.30/08.irq_timing.nes", Kind::Screen, 300, true, "", "$01"},
+    {"blargg_apu_2005.07.30/09.reset_timing.nes", Kind::Screen, 300, true, "", "$01"},
+    {"blargg_apu_2005.07.30/10.len_halt_timing.nes", Kind::Screen, 300, true, "", "$01"},
+    {"blargg_apu_2005.07.30/11.len_reload_timing.nes", Kind::Screen, 300, true, "", "$01"},
+    // These print a CRC of what they saw; which of those listed depends on how the
+    // processor and the PPU line up at power on.
+    {"dmc_dma_during_read4/dma_2007_read.nes", Kind::Screen, 120, true, "", "159A7A8F|5E3DF9C4"},
+    {"dmc_dma_during_read4/dma_2007_write.nes", Kind::Screen, 120},
+    {"dmc_dma_during_read4/dma_4016_read.nes", Kind::Screen, 120},
+    {"dmc_dma_during_read4/double_2007_read.nes", Kind::Screen, 120, true, "", "85CFD627|F018C287|440EF923|E52F41A5"},
+    {"dmc_dma_during_read4/read_write_2007.nes", Kind::Screen, 120},
     {"sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes", Kind::Status, 600},
     {"sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes", Kind::Status, 600},
     // Mappers.
@@ -172,7 +176,8 @@ const Test kTests[] = {
     {"mmc3_test_2/rom_singles/3-A12_clocking.nes", Kind::Status, 600},
     {"mmc3_test_2/rom_singles/4-scanline_timing.nes", Kind::Status, 600},
     {"mmc3_test_2/rom_singles/5-MMC3.nes", Kind::Status, 600},
-    {"mmc3_test_2/rom_singles/6-MMC3_alt.nes", Kind::Status, 600, false},
+    // For the older MMC3A: its header made NES 2.0 with submapper 4, as the chip is told apart.
+    {"mmc3_test_2/rom_singles/6-MMC3_alt.nes", Kind::Status, 600, true, "", "Passed", 4},
 };
 
 struct Result {
@@ -191,9 +196,25 @@ plumnin::PadState padFrom(const std::string& buttons) {
     return p;
 }
 
-std::unique_ptr<Nes> load(const std::string& path, std::string* error) {
+std::unique_ptr<Nes> load(const std::string& path, std::string* error, int submapper = -1) {
     auto nes = std::make_unique<Nes>();
-    if (!nes->loadRom(path, error)) return nullptr;
+    if (submapper < 0) {
+        if (!nes->loadRom(path, error)) return nullptr;
+    } else {
+        FILE* f = std::fopen(path.c_str(), "rb");
+        if (!f) {
+            *error = "cannot open";
+            return nullptr;
+        }
+        std::vector<uint8_t> rom;
+        uint8_t buf[4096];
+        for (size_t n; (n = std::fread(buf, 1, sizeof buf, f)) > 0;) rom.insert(rom.end(), buf, buf + n);
+        std::fclose(f);
+        if (rom.size() < 16) return nullptr;
+        rom[7] = static_cast<uint8_t>((rom[7] & 0xF3) | 0x08);
+        rom[8] = static_cast<uint8_t>(submapper << 4);
+        if (!nes->loadRomData(std::move(rom), error)) return nullptr;
+    }
     nes->setSampleRate(44100);
     return nes;
 }
@@ -223,16 +244,22 @@ std::string oneLine(std::string s) {
 Result runTest(Nes& nes, const Test& t) {
     nes.setPads(padFrom(t.pad), {});
     int resetAt = -1;
+    bool afterReset = false;  // the 0x81 still there is the old request until the test clears it
     for (int f = 0; f < t.frames; ++f) {
         nes.runFrame();
         if (t.kind != Kind::Status || !hasSignature(nes)) continue;
         const uint8_t status = nes.peek(0x6000);
+        if (afterReset) {
+            if (status != 0x81) afterReset = false;
+            continue;
+        }
         if (status == 0x81) {
             // Asks for the reset button, at least 100 ms later.
             if (resetAt < 0) resetAt = f + 10;
             if (f == resetAt) {
                 nes.reset();
                 resetAt = -1;
+                afterReset = true;
             }
             continue;
         }
@@ -257,8 +284,14 @@ Result runTest(Nes& nes, const Test& t) {
             r.detail = "result " + std::to_string(nes.peek(0xF8)) + "; screen: " + oneLine(nes.screenText());
             break;
         case Kind::Screen: {
-            const std::string text = nes.screenText();
-            r.pass = text.find(t.words) != std::string::npos;
+            const std::string text = nes.screenText(), words = t.words;
+            size_t start = 0;
+            while (!r.pass && start <= words.size()) {
+                size_t end = words.find('|', start);
+                if (end == std::string::npos) end = words.size();
+                r.pass = text.find(words.substr(start, end - start)) != std::string::npos;
+                start = end + 1;
+            }
             r.detail = oneLine(text);
             break;
         }
@@ -321,7 +354,7 @@ int main(int argc, char** argv) {
         }
         const std::string path = (root / t.path).string();
         std::string error;
-        auto nes = load(path, &error);
+        auto nes = load(path, &error, t.submapper);
         Result r;
         if (!nes) r.detail = error;
         else r = runTest(*nes, t);

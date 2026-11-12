@@ -199,13 +199,16 @@ public:
 
 protected:
     void clock() {
+        const bool natural = counter_ == 0 && !reload_;
         if (counter_ == 0 || reload_) {
             counter_ = latch_;
             reload_ = false;
         } else {
             --counter_;
         }
-        if (counter_ == 0 && irqEnabled_) irq_ = true;
+        // The older MMC3A (NES 2.0 submapper 4) gives no IRQ when it reloads a 0 after
+        // having counted down to 0 by itself.
+        if (counter_ == 0 && irqEnabled_ && !(natural && info_.submapper == 4)) irq_ = true;
     }
     virtual void update() {
         if (select_ & 0x40) setPrg8(0, -2), setPrg8(2, regs_[6]);

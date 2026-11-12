@@ -60,7 +60,7 @@ public:
            dmc_.address, dmc_.remaining, dmc_.buffer, dmc_.empty, dmc_.shift, dmc_.bits, dmc_.silent,
            dmc_.startDelay, dmc_.disableDelay);
         ar(pal_, fiveStep_, irqInhibit_, frameIrq_, dmcIrq_, frameCycle_, frameStep_, newMode_, writeDelay_,
-           blockTick_, dmcRequest_, dmcAbort_, acc_, accCycles_, sampleClock_, dc_);
+           blockTick_, last4017_, dmcRequest_, dmcAbort_, acc_, accCycles_, sampleClock_, dc_);
     }
 
 private:
@@ -145,6 +145,7 @@ private:
     uint8_t frameStep_ = 0;
     int16_t newMode_ = -1;  // a 4017 write waiting to take effect
     uint8_t writeDelay_ = 0, blockTick_ = 0;
+    uint8_t last4017_ = 0;  // a reset writes it again
     bool dmcRequest_ = false, dmcAbort_ = false;
 
     // Down to the frontend's rate: the average of the cycles of each sample, then a

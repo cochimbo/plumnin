@@ -58,7 +58,8 @@ void Ppu::power(bool pal) {
     odd_ = true;
     frames_ = 0;
     dots_ = 0;
-    frameDone_ = preventVbl_ = false;
+    frameDone_ = preventVbl_ = skipDot_ = false;
+    ignoreRead_ = 0;
     pendingDelay_ = 0;
     pendingV_ = 0;
     ntByte_ = atByte_ = loByte_ = hiByte_ = 0;
@@ -182,6 +183,10 @@ uint8_t Ppu::read(uint16_t reg) {
             return v;
         }
         case 7: {
+            // A second read right after one (a dummy read on the same address) is not
+            // seen: the bus keeps the last value.
+            if (ignoreRead_) return openBus_;
+            ignoreRead_ = 6;
             const uint16_t a = v_ & 0x3FFF;
             uint8_t v;
             if (a >= 0x3F00) {
@@ -521,6 +526,7 @@ void Ppu::blankPixel() {
 
 void Ppu::step() {
     ++dots_;
+    if (ignoreRead_) --ignoreRead_;
     if (++dot_ > 340) {
         dot_ = 0;
         if (++scanline_ > lastLine_) {
@@ -531,6 +537,16 @@ void Ppu::step() {
         if (scanline_ == 241) frameDone_ = true;
     }
 
+    // NTSC: odd frames are a dot shorter when rendering was on at dot 338 of the
+    // pre-render line (line 0's idle dot 0 is skipped).
+    if (scanline_ == lastLine_ && dot_ == 338) skipDot_ = odd_ && !pal_ && rendering();
+    if (scanline_ == lastLine_ && dot_ == 340 && skipDot_) {
+        skipDot_ = false;
+        dot_ = 0;
+        scanline_ = 0;
+        odd_ = !odd_;
+        ++frames_;
+    }
     const bool visible = scanline_ < 240, pre = scanline_ == lastLine_;
     if (pendingDelay_ && --pendingDelay_ == 0) {
         if ((visible || pre) && rendering()) {
@@ -570,8 +586,6 @@ void Ppu::step() {
             backgroundDot();
         } else if (dot_ == 337 || dot_ == 339) {
             ntByte_ = fetch(static_cast<uint16_t>(0x2000 | (v_ & 0x0FFF)));
-            // NTSC: with rendering on, odd frames skip the pre-render line's last dot.
-            if (pre && dot_ == 339 && odd_ && !pal_) dot_ = 340;
         }
         return;
     }

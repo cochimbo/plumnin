@@ -49,7 +49,7 @@ public:
     template <class Ar>
     void state(Ar& ar) {
         ar(vram, oam, palette, secondary_, ctrl_, mask_, status_, oamAddr_, v_, t_, x_, w_, buffer_, openBus_,
-           openBusFrame_, scanline_, dot_, odd_, frames_, dots_, preventVbl_, pendingV_, pendingDelay_);
+           openBusFrame_, scanline_, dot_, odd_, frames_, dots_, skipDot_, ignoreRead_, preventVbl_, pendingV_, pendingDelay_);
         ar(ntByte_, atByte_, loByte_, hiByte_, bgLo_, bgHi_, atLo_, atHi_);
         ar(copyBuffer_, secAddr_, spriteH_, spriteL_, inRange_, copyDone_, sprite0Added_, sprite0Line_, overflowCount_,
            foundSprites_, lineSprites_, spX_, spAttr_, spLo_, spHi_, spIndex_, secIndex_);
@@ -91,6 +91,8 @@ private:
     bool odd_ = false, frameDone_ = false, preventVbl_ = false;
     uint32_t frames_ = 0;
     uint64_t dots_ = 0;
+    bool skipDot_ = false;
+    uint8_t ignoreRead_ = 0;  // dots during which a 2007 read is ignored
     uint16_t pendingV_ = 0;
     uint8_t pendingDelay_ = 0;  // a 2006 write reaches v a few dots later
 
