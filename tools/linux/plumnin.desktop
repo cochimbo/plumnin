@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=plumnin
+GenericName=Nintendo emulator
+GenericName[es]=Emulador de Nintendo
+Comment=Game Boy, Game Boy Color, NES and Super Nintendo emulator with a 3D view
+Comment[es]=Emulador de Game Boy, Game Boy Color, NES y Super Nintendo con vista 3D
+Exec=plumnin %f
+Icon=plumnin
+Terminal=false
+Categories=Game;Emulator;
+Keywords=nintendo;gameboy;nes;snes;famicom;emulator;retro;

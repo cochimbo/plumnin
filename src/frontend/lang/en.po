@@ -1,0 +1,2090 @@
+# plumnin in English. The msgid is the Spanish text in the code; msgstr its translation.
+# Keep the %-specifiers (%d, %s...) in the same order. Updated with tools/i18n.py --update.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en\n"
+
+msgid ""
+"\n"
+"Al activarlo, el juego vuelve a empezar."
+msgstr ""
+"\n"
+"Turning it on restarts the game."
+
+msgid " (hardcore)"
+msgstr " (hardcore)"
+
+msgid "%d / %d px"
+msgstr "%d / %d px"
+
+msgid "%d carpetas"
+msgstr "%d folders"
+
+msgid "%d fotogramas"
+msgstr "%d frames"
+
+msgid "%d juegos."
+msgstr "%d games."
+
+msgid "%d juegos. Buscando carátulas, quedan %d..."
+msgstr "%d games. Looking for covers, %d left..."
+
+msgid "%d resultados. Pulsa uno para verlo."
+msgstr "%d results. Click one to see it."
+
+msgid "%d s"
+msgstr "%d s"
+
+msgid "%s no es una imagen PNG o JPEG"
+msgstr "%s is not a PNG or JPEG image"
+
+msgid "%s, %u puntos"
+msgstr "%s, %u points"
+
+msgid "%u de %u logros, %u de %u puntos%s"
+msgstr "%u of %u achievements, %u of %u points%s"
+
+msgid "%u puntos"
+msgstr "%u points"
+
+msgid "(atajo en Opciones > Controles)"
+msgstr "(shortcut in Options > Controls)"
+
+msgid "(perfil de %s)"
+msgstr "(profile of %s)"
+
+msgid "(se ajustan en Opciones > Vídeo)"
+msgstr "(set in Options > Video)"
+
+msgid "(se ajustan en Vídeo con el juego abierto)"
+msgstr "(set in Video with the game open)"
+
+msgid "(sin nombre)"
+msgstr "(no name)"
+
+msgid ", %d sin encontrar"
+msgstr ", %d not found"
+
+msgid "-10 s  ·  ahora a la derecha"
+msgstr "-10 s  ·  now on the right"
+
+msgid ". Modo hardcore"
+msgstr ". Hardcore mode"
+
+msgid "1 fotograma"
+msgstr "1 frame"
+
+msgid ""
+"2D: la imagen normal de la consola.\n"
+"capas (depuración): pinta cada píxel según su capa (plano B azul, plano A\n"
+"verde, ventana cian, sprites rojo, fondo gris; amarillento si tiene\n"
+"prioridad alta); no son los colores del juego."
+msgstr ""
+"2D: the console's normal picture.\n"
+"layers (debugging): paints each pixel by its layer (plane B blue, plane A\n"
+"green, window cyan, sprites red, backdrop grey; yellowish if it has\n"
+"high priority); these are not the game's colours."
+
+msgid "<< No se puede rebobinar más"
+msgstr "<< Cannot rewind any further"
+
+msgid "<< Rebobinando"
+msgstr "<< Rewinding"
+
+msgid "A / Intro: abrir   B / Retroceso: subir   Esc: cerrar"
+msgstr "A / Enter: open   B / Backspace: up   Esc: close"
+
+msgid "A / Intro: cargar   Y / Espacio: guardar"
+msgstr "A / Enter: load   Y / Space: save"
+
+msgid "A / Intro: entrar   B / Retroceso: subir   Esc: cerrar"
+msgstr "A / Enter: go in   B / Backspace: up   Esc: close"
+
+msgid "A punto (reto en marcha)"
+msgstr "Almost (challenge running)"
+
+msgid "A: abrir"
+msgstr "A: open"
+
+msgid "A: abrir la barra de menús"
+msgstr "A: open the menu bar"
+
+msgid "A: aplicar"
+msgstr "A: apply"
+
+msgid "A: buscar el archivo"
+msgstr "A: find the file"
+
+msgid "A: continuar"
+msgstr "A: resume"
+
+msgid ""
+"A: escribir   B: borrar   Y: espacio   X: mayúsculas\n"
+"L1 / R1: mover el cursor   Start: aceptar"
+msgstr ""
+"A: type   B: delete   Y: space   X: shift\n"
+"L1 / R1: move the cursor   Start: done"
+
+msgid "A: pausar"
+msgstr "A: pause"
+
+msgid "A: reiniciar"
+msgstr "A: reset"
+
+msgid "A: salir"
+msgstr "A: quit"
+
+msgid "A: salir del juego"
+msgstr "A: quit the game"
+
+msgid "Abajo"
+msgstr "Down"
+
+msgid "Abajo a la derecha"
+msgstr "Bottom right"
+
+msgid "Abajo a la izquierda"
+msgstr "Bottom left"
+
+msgid "Abre primero el juego."
+msgstr "Open the game first."
+
+msgid "Abre primero el juego: los dos tenéis que tener abierto el mismo."
+msgstr "Open the game first: both of you need the same one open."
+
+msgid "Abre un juego, o elige uno en la biblioteca con el botón derecho."
+msgstr "Open a game, or pick one in the library with the right button."
+
+msgid "Abre una ROM para guardar estados."
+msgstr "Open a ROM to save states."
+
+msgid "Abre una ROM para guardarle su propia pantalla ancha."
+msgstr "Open a ROM to save a widescreen of its own."
+
+msgid "Abre una ROM para guardarle un perfil 3D propio."
+msgstr "Open a ROM to save a 3D profile of its own."
+
+msgid "Abre una ROM, o elige un juego en la biblioteca con el botón derecho."
+msgstr "Open a ROM, or pick a game in the library with the right button."
+
+msgid "Abrir ROM"
+msgstr "Open ROM"
+
+msgid "Abrir ROM..."
+msgstr "Open ROM..."
+
+msgid "Abrir juego"
+msgstr "Open game"
+
+msgid "Abrir la biblioteca al empezar"
+msgstr "Open the library at start"
+
+msgid "Abrir la carpeta"
+msgstr "Open the folder"
+
+msgid "Abrir la carpeta de grabaciones"
+msgstr "Open the recordings folder"
+
+msgid "Acción"
+msgstr "Action"
+
+msgid "Aceptar"
+msgstr "OK"
+
+msgid "Acerca de plumnin"
+msgstr "About plumnin"
+
+msgid "Activado"
+msgstr "On"
+
+msgid "Activar los logros"
+msgstr "Turn on achievements"
+
+msgid "Ahora no se usa ninguna cuenta tuya."
+msgstr "No account of yours is being used."
+
+msgid "Ajustar"
+msgstr "Fit"
+
+msgid "Ajustes"
+msgstr "Settings"
+
+msgid "Al volver a descargar"
+msgstr "When downloading again"
+
+msgid "Alojar"
+msgstr "Host"
+
+msgid "Alojar la partida (jugador 1)"
+msgstr "Host the game (player 1)"
+
+msgid "Anfitrión"
+msgstr "Host"
+
+msgid "Archivo"
+msgstr "File"
+
+msgid "Archivos"
+msgstr "Files"
+
+msgid "Arrastra una ROM a la ventana o usa Archivo > Abrir ROM."
+msgstr "Drag a ROM onto the window or use File > Open ROM."
+
+msgid "Arrastra una ROM aquí, usa Archivo > Abrir ROM o abre la biblioteca (F10 o A en el mando)"
+msgstr "Drag a ROM here, use File > Open ROM or open the library (F10 or A on the pad)"
+
+msgid "Arrastra una ROM aquí, usa Archivo > Abrir ROM o abre la biblioteca (F10)"
+msgstr "Drag a ROM here, use File > Open ROM or open the library (F10)"
+
+msgid "Arriba"
+msgstr "Up"
+
+msgid "Arriba / abajo: elegir   Izquierda / derecha: cambiar   A / Intro: activar"
+msgstr "Up / down: choose   Left / right: change   A / Enter: switch"
+
+msgid "Arriba a la derecha"
+msgstr "Top right"
+
+msgid "Arriba a la izquierda"
+msgstr "Top left"
+
+msgid "Atajos"
+msgstr "Shortcuts"
+
+msgid "Automática (la de la ROM)"
+msgstr "Automatic (the ROM's)"
+
+msgid "Automático"
+msgstr "Automatic"
+
+msgid "Automático (%s)"
+msgstr "Automatic (%s)"
+
+msgid "Avance rápido"
+msgstr "Fast forward"
+
+msgid "Avance rápido (mantener)"
+msgstr "Fast forward (hold)"
+
+msgid "Avance rápido: mantén Tab (o el gatillo derecho)"
+msgstr "Fast forward: hold Tab (or the right trigger)"
+
+msgid "Aventura"
+msgstr "Adventure"
+
+msgid "Ayuda"
+msgstr "Help"
+
+msgid "Añadido"
+msgstr "Added"
+
+msgid "Añadido también su código maestro, sin el que el juego no arrancaría"
+msgstr "Its master code was added too: the game would not start without it"
+
+msgid "Añadir"
+msgstr "Add"
+
+msgid "Añadir carpeta..."
+msgstr "Add folder..."
+
+msgid "Añadir solo lo que falte (rápido: no vuelve a pedir el juego)"
+msgstr "Only add what is missing (quick: the game is not asked for again)"
+
+msgid "Año"
+msgstr "Year"
+
+msgid "Aún no se ha descargado nada de este juego: pulsa Descargar de ScreenScraper."
+msgstr "Nothing has been downloaded for this game yet: press Download from ScreenScraper."
+
+msgid "Barra de menús"
+msgstr "Menu bar"
+
+msgid "Beat'em up"
+msgstr "Beat'em up"
+
+msgid "Biblioteca"
+msgstr "Library"
+
+msgid "Biblioteca de juegos"
+msgstr "Game library"
+
+msgid "Biblioteca..."
+msgstr "Library..."
+
+msgid "Borrar"
+msgstr "Delete"
+
+msgid "Borrar lista"
+msgstr "Clear list"
+
+msgid "Botones propios de este juego"
+msgstr "This game's own buttons"
+
+msgid ""
+"Busca en ScreenScraper (internet) cada juego que aún no tenga sus medios: portada completa,\n"
+"etiqueta del cartucho, capturas, logo... Las carátulas que ya hay se quedan, salvo\n"
+"que ScreenScraper tenga la portada completa. Uno a uno, así que tarda un poco."
+msgstr ""
+"Looks up on ScreenScraper (internet) every game that does not have its media yet: full cover,\n"
+"cartridge label, screenshots, logo... The covers already there stay, unless\n"
+"ScreenScraper has the full cover. One by one, so it takes a while."
+
+msgid "Buscando en la base de trucos de libretro%s"
+msgstr "Searching libretro's cheat database%s"
+
+msgid "Buscando..."
+msgstr "Searching..."
+
+msgid "Buscar"
+msgstr "Search"
+
+msgid "Buscar (Ctrl+F o Y)"
+msgstr "Search (Ctrl+F or Y)"
+
+msgid "Buscar en ScreenScraper por nombre..."
+msgstr "Search ScreenScraper by name..."
+
+msgid "Buscar otro juego"
+msgstr "Search for another game"
+
+msgid "CRT"
+msgstr "CRT"
+
+msgid "Caja en 3D"
+msgstr "3D box"
+
+msgid "Cambia de vista con V o con Select en el mando."
+msgstr "Switch views with V or with Select on the pad."
+
+msgid "Cambia el nombre si no sale el juego: sin región ni número de versión suele ir mejor."
+msgstr "Change the name if the game does not show up: without region or version number usually works better."
+
+msgid "Cancelar"
+msgstr "Cancel"
+
+msgid "Capas"
+msgstr "Layers"
+
+msgid "Captura"
+msgstr "Screenshot"
+
+msgid "Cargar estado"
+msgstr "Load state"
+
+msgid "Cargar estado (ranura %d)"
+msgstr "Load state (slot %d)"
+
+msgid "Carpeta: %s"
+msgstr "Folder: %s"
+
+msgid "Carreras"
+msgstr "Racing"
+
+msgid "Cartucho"
+msgstr "Cartridge"
+
+msgid "Carátula desde imagen..."
+msgstr "Cover from image..."
+
+msgid "Casi"
+msgstr "Almost there"
+
+msgid "Casual"
+msgstr "Casual"
+
+msgid "Caza y pesca"
+msgstr "Hunting and fishing"
+
+msgid "Cerrar sesión"
+msgstr "Log out"
+
+msgid ""
+"Cierra el juego (guarda su partida de cartucho) y vuelve a la\n"
+"pantalla de inicio, o a la biblioteca si tienes carpetas en ella."
+msgstr ""
+"Closes the game (saving its cartridge save) and goes back to the\n"
+"start screen, or to the library if it has folders."
+
+msgid ""
+"Como si no hubiera nada enchufado en el segundo puerto. En una partida en red el mando 2\n"
+"se enchufa."
+msgstr ""
+"As if nothing were plugged into the second port. In a netplay game pad 2\n"
+"is plugged in."
+
+msgid "Composición"
+msgstr "Composite"
+
+msgid "Conectado (sin cuenta tuya: menos peticiones al día)."
+msgstr "Connected (without an account of yours: fewer requests a day)."
+
+msgid "Conectado con la cuenta «%s»."
+msgstr "Connected with the account “%s”."
+
+msgid "Conectado con la cuenta «%s»: %d de %d peticiones usadas hoy."
+msgstr "Connected with the account “%s”: %d of %d requests used today."
+
+msgid "Conectando con %s"
+msgstr "Connecting to %s"
+
+msgid "Conectando con %s..."
+msgstr "Connecting to %s..."
+
+msgid "Conexión recuperada: logros enviados."
+msgstr "Connection back: achievements sent."
+
+msgid "Conseguidos"
+msgstr "Unlocked"
+
+msgid "Conseguidos, sin enviar todavía"
+msgstr "Unlocked, not sent yet"
+
+msgid "Consola"
+msgstr "Console"
+
+msgid "Contador de FPS"
+msgstr "FPS counter"
+
+msgid "Contador de FPS (F)"
+msgstr "FPS counter (F)"
+
+msgid "Contador de FPS activado"
+msgstr "FPS counter on"
+
+msgid "Contador de FPS desactivado"
+msgstr "FPS counter off"
+
+msgid "Contraportada"
+msgstr "Back cover"
+
+msgid "Contraseña"
+msgstr "Password"
+
+msgid "Controles"
+msgstr "Controls"
+
+msgid "Controles..."
+msgstr "Controls..."
+
+msgid "Crear una cuenta"
+msgstr "Create an account"
+
+msgid "Crear una cuenta en retroachievements.org"
+msgstr "Create an account on retroachievements.org"
+
+msgid "Ctrl+O  abrir ROM;  F10  biblioteca de juegos"
+msgstr "Ctrl+O  open ROM;  F10  game library"
+
+msgid "Ctrl+R  grabar vídeo;  Ctrl+G  grabar GIF (otra vez para parar)"
+msgstr "Ctrl+R  record video;  Ctrl+G  record a GIF (again to stop)"
+
+msgid "Cuadrícula"
+msgstr "Grid"
+
+msgid "Cuenta"
+msgstr "Account"
+
+msgid "Cuenta de ScreenScraper..."
+msgstr "ScreenScraper account..."
+
+msgid "Cuenta..."
+msgstr "Account..."
+
+msgid ""
+"Cuántos fotogramas tarda en hacer efecto lo que pulsas. Con más retardo hay menos\n"
+"saltos cuando la conexión es lenta; con 0 responde al instante pero salta más.\n"
+"Vale el del anfitrión. 2 va bien casi siempre."
+msgstr ""
+"How many frames it takes for what you press to have an effect. More delay means fewer\n"
+"jumps when the connection is slow; with 0 it responds at once but jumps more.\n"
+"The host's value is the one used. 2 works well almost always."
+
+msgid "Cámara lenta"
+msgstr "Slow motion"
+
+msgid "Cámara lenta %d%%"
+msgstr "Slow motion %d%%"
+
+msgid "Cámara lenta (%d%%)"
+msgstr "Slow motion (%d%%)"
+
+msgid "Cámara viva"
+msgstr "Live camera"
+
+msgid ""
+"Cámara: arrastra con el ratón o usa el stick derecho para girar,\n"
+"la rueda para acercar y doble clic o el clic del stick para centrarla."
+msgstr ""
+"Camera: drag with the mouse or use the right stick to turn it,\n"
+"the wheel to zoom, and double click or a stick click to centre it."
+
+msgid "Código"
+msgstr "Code"
+
+msgid "Códigos %s de %s. Se guardan para este juego y se activan al abrirlo."
+msgstr "%s codes for %s. They are kept for this game and turned on when it opens."
+
+msgid "Deja de usar estos y vuelve a los de Opciones > Controles"
+msgstr "Stops using these and goes back to the ones in Options > Controls"
+
+msgid "Deportes"
+msgstr "Sports"
+
+msgid "Deportes con animales"
+msgstr "Sports with animals"
+
+msgid "Derecha"
+msgstr "Right"
+
+msgid "Desactivado"
+msgstr "Off"
+
+msgid "Desactivado (velocidad real)"
+msgstr "Off (real speed)"
+
+msgid "Desactivados"
+msgstr "Off"
+
+msgid "Desarrolladora"
+msgstr "Developer"
+
+msgid "Desarrolladora: %s"
+msgstr "Developer: %s"
+
+msgid ""
+"Descarga los medios de este juego en lugar de los que había, y su portada y etiqueta\n"
+"pasan a ser las de la biblioteca."
+msgstr ""
+"Downloads this game's media instead of the ones there were, and its cover and label\n"
+"become the library's."
+
+msgid "Descarga otra vez los medios del mismo juego de ScreenScraper."
+msgstr "Downloads the same game's media from ScreenScraper again."
+
+msgid "Descarga sus medios de ScreenScraper para ver su descripción y una captura."
+msgstr "Download its media from ScreenScraper to see its description and a screenshot."
+
+msgid "Descargado"
+msgstr "Downloaded"
+
+msgid "Descargando los datos de los juegos..."
+msgstr "Downloading the games' data..."
+
+msgid "Descargando: %s..."
+msgstr "Downloading: %s..."
+
+msgid "Descargar de ScreenScraper"
+msgstr "Download from ScreenScraper"
+
+msgid "Descargar lo que falte en toda la biblioteca"
+msgstr "Download what is missing for the whole library"
+
+msgid "Descargar: %s"
+msgstr "Download: %s"
+
+msgid "Descargarlas de ScreenScraper"
+msgstr "Download them from ScreenScraper"
+
+msgid "Descripción"
+msgstr "Description"
+
+msgid "Detalles"
+msgstr "Details"
+
+msgid ""
+"Dibuja la imagen 2D más grande de lo que la hace la consola, adivinando el detalle,\n"
+"en la tarjeta gráfica y a 60 fps. Sustituye al filtro 2D mientras está puesto.\n"
+"xBR: redondea los bordes en escalera de las diagonales; el pixel art se ve\n"
+"como dibujado a mano.\n"
+"Anime4K: una red neuronal pequeña que dobla la imagen una o dos veces según\n"
+"el tamaño de la ventana. Más suave; pensada para dibujos animados."
+msgstr ""
+"Draws the 2D picture bigger than the console makes it, guessing the detail,\n"
+"on the graphics card and at 60 fps. It replaces the 2D filter while it is on.\n"
+"xBR: rounds off the staircase edges of diagonals; the pixel art looks\n"
+"hand drawn.\n"
+"Anime4K: a small neural network that doubles the picture once or twice depending\n"
+"on the size of the window. Smoother; made for cartoons."
+
+msgid "Disparos"
+msgstr "Shooter"
+
+msgid "Distribuidora"
+msgstr "Publisher"
+
+msgid "Dos jugadores, cada uno en su ordenador y con el mismo juego abierto (la misma ROM). Quien aloja es el jugador 1 y quien se une, el jugador 2; cada uno juega con sus controles del jugador 1. La partida empieza donde la tenga el anfitrión."
+msgstr "Two players, each on their own computer with the same game open (the same ROM). Whoever hosts is player 1 and whoever joins is player 2; each plays with their own player 1 controls. The game starts wherever the host has it."
+
+msgid "EE. UU. (NTSC)"
+msgstr "USA (NTSC)"
+
+msgid "Educativo"
+msgstr "Educational"
+
+msgid "Efecto 3D"
+msgstr "3D effect"
+
+msgid "Efecto 3D activado"
+msgstr "3D effect on"
+
+msgid "Efecto 3D desactivado"
+msgstr "3D effect off"
+
+msgid "El 3D se guarda ahora solo para %s"
+msgstr "The 3D is now saved just for %s"
+
+msgid "El anfitrión está jugando a otro juego: abrid los dos el mismo (la misma ROM)."
+msgstr "The host is playing another game: both of you open the same one (the same ROM)."
+
+msgid "El anfitrión no ha aceptado la conexión."
+msgstr "The host did not accept the connection."
+
+msgid "El anfitrión no responde. Comprueba la dirección y que tenga el puerto UDP abierto."
+msgstr "The host does not answer. Check the address and that it has the UDP port open."
+
+msgid "El anfitrión usa otra versión de plumnin: tenéis que usar la misma."
+msgstr "The host uses another version of plumnin: you both need the same one."
+
+msgid "El juego abierto tiene sus propios botones (en Opciones de este juego); aquí cambias los generales."
+msgstr "The open game has its own buttons (in This game's options); here you change the general ones."
+
+msgid "El juego vuelve a empezar: así se juega en hardcore."
+msgstr "The game starts over: that is how hardcore is played."
+
+msgid "El juego vuelve a usar el 3D general"
+msgstr "The game uses the general 3D again"
+
+msgid "El juego vuelve a usar la pantalla ancha general"
+msgstr "The game goes back to the general widescreen"
+
+msgid "El otro jugador ha salido de la partida."
+msgstr "The other player has left the game."
+
+msgid "El puerto %d está ocupado (¿hay otro plumnin alojando?)."
+msgstr "Port %d is in use (is another plumnin hosting?)."
+
+msgid "El puerto de \"%s\" no es válido."
+msgstr "The port in \"%s\" is not valid."
+
+msgid "El tamaño de las carátulas: más pequeñas caben más en cada fila."
+msgstr "The size of the covers: smaller ones fit more to a row."
+
+msgid "Elegir archivo"
+msgstr "Choose file"
+
+msgid "Elegir carpeta"
+msgstr "Choose folder"
+
+msgid "Elegir carpeta..."
+msgstr "Choose folder..."
+
+msgid "Elegir imagen"
+msgstr "Choose image"
+
+msgid "Elige la carpeta donde tienes tus juegos de Game Boy, Game Boy Color, NES o Super Nintendo."
+msgstr "Choose the folder where you keep your Game Boy, Game Boy Color, NES or Super Nintendo games."
+
+msgid "Elige un juego para ver sus datos."
+msgstr "Choose a game to see its details."
+
+msgid "Emulación"
+msgstr "Emulation"
+
+msgid "Emulación parada"
+msgstr "Emulation stopped"
+
+msgid "En ScreenScraper: «%s»"
+msgstr "On ScreenScraper: “%s”"
+
+msgid "En casa, tu amigo se une a %s:%d."
+msgstr "At home, your friend joins %s:%d."
+
+msgid "En modo hardcore no se pueden cargar estados"
+msgstr "States cannot be loaded in hardcore mode"
+
+msgid "En una partida en red no se puede pausar ni reiniciar."
+msgstr "In a netplay game you cannot pause or reset."
+
+msgid "En una partida en red no se pueden cambiar."
+msgstr "They cannot be changed in a netplay game."
+
+msgid ""
+"Enseña a los lados lo que el juego tiene más allá de los bordes de la pantalla.\n"
+"Cada lado se ajusta por separado y se ve al momento, con la imagen siempre centrada.\n"
+"En muchos juegos se ve bien; en otros aparecen enemigos antes de tiempo, trozos\n"
+"del nivel sin dibujar o cosas que se esconden fuera: entonces quita columnas de ese lado.\n"
+"El juego no lo nota, así que no afecta a partidas en red, logros ni estados."
+msgstr ""
+"Shows at the sides what the game has past the edges of the screen.\n"
+"Each side is set on its own and shows at once, with the picture always centred.\n"
+"Many games look fine; in others enemies appear early, bits of the\n"
+"level are not drawn yet or things hidden off screen show up: then take columns off that side.\n"
+"The game does not notice, so netplay, achievements and states are not affected."
+
+msgid "Enviando la partida al otro jugador..."
+msgstr "Sending the game to the other player..."
+
+msgid "Error del servidor: %s"
+msgstr "Server error: %s"
+
+msgid "Esc  mostrar u ocultar la barra de menús"
+msgstr "Esc  show or hide the menu bar"
+
+msgid "Escala"
+msgstr "Scale"
+
+msgid "Escala entera"
+msgstr "Integer scale"
+
+msgid "Escalado"
+msgstr "Scaling"
+
+msgid "Escribe la dirección del anfitrión."
+msgstr "Type the host's address."
+
+msgid "Escribe un código."
+msgstr "Type a code."
+
+msgid "Espacio"
+msgstr "Space"
+
+msgid "Esperando al otro jugador en el puerto %d"
+msgstr "Waiting for the other player on port %d"
+
+msgid "Esperando al otro jugador en el puerto %d. Mientras, puedes seguir jugando: la partida empezará donde estés."
+msgstr "Waiting for the other player on port %d. Meanwhile you can keep playing: the game will start wherever you are."
+
+msgid "Esta compilación de plumnin no trae la cuenta de desarrollador de ScreenScraper, así que no puede descargar nada. Los instaladores publicados sí la traen."
+msgstr "This build of plumnin does not include the ScreenScraper developer account, so it cannot download anything. The published installers do include it."
+
+msgid "Esta compilación de plumnin no trae la cuenta de desarrollador de ScreenScraper."
+msgstr "This build of plumnin does not include the ScreenScraper developer account."
+
+msgid "Esta consola todavía no tiene trucos."
+msgstr "This console has no cheats yet."
+
+msgid "Estado"
+msgstr "State"
+
+msgid "Estado cargado de la ranura %d"
+msgstr "State loaded from slot %d"
+
+msgid "Estado guardado en la ranura %d"
+msgstr "State saved to slot %d"
+
+msgid "Estados"
+msgstr "States"
+
+msgid "Este juego no tiene logros todavía."
+msgstr "This game has no achievements yet."
+
+msgid "Este juego no tiene trucos todavía."
+msgstr "This game has no cheats yet."
+
+msgid "Este juego: %u de %u logros"
+msgstr "This game: %u of %u achievements"
+
+msgid "Estilo"
+msgstr "Style"
+
+msgid "Estilo:"
+msgstr "Style:"
+
+msgid "Estirar"
+msgstr "Stretch"
+
+msgid "Estrategia"
+msgstr "Strategy"
+
+msgid "Etiqueta del cartucho"
+msgstr "Cartridge label"
+
+msgid "Europa (PAL)"
+msgstr "Europe (PAL)"
+
+msgid "Extrusión"
+msgstr "Extrusion"
+
+msgid "F  contador de FPS con su gráfica"
+msgstr "F  FPS counter with its graph"
+
+msgid "F1  reiniciar;  F12  parar la emulación y volver al inicio"
+msgstr "F1  reset;  F12  stop emulation and go back to the start"
+
+msgid "F11  pantalla completa"
+msgstr "F11  full screen"
+
+msgid "F2  cambiar de vista"
+msgstr "F2  change view"
+
+msgid "F3  efecto 3D (se puede cambiar en Opciones > Controles)"
+msgstr "F3  3D effect (can be changed in Options > Controls)"
+
+msgid "F4 o clic del stick izquierdo  menú de estados, manejable con el mando"
+msgstr "F4 or left stick click  states menu, usable with the pad"
+
+msgid "F5 / F8  guardar / cargar estado; F6 / F7  cambiar de ranura"
+msgstr "F5 / F8  save / load state;  F6 / F7  change slot"
+
+msgid "Falta la función %s"
+msgstr "The function %s is missing"
+
+msgid "Fecha"
+msgstr "Date"
+
+msgid "Filtrar (lives, energy, invincible...)"
+msgstr "Filter (lives, energy, invincible...)"
+
+msgid "Filtro 2D"
+msgstr "2D filter"
+
+msgid "Filtro 2D:"
+msgstr "2D filter:"
+
+msgid "Flechas  cruceta;  A S D  botones A B C;  Q W E  botones X Y Z"
+msgstr "Arrows  d-pad;  A S D  buttons A B C;  Q W E  buttons X Y Z"
+
+msgid ""
+"Flechas o cruceta: elegir   A o Intro: jugar   X, botón derecho o tecla de menú: trucos y opciones\n"
+"B o Esc: volver al juego   L / R o RePág / AvPág: consola   Select o V: cuadrícula o lista"
+msgstr ""
+"Arrows or d-pad: choose   A or Enter: play   X, right button or menu key: cheats and options\n"
+"B or Esc: back to the game   L / R or Page Up / Page Down: console   Select or V: grid or list"
+
+msgid ""
+"Flechas o cruceta: elegir   A o Intro: jugar   X, botón derecho o tecla de menú: trucos y opciones\n"
+"Esc: cerrar   L / R o RePág / AvPág: consola   Select o V: cuadrícula o lista"
+msgstr ""
+"Arrows or d-pad: choose   A or Enter: play   X, right button or menu key: cheats and options\n"
+"Esc: close   L / R or Page Up / Page Down: console   Select or V: grid or list"
+
+msgid "Fondo (fan art)"
+msgstr "Background (fan art)"
+
+msgid "Fuente: ScreenScraper"
+msgstr "Source: ScreenScraper"
+
+msgid "GIF guardado en %s"
+msgstr "GIF saved to %s"
+
+msgid "General"
+msgstr "General"
+
+msgid "Giro"
+msgstr "Turn"
+
+msgid ""
+"Graba la partida con su sonido en un vídeo AVI, que abren Windows, VLC\n"
+"y los editores de vídeo. Vuelve a pulsarlo para parar."
+msgstr ""
+"Records the game with its sound as an AVI video, which Windows, VLC\n"
+"and video editors open. Choose it again to stop."
+
+msgid ""
+"Graba la partida, sin sonido, en un GIF animado para compartirlo.\n"
+"Vuelve a pulsarlo para parar."
+msgstr ""
+"Records the game, without sound, as an animated GIF to share.\n"
+"Choose it again to stop."
+
+msgid "Grabando un GIF (Ctrl+G para pararlo)"
+msgstr "Recording a GIF (Ctrl+G to stop)"
+
+msgid "Grabando vídeo (Ctrl+R para pararlo)"
+msgstr "Recording video (Ctrl+R to stop)"
+
+msgid "Grabar"
+msgstr "Record"
+
+msgid "Grabar GIF"
+msgstr "Record GIF"
+
+msgid "Grabar vídeo"
+msgstr "Record video"
+
+msgid "Grosor"
+msgstr "Thickness"
+
+msgid "Guardar el 3D solo para este juego"
+msgstr "Save the 3D just for this game"
+
+msgid "Guardar estado"
+msgstr "Save state"
+
+msgid "Guardar estado (ranura %d)"
+msgstr "Save state (slot %d)"
+
+msgid "Guardar la pantalla ancha solo para este juego"
+msgstr "Save the widescreen only for this game"
+
+msgid "Género"
+msgstr "Genre"
+
+msgid ""
+"Hace más rápido el procesador de la consola, para los juegos que se ralentizan cuando hay\n"
+"mucho en pantalla. Cuanto más alto, más pide al ordenador. Algún juego puede ir demasiado\n"
+"rápido o fallar: si pasa, desactívalo para ese juego. En una partida en red manda el del\n"
+"anfitrión, y en modo hardcore se queda desactivado."
+msgstr ""
+"Makes the console's processor faster, for games that slow down when there is\n"
+"a lot on screen. The higher, the more it asks of the computer. Some games may run too\n"
+"fast or fail: if so, turn it off for that game. In a netplay game the host's\n"
+"counts, and in hardcore mode it stays off."
+
+msgid "Has salido de la partida en red"
+msgstr "You left the netplay game"
+
+msgid "Has salido de la partida."
+msgstr "You left the game."
+
+msgid "IP o nombre, y :puerto si no es el de arriba"
+msgstr "IP or name, and :port if not the one above"
+
+msgid "Identifica el juego por su ROM (o por su nombre) y descarga sus medios."
+msgstr "Identifies the game by its ROM (or by its name) and downloads its media."
+
+msgid "Identificando el juego..."
+msgstr "Identifying the game..."
+
+msgid "Idioma"
+msgstr "Language"
+
+msgid "Iluminación"
+msgstr "Lighting"
+
+msgid "Imagen"
+msgstr "Picture"
+
+msgid "Imágenes"
+msgstr "Images"
+
+msgid "Inclinación"
+msgstr "Tilt"
+
+msgid "Inclinar la cámara"
+msgstr "Tilt the camera"
+
+msgid "Iniciando sesión..."
+msgstr "Logging in..."
+
+msgid "Iniciar sesión"
+msgstr "Log in"
+
+msgid "Intensidad del filtro"
+msgstr "Filter strength"
+
+msgid "Intro  Start;  Mayús derecha  Mode"
+msgstr "Enter  Start;  Right Shift  Mode"
+
+msgid "Izquierda"
+msgstr "Left"
+
+msgid "Japón (NTSC)"
+msgstr "Japan (NTSC)"
+
+msgid "Juego"
+msgstr "Game"
+
+msgid "Juegos"
+msgstr "Games"
+
+msgid "Juegos de azar"
+msgstr "Gambling"
+
+msgid "Jugadores"
+msgstr "Players"
+
+msgid "Jugadores: %s"
+msgstr "Players: %s"
+
+msgid ""
+"Jugando en red como jugador %d.\n"
+"Ping: %d ms. Retardo de los mandos: %d fotogramas. Vuelta atrás: %d fotogramas."
+msgstr ""
+"Playing online as player %d.\n"
+"Ping: %d ms. Input delay: %d frames. Rollback: %d frames."
+
+msgid "Jugar"
+msgstr "Play"
+
+msgid "Jugar en hardcore"
+msgstr "Play in hardcore"
+
+msgid "Jugar en red"
+msgstr "Netplay"
+
+msgid "Jugar en red..."
+msgstr "Netplay..."
+
+msgid "L1 / R1 (o Q / E): cambiar de pestaña   B / Esc: cerrar"
+msgstr "L1 / R1 (or Q / E): change tab   B / Esc: close"
+
+msgid "La API de ScreenScraper está cerrada por ahora. Prueba más tarde."
+msgstr "The ScreenScraper API is closed for now. Try again later."
+
+msgid "La base de trucos de libretro no tiene listas para este juego."
+msgstr "libretro's cheat database has no lists for this game."
+
+msgid ""
+"La consola solo dibuja 20 sprites (16 en modo estrecho) por línea; los juegos alternan cuáles\n"
+"cada fotograma y por eso parpadean. Así se ven todos. El juego no lo nota, así que\n"
+"no afecta a partidas en red, logros ni estados. Si un juego parpadea igual, es que\n"
+"lo hace él mismo."
+msgstr ""
+"The console only draws 20 sprites (16 in narrow mode) per line; games take turns on which\n"
+"each frame, which is why they flicker. This shows them all. The game does not notice, so\n"
+"netplay, achievements and states are not affected. If a game still flickers, it does\n"
+"that on its own."
+
+msgid "La contraseña no se guarda: plumnin guarda la sesión que te da el servidor."
+msgstr "The password is not saved: plumnin keeps the session the server gives you."
+
+msgid ""
+"La cámara se balancea unos grados siguiendo la acción,\n"
+"así las capas se mueven entre sí aunque mires de frente."
+msgstr ""
+"The camera sways a few degrees following the action,\n"
+"so the layers move against each other even when looking straight on."
+
+msgid "La pantalla ancha se guarda ahora solo para %s"
+msgstr "The widescreen is now saved only for %s"
+
+msgid "La partida se ha descompasado y no se puede recuperar."
+msgstr "The game went out of sync and cannot be recovered."
+
+msgid "La ranura %d está vacía"
+msgstr "Slot %d is empty"
+
+msgid "La sesión ha caducado: vuelve a escribir la contraseña."
+msgstr "The session has expired: type the password again."
+
+msgid "Las dos consolas se han descompasado (fotograma %d): lo que veis ya no es lo mismo. Salid y volved a empezar."
+msgstr "The two consoles went out of sync (frame %d): you no longer see the same thing. Leave and start again."
+
+msgid "Latencia"
+msgstr "Latency"
+
+msgid "Lista"
+msgstr "List"
+
+msgid "Lista: %s"
+msgstr "List: %s"
+
+msgid "Listas de libretro-database, la base de trucos de RetroArch (licencia CC BY-SA 4.0). Los nombres vienen en inglés; los añadidos quedan activados en la lista de arriba, con el código maestro (Master Code) del juego cuando lo pide."
+msgstr "Lists from libretro-database, RetroArch's cheat database (CC BY-SA 4.0 licence). The names are in English; the ones added are turned on in the list above, with the game's Master Code when it needs one."
+
+msgid "Lo que se descarga de cada juego. Los vídeos y los manuales ocupan mucho, así que no se descargan si no los marcas (cada juego los puede descargar aparte)."
+msgstr "What is downloaded for each game. Videos and manuals take a lot of space, so they are not downloaded unless you tick them (each game can download them separately)."
+
+msgid "Logo"
+msgstr "Logo"
+
+msgid "Logros"
+msgstr "Achievements"
+
+msgid "Logros de este juego"
+msgstr "This game's achievements"
+
+msgid "Logros de este juego..."
+msgstr "This game's achievements..."
+
+msgid ""
+"Logros de retroachievements.org: los mismos que en RetroArch y otros emuladores,\n"
+"con tu cuenta de allí."
+msgstr ""
+"Achievements from retroachievements.org: the same as in RetroArch and other emulators,\n"
+"with your account there."
+
+msgid "Logros, marcas y retos para cada juego, los de retroachievements.org. Necesitas una cuenta (gratis) allí."
+msgstr "Achievements, scores and challenges for each game, the ones from retroachievements.org. You need a (free) account there."
+
+msgid "Los Game Genie cambian la ROM; los Action Replay y GameShark fijan un valor en la RAM en cada cuadro. Algunos juegos comprueban la ROM al arrancar: si no arranca con un truco, reinicia sin él."
+msgstr "Game Genie codes change the ROM; Action Replay and GameShark codes hold a value in RAM every frame. Some games check their ROM when they start: if one does not start with a cheat, reset it without."
+
+msgid ""
+"Los ajustes de abajo (también el efecto 3D y la cámara) se guardan\n"
+"para %s y se recuperan al abrirlo.\n"
+"Al desmarcarlo, el juego vuelve a usar los ajustes generales."
+msgstr ""
+"The settings below (the 3D effect and the camera too) are saved\n"
+"for %s and restored when it opens.\n"
+"Untick it and the game goes back to the general settings."
+
+msgid ""
+"Los fotogramas por segundo del juego y lo que tarda cada uno en emularse,\n"
+"con una gráfica de los últimos 10 segundos."
+msgstr ""
+"The game's frames per second and how long each one takes to emulate,\n"
+"with a graph of the last 10 seconds."
+
+msgid ""
+"Los lados de arriba se guardan para %s y se recuperan al abrirlo.\n"
+"Al desmarcarlo, el juego vuelve a usar los generales."
+msgstr ""
+"The sides above are saved for %s and come back when it is opened.\n"
+"When unticked, the game goes back to the general ones."
+
+msgid ""
+"Los logros cuentan para tu puntuación hardcore y las clasificaciones, pero sin\n"
+"ayudas: no se puede rebobinar, ir a cámara lenta, usar trucos ni cargar estados.%s"
+msgstr ""
+"Achievements count for your hardcore score and the leaderboards, but without\n"
+"help: no rewinding, slow motion, cheats or loading states.%s"
+
+msgid "Los tiles del plano B con prioridad alta se ponen delante, con los del plano A."
+msgstr "Plane B tiles with high priority go to the front, with plane A's."
+
+msgid "Lucha"
+msgstr "Fighting"
+
+msgid ""
+"Luz lateral sobre los bloques y sombras suaves de cada plano sobre los de detrás.\n"
+"Hace que el relieve se vea también con la cámara de frente."
+msgstr ""
+"Side light on the blocks and soft shadows from each plane on the ones behind.\n"
+"It makes the relief show even with the camera straight on."
+
+msgid "M  silenciar el sonido"
+msgstr "M  mute the sound"
+
+msgid "Mando"
+msgstr "Pad"
+
+msgid "Mando (teclado)"
+msgstr "Pad (keyboard)"
+
+msgid "Mando 1"
+msgstr "Pad 1"
+
+msgid "Mando 2"
+msgstr "Pad 2"
+
+msgid "Mandos conectados:"
+msgstr "Pads connected:"
+
+msgid "Manual"
+msgstr "Manual"
+
+msgid "Marca enviada: %s"
+msgstr "Score submitted: %s"
+
+msgid "Marquesina"
+msgstr "Marquee"
+
+msgid "Matamarcianos"
+msgstr "Shoot'em up"
+
+msgid "Mayúsculas"
+msgstr "Shift"
+
+msgid "Medios de ScreenScraper"
+msgstr "ScreenScraper media"
+
+msgid "Medios de ScreenScraper..."
+msgstr "ScreenScraper media..."
+
+msgid "Menú de estados"
+msgstr "States menu"
+
+msgid "Menú de estados..."
+msgstr "States menu..."
+
+msgid "Menús (todas las opciones)"
+msgstr "Menus (every option)"
+
+msgid "Modo consola"
+msgstr "Console mode"
+
+msgid "Modo hardcore"
+msgstr "Hardcore mode"
+
+msgid "Modo hardcore: sin trucos, cámara lenta ni rebobinado"
+msgstr "Hardcore mode: no cheats, slow motion or rewinding"
+
+msgid "Mostrar la barra de menús (Esc)"
+msgstr "Show the menu bar (Esc)"
+
+msgid "Música y baile"
+msgstr "Music and dance"
+
+msgid "Ninguno"
+msgstr "None"
+
+msgid "Ningún juego coincide con la búsqueda."
+msgstr "No game matches the search."
+
+msgid "Ningún juego se llama así en ScreenScraper."
+msgstr "No game on ScreenScraper has that name."
+
+msgid "Ningún truco tiene ese nombre."
+msgstr "No cheat has that name."
+
+msgid "No"
+msgstr "No"
+
+msgid "No hay ROMs en esta carpeta."
+msgstr "There are no ROMs in this folder."
+
+msgid "No hay carpetas dentro de esta."
+msgstr "There are no folders inside this one."
+
+msgid "No hay juegos (.gb, .gbc, .nes, .sfc, .smc, .zip) en estas carpetas."
+msgstr "No games (.gb, .gbc, .nes, .sfc, .smc, .zip) in these folders."
+
+msgid "No hay juegos de esta consola en tus carpetas."
+msgstr "There are no games for this console in your folders."
+
+msgid "No hay mandos conectados."
+msgstr "No pads connected."
+
+msgid "No hay un juego con logros abierto."
+msgstr "No game with achievements is open."
+
+msgid "No oficiales"
+msgstr "Unofficial"
+
+msgid "No se encuentra \"%s\"."
+msgstr "\"%s\" cannot be found."
+
+msgid "No se pudieron cargar los logros: %s"
+msgstr "Could not load the achievements: %s"
+
+msgid ""
+"No se pudo abrir %s:\n"
+"%s\n"
+"\n"
+"plumnin abre cartuchos de Game Boy, Game Boy Color, NES y Super Nintendo. Si el archivo es uno de ellos, puede estar incompleto o dañado: prueba a copiarlo otra vez."
+msgstr ""
+"Could not open %s:\n"
+"%s\n"
+"\n"
+"plumnin opens Game Boy, Game Boy Color, NES and Super Nintendo cartridges. If the file is one of them, it may be incomplete or damaged: try copying it again."
+
+msgid "No se pudo cargar el estado: %s. La partida sigue como estaba."
+msgstr "The state could not be loaded: %s. The game carries on as it was."
+
+msgid "No se pudo cargar la partida del anfitrión: %s"
+msgstr "The host's game could not be loaded: %s"
+
+msgid "No se pudo conectar con ScreenScraper. ¿Hay conexión a internet?"
+msgstr "Could not connect to ScreenScraper. Is there an internet connection?"
+
+msgid "No se pudo conectar con la base de trucos de libretro."
+msgstr "Could not connect to libretro's cheat database."
+
+msgid "No se pudo crear %s"
+msgstr "Could not create %s"
+
+msgid "No se pudo crear el socket UDP."
+msgstr "The UDP socket could not be created."
+
+msgid "No se pudo descargar la lista de trucos. ¿Hay conexión a internet?"
+msgstr "The cheat list could not be downloaded. Is there an internet connection?"
+
+msgid "No se pudo escribir %s: ¿falta espacio en el disco?"
+msgstr "Could not write %s: is the disk full?"
+
+msgid "No se pudo guardar el estado en %s: ¿falta espacio en el disco?"
+msgstr "The state could not be saved to %s: is the disk full?"
+
+msgid "No se pudo guardar en %s"
+msgstr "Could not save to %s"
+
+msgid "No se pudo guardar la carátula en %s"
+msgstr "The cover could not be saved to %s"
+
+msgid "No se pudo iniciar la red."
+msgstr "The network could not be started."
+
+msgid "No se pudo iniciar sesión: %s"
+msgstr "Could not log in: %s"
+
+msgid "No se pudo leer %s"
+msgstr "Could not read %s"
+
+msgid "No se pudo leer la lista de trucos de libretro (error %d)."
+msgstr "libretro's cheat list could not be read (error %d)."
+
+msgid "No se pudo preparar el socket UDP."
+msgstr "The UDP socket could not be set up."
+
+msgid "No se pudo preparar la partida: %s"
+msgstr "The game could not be prepared: %s"
+
+msgid "No se puede conectar con RetroAchievements."
+msgstr "Cannot connect to RetroAchievements."
+
+msgid "No se puede grabar con ese tamaño"
+msgstr "Cannot record at that size"
+
+msgid "No se pueden conseguir en plumnin"
+msgstr "Cannot be unlocked in plumnin"
+
+msgid "No vale"
+msgstr "Not valid"
+
+msgid "Nombre"
+msgstr "Name"
+
+msgid "Nombre (opcional)"
+msgstr "Name (optional)"
+
+msgid "Nombre del juego"
+msgstr "Game name"
+
+msgid "Nota"
+msgstr "Rating"
+
+msgid "Opciones"
+msgstr "Options"
+
+msgid "Opciones de este juego"
+msgstr "Options for this game"
+
+msgid "Opciones de este juego..."
+msgstr "Options for this game..."
+
+msgid "Opciones propias de %s"
+msgstr "Own options of %s"
+
+msgid "Opciones propias de %s. Pon una opción en Propio para que este juego use su propio valor; las que dejes en General siguen a las generales."
+msgstr "Own options of %s. Set an option to Own for this game to use its own value; the ones left on General follow the general ones."
+
+msgid "Opción desconocida: %s"
+msgstr "Unknown option: %s"
+
+msgid "Overclock"
+msgstr "Overclock"
+
+msgid "P  pausa"
+msgstr "P  pause"
+
+msgid "PAUSA"
+msgstr "PAUSED"
+
+msgid "PDF"
+msgstr "PDF"
+
+msgid "Pantalla ancha"
+msgstr "Widescreen"
+
+msgid "Pantalla completa"
+msgstr "Full screen"
+
+msgid "Pantalla completa (F11)"
+msgstr "Full screen (F11)"
+
+msgid "Pantalla de título"
+msgstr "Title screen"
+
+msgid "Para juegos que pintan el cielo en el plano B: no lo levanta en 3D."
+msgstr "For games that paint the sky on plane B: it is not raised in 3D."
+
+msgid ""
+"Para jugar con mando desde el sofá o en una portátil\n"
+"(Steam Deck, ROG Ally, Legion Go, MSI Claw...): letra\n"
+"más grande y el mando en todas las ventanas."
+msgstr ""
+"For playing with a pad from the sofa or on a handheld\n"
+"(Steam Deck, ROG Ally, Legion Go, MSI Claw...): bigger\n"
+"letters and the pad in every window."
+
+msgid "Parar ScreenScraper"
+msgstr "Stop ScreenScraper"
+
+msgid "Parar emulación"
+msgstr "Stop emulation"
+
+msgid "Parar la descarga"
+msgstr "Stop downloading"
+
+msgid "Pausa"
+msgstr "Pause"
+
+msgid "Pidiendo los datos del juego..."
+msgstr "Asking for the game's data..."
+
+msgid "Pinball"
+msgstr "Pinball"
+
+msgid "Pistola de luz"
+msgstr "Light gun"
+
+msgid "Plano B con prioridad delante"
+msgstr "Plane B with priority in front"
+
+msgid "Plano B plano (como el cielo)"
+msgstr "Flat plane B (like the sky)"
+
+msgid "Plataformas"
+msgstr "Platform"
+
+msgid "Por año"
+msgstr "By year"
+
+msgid "Por conseguir"
+msgstr "Locked"
+
+msgid "Por consola"
+msgstr "By console"
+
+msgid "Por desarrolladora"
+msgstr "By developer"
+
+msgid "Por género"
+msgstr "By genre"
+
+msgid "Por internet: abre (redirige) el puerto UDP %d de tu router hacia este ordenador y dale tu IP pública; o usad los dos una red privada como Tailscale o ZeroTier y no hace falta abrir nada."
+msgstr "Over the internet: open (forward) UDP port %d on your router to this computer and give them your public IP; or both of you use a private network like Tailscale or ZeroTier and nothing needs opening."
+
+msgid "Por título"
+msgstr "By title"
+
+msgid "Portada"
+msgstr "Front cover"
+
+msgid "Portada completa"
+msgstr "Full cover"
+
+msgid "Posición del contador"
+msgstr "Counter position"
+
+msgid "Preguntas"
+msgstr "Quiz"
+
+msgid "Probando..."
+msgstr "Testing..."
+
+msgid "Probar la conexión"
+msgstr "Test the connection"
+
+msgid "Profundidad"
+msgstr "Depth"
+
+msgid "Propio"
+msgstr "Own"
+
+msgid "Propio de este juego"
+msgstr "This game's own"
+
+msgid "Pseudo-3D"
+msgstr "Pseudo-3D"
+
+msgid "Puerto UDP"
+msgstr "UDP port"
+
+msgid "Pulsa un botón..."
+msgstr "Press a button..."
+
+msgid "Pulsa una casilla y luego la tecla o el botón del mando. \"+\" añade otro, \"x\" lo borra, Esc cancela."
+msgstr "Click a box and then the key or the pad button. \"+\" adds another, \"x\" deletes it, Esc cancels."
+
+msgid "Pulsa una tecla..."
+msgstr "Press a key..."
+
+msgid "Puzle"
+msgstr "Puzzle"
+
+msgid "Píxeles cuadrados"
+msgstr "Square pixels"
+
+msgid "Píxeles cuadrados (sin estirar a 4:3)"
+msgstr "Square pixels (no stretching to 4:3)"
+
+msgid ""
+"Quita fotogramas de retardo entre pulsar un botón y verlo en pantalla: en cada\n"
+"fotograma el juego corre ese número de fotogramas por delante, enseña su imagen\n"
+"y vuelve atrás. Con 1 suele bastar; más piden más al ordenador y pueden notarse saltos."
+msgstr ""
+"Removes frames of lag between pressing a button and seeing it on screen: on every\n"
+"frame the game runs that many frames ahead, shows their picture\n"
+"and goes back. 1 is usually enough; more ask more of the computer and may stutter."
+
+msgid "Quitar"
+msgstr "Remove"
+
+msgid "Quitar la cuenta"
+msgstr "Remove the account"
+
+msgid "Qué descargar"
+msgstr "What to download"
+
+msgid "Qué descargar..."
+msgstr "What to download..."
+
+msgid "Ranura %d"
+msgstr "Slot %d"
+
+msgid "Ranura %d  (actual)"
+msgstr "Slot %d  (current)"
+
+msgid "Ranura %d (%s)"
+msgstr "Slot %d (%s)"
+
+msgid "Ranura %d (vacía)"
+msgstr "Slot %d (empty)"
+
+msgid "Ranura (F6 / F7)"
+msgstr "Slot (F6 / F7)"
+
+msgid "Ranura anterior"
+msgstr "Previous slot"
+
+msgid "Ranura siguiente"
+msgstr "Next slot"
+
+msgid "Rebobinar (mantener)"
+msgstr "Rewind (hold)"
+
+msgid "Rebobinar: mantén Retroceso (o el gatillo izquierdo)"
+msgstr "Rewind: hold Backspace (or the left trigger)"
+
+msgid "Recibiendo la partida del anfitrión..."
+msgstr "Receiving the host's game..."
+
+msgid "Recientes"
+msgstr "Recent"
+
+msgid "Recién conseguidos"
+msgstr "Recently unlocked"
+
+msgid "Recopilatorio"
+msgstr "Compilation"
+
+msgid "Red"
+msgstr "Network"
+
+msgid "Red %d ms"
+msgstr "Network %d ms"
+
+msgid "Red: conectando"
+msgstr "Network: connecting"
+
+msgid "Red: preparando la partida"
+msgstr "Network: preparing the game"
+
+msgid "Red: ¡descompasados!"
+msgstr "Network: out of sync!"
+
+msgid "Reescalado (experimental)"
+msgstr "Upscaling (experimental)"
+
+msgid "Reescalado (experimental):"
+msgstr "Upscaling (experimental):"
+
+msgid "Región"
+msgstr "Region"
+
+msgid "Reiniciar"
+msgstr "Reset"
+
+msgid "Reintentar"
+msgstr "Retry"
+
+msgid "Restaurar predeterminados"
+msgstr "Restore defaults"
+
+msgid "Retardo de los mandos"
+msgstr "Input delay"
+
+msgid "Reto empezado: %s"
+msgstr "Challenge started: %s"
+
+msgid "Reto fallido: %s"
+msgstr "Challenge failed: %s"
+
+msgid "RetroAchievements no conoce este juego (o esta versión de la ROM)."
+msgstr "RetroAchievements does not know this game (or this version of the ROM)."
+
+msgid "Retroceso o gatillo izquierdo (mantener)  rebobinar"
+msgstr "Backspace or left trigger (hold)  rewind"
+
+msgid "Rol (RPG)"
+msgstr "Role-playing (RPG)"
+
+msgid "Run-ahead"
+msgstr "Run-ahead"
+
+msgid "Run-ahead (menos latencia)"
+msgstr "Run-ahead (less latency)"
+
+msgid "Run-ahead desactivado: no se pudo volver al fotograma actual."
+msgstr "Run-ahead turned off: could not go back to the current frame."
+
+msgid "Salir"
+msgstr "Quit"
+
+msgid "Salir de la partida"
+msgstr "Leave the game"
+
+msgid "Salir de la partida en red"
+msgstr "Leave the netplay game"
+
+msgid "Salir de plumnin"
+msgstr "Quit plumnin"
+
+msgid "Scanlines"
+msgstr "Scanlines"
+
+msgid ""
+"Scanlines: las líneas oscuras entre las líneas de la imagen, como en una tele.\n"
+"CRT: además, la pantalla un poco curva, la máscara de colores y las esquinas\n"
+"más oscuras. Solo en la vista 2D; se ve mejor a pantalla completa."
+msgstr ""
+"Scanlines: the dark lines between the picture's lines, as on a TV.\n"
+"CRT: on top of that, a slightly curved screen, the colour mask and darker\n"
+"corners. Only in the 2D view; it looks best in full screen."
+
+msgid "Scraping"
+msgstr "Scraping"
+
+msgid "ScreenScraper dice que se ha llegado a un límite de hoy: %s"
+msgstr "ScreenScraper says a limit for today has been reached: %s"
+
+msgid "ScreenScraper está muy ocupado ahora mismo. Con una cuenta (es gratis) se puede usar igual; si no, prueba dentro de un rato."
+msgstr "ScreenScraper is very busy right now. With an account (it is free) it can be used anyway; otherwise, try again in a while."
+
+msgid "ScreenScraper no acepta la cuenta (%s): revisa tu usuario y tu contraseña en Scraping > Cuenta de ScreenScraper..."
+msgstr "ScreenScraper does not accept the account (%s): check your user name and password in Scraping > ScreenScraper account..."
+
+msgid "ScreenScraper no acepta la cuenta de desarrollador de plumnin (%s)."
+msgstr "ScreenScraper does not accept plumnin's developer account (%s)."
+
+msgid "ScreenScraper no acepta la cuenta: revisa tu usuario y tu contraseña en Scraping > Cuenta de ScreenScraper..."
+msgstr "ScreenScraper does not accept the account: check your user name and password in Scraping > ScreenScraper account..."
+
+msgid "ScreenScraper no conoce este juego. Búscalo por su nombre."
+msgstr "ScreenScraper does not know this game. Search for it by name."
+
+msgid "ScreenScraper no tiene descripción de este juego."
+msgstr "ScreenScraper has no description of this game."
+
+msgid "ScreenScraper respondió con un error."
+msgstr "ScreenScraper answered with an error."
+
+msgid "ScreenScraper respondió con un error: %s"
+msgstr "ScreenScraper answered with an error: %s"
+
+msgid "ScreenScraper: %d de %d juegos..."
+msgstr "ScreenScraper: %d of %d games..."
+
+msgid "ScreenScraper: %d juego descargado"
+msgstr "ScreenScraper: %d game downloaded"
+
+msgid "ScreenScraper: %d juegos descargados"
+msgstr "ScreenScraper: %d games downloaded"
+
+msgid "Se buscan también en sus subcarpetas, y luego puedes añadir más carpetas."
+msgstr "Its subfolders are searched too, and you can add more folders later."
+
+msgid "Se ha perdido la conexión con el otro jugador."
+msgstr "The connection with the other player was lost."
+
+msgid "Se han acabado las peticiones de hoy de tu cuenta de ScreenScraper."
+msgstr "Your ScreenScraper account has used up today's requests."
+
+msgid "Se usa la cuenta «%s»."
+msgstr "Using the account “%s”."
+
+msgid "Segundos de rebobinado"
+msgstr "Rewind seconds"
+
+msgid "Sesión iniciada como %s (%u puntos)"
+msgstr "Logged in as %s (%u points)"
+
+msgid "Sesión iniciada como %s (%u puntos)."
+msgstr "Logged in as %s (%u points)."
+
+msgid "Si ya tienes cuenta, escribe aquí tu usuario y tu contraseña de screenscraper.fr: con ella se pueden hacer más peticiones al día, y ScreenScraper sigue respondiendo aunque esté lleno. Se guarda en plumnin.ini."
+msgstr "If you already have an account, type your screenscraper.fr user name and password here: it allows more requests a day, and ScreenScraper keeps answering even when it is full. It is kept in plumnin.ini."
+
+msgid "Silenciar"
+msgstr "Mute"
+
+msgid "Silencio"
+msgstr "Mute"
+
+msgid "Simulación"
+msgstr "Simulation"
+
+msgid "Sin carátula"
+msgstr "No cover"
+
+msgid "Sin conexión: los logros se enviarán cuando vuelva."
+msgstr "No connection: the achievements will be sent when it is back."
+
+msgid "Sin imagen"
+msgstr "No image"
+
+msgid "Sin límite de sprites"
+msgstr "No sprite limit"
+
+msgid "Sin límite de sprites (sin parpadeo)"
+msgstr "No sprite limit (no flicker)"
+
+msgid "Sin mando"
+msgstr "No controller"
+
+msgid ""
+"Sin marcar, la cámara mira de frente y la imagen se ve como en 2D;\n"
+"la profundidad se nota con la iluminación y la cámara viva."
+msgstr ""
+"Unticked, the camera looks straight on and the picture looks like 2D;\n"
+"the depth shows through the lighting and the live camera."
+
+msgid "Sin rebobinar, cámara lenta, trucos ni cargar estados (guardar sí). Los logros cuentan para tu puntuación hardcore y se puede entrar en las clasificaciones. Al activarlo, el juego vuelve a empezar."
+msgstr "No rewinding, slow motion, cheats or loading states (saving is fine). Achievements count for your hardcore score and you can get on the leaderboards. Turning it on restarts the game."
+
+msgid "Sin sesión iniciada"
+msgstr "Not logged in"
+
+msgid "Sistema"
+msgstr "System"
+
+msgid "Sobrescribir todos los medios"
+msgstr "Overwrite all the media"
+
+msgid "Sombra de los sprites"
+msgstr "Sprite shadows"
+
+msgid "Sonido"
+msgstr "Sound"
+
+msgid "Sonido activado"
+msgstr "Sound on"
+
+msgid "Sonido silenciado"
+msgstr "Sound muted"
+
+msgid "Suavizado"
+msgstr "Smoothing"
+
+msgid "Suavizar píxeles"
+msgstr "Smooth pixels"
+
+msgid "Subir"
+msgstr "Up"
+
+msgid "Sí"
+msgstr "Yes"
+
+msgid "Tab o gatillo derecho (mantener)  avance rápido;  F9  cámara lenta"
+msgstr "Tab or right trigger (hold)  fast forward;  F9  slow motion"
+
+msgid "Tablero"
+msgstr "Board game"
+
+msgid "Tamaño"
+msgstr "Size"
+
+msgid "Tamaño de la interfaz"
+msgstr "Interface size"
+
+msgid "Tamaño:"
+msgstr "Size:"
+
+msgid "También tiene"
+msgstr "It also has"
+
+msgid "Teclado (jugador 1)"
+msgstr "Keyboard (player 1)"
+
+msgid "Teclado (jugador 2)"
+msgstr "Keyboard (player 2)"
+
+msgid "Tienes %u de %u logros (%u de %u puntos)"
+msgstr "You have %u of %u achievements (%u of %u points)"
+
+msgid "Todos"
+msgstr "All"
+
+msgid "Todos los ajustes del 3D"
+msgstr "All the 3D settings"
+
+msgid "Todos los archivos"
+msgstr "All files"
+
+msgid "Total"
+msgstr "Total"
+
+msgid "Trabajando..."
+msgstr "Working..."
+
+msgid "Truco"
+msgstr "Cheat"
+
+msgid "Trucos"
+msgstr "Cheats"
+
+msgid "Trucos de internet"
+msgstr "Cheats from the internet"
+
+msgid "Trucos..."
+msgstr "Cheats..."
+
+msgid "Tu cuenta de screenscraper.fr"
+msgstr "Your screenscraper.fr account"
+
+msgid "Tu mejor marca: %s"
+msgstr "Your best score: %s"
+
+msgid "Tu puesto: %u de %u"
+msgstr "Your rank: %u of %u"
+
+msgid "Título"
+msgstr "Title"
+
+msgid "Un panel a la derecha con la carátula, los datos y la descripción del juego elegido."
+msgstr "A panel on the right with the chosen game's cover, data and description."
+
+msgid "Unidades"
+msgstr "Drives"
+
+msgid "Unirse"
+msgstr "Join"
+
+msgid "Unirse a una partida (jugador 2)"
+msgstr "Join a game (player 2)"
+
+msgid "Usa el valor general"
+msgstr "Uses the general value"
+
+msgid "Usa los de Opciones > Controles."
+msgstr "Uses the ones in Options > Controls."
+
+msgid "Usar el stick izquierdo como cruceta"
+msgstr "Use the left stick as d-pad"
+
+msgid "Usar esta carpeta"
+msgstr "Use this folder"
+
+msgid "Usar esta cuenta"
+msgstr "Use this account"
+
+msgid "Usar este juego"
+msgstr "Use this game"
+
+msgid "Usuario"
+msgstr "User name"
+
+msgid "Usuario o contraseña incorrectos."
+msgstr "Wrong user name or password."
+
+msgid "Valores por defecto"
+msgstr "Defaults"
+
+msgid "Varios"
+msgstr "Various"
+
+msgid "Velocidad"
+msgstr "Speed"
+
+msgid "Velocidad normal"
+msgstr "Normal speed"
+
+msgid "Ventana"
+msgstr "Window"
+
+msgid "Ver en screenscraper.fr"
+msgstr "See on screenscraper.fr"
+
+msgid "Versión %s"
+msgstr "Version %s"
+
+msgid "Vista"
+msgstr "View"
+
+msgid "Vista: %s"
+msgstr "View: %s"
+
+msgid "Volumen"
+msgstr "Volume"
+
+msgid "Volver a buscar"
+msgstr "Search again"
+
+msgid "Volver a descargar"
+msgstr "Download again"
+
+msgid "Volver a descargar todo en toda la biblioteca"
+msgstr "Download everything again for the whole library"
+
+msgid "Volver a intentarlo"
+msgstr "Try again"
+
+msgid "Volver a los generales"
+msgstr "Back to the general ones"
+
+msgid "Vídeo"
+msgstr "Video"
+
+msgid "Vídeo guardado en %s"
+msgstr "Video saved to %s"
+
+msgid "Vídeo..."
+msgstr "Video..."
+
+msgid "Vóxeles"
+msgstr "Voxels"
+
+msgid "Zona muerta del stick"
+msgstr "Stick dead zone"
+
+msgid "Zoom"
+msgstr "Zoom"
+
+msgid "activado"
+msgstr "on"
+
+msgid "byte"
+msgstr "byte"
+
+msgid "desactivado"
+msgstr "off"
+
+msgid "el archivo está vacío"
+msgstr "the file is empty"
+
+msgid "el archivo está vacío: %s"
+msgstr "the file is empty: %s"
+
+msgid "el archivo no es un estado de plumnin"
+msgstr "the file is not a plumnin state"
+
+msgid "el estado es de otra ROM"
+msgstr "the state is from another ROM"
+
+msgid "el estado es de otra consola"
+msgstr "the state is from another console"
+
+msgid "el estado es de una versión más nueva de plumnin"
+msgstr "the state is from a newer version of plumnin"
+
+msgid "el estado está dañado"
+msgstr "the state is damaged"
+
+msgid "el zip está dañado: %s"
+msgstr "the zip is damaged: %s"
+
+msgid "el zip no contiene ninguna ROM (.gb, .gbc, .nes, .sfc o .smc): %s"
+msgstr "the zip holds no ROM (.gb, .gbc, .nes, .sfc or .smc): %s"
+
+msgid "no se pudo leer %s"
+msgstr "could not read %s"
+
+msgid "palabra"
+msgstr "word"
+
+msgid "pantalla"
+msgstr "screen"
+
+msgid ""
+"plumnin [juego] [opciones]\n"
+"\n"
+"  juego                  cartucho (.gb .gbc .nes .sfc .smc .zip)\n"
+"  --fullscreen           abrir a pantalla completa\n"
+"  --windowed             abrir en ventana\n"
+"  --console-mode         para jugar con mando (Steam Deck, ROG Ally...): pantalla completa,\n"
+"                         biblioteca y letra grande (--desktop-mode para no usarlo)\n"
+"  --3d / --2d            con o sin la vista pseudo-3D\n"
+"  --filter f             none, scanlines o crt\n"
+"  --upscaling u          none, xbr o anime4k (experimental)\n"
+"  --fps                  mostrar el contador de FPS con su gráfica\n"
+"  --region r             auto, jp, us o eu\n"
+"  --load-state N         cargar el estado guardado N (0-9) del juego\n"
+"  --host                 alojar una partida en red con el juego (puerto del menú Red)\n"
+"  --join direccion       unirse a la partida en red de ese anfitrión (IP:puerto)\n"
+"  --library carpeta      abrir la biblioteca de esa carpeta (se puede repetir)\n"
+"  --list                 con --library: verla como lista en vez de cuadrícula\n"
+"  --cheats               abrir los trucos del juego, con sus listas de internet\n"
+"  --achievements         abrir la ventana de RetroAchievements\n"
+"  --game-options         abrir las opciones propias del juego\n"
+"  --game-options controls   ...en la pestaña de sus controles\n"
+"  --test-pattern [gb|gbc|nes|snes]   abrir la imagen de prueba en vez de un juego\n"
+"  --record f.avi         grabar la partida desde el principio, en vídeo (.avi) o GIF (.gif)\n"
+"  --screenshot f.png     guardar una captura tras --frames N fotogramas y salir\n"
+"\n"
+"La pantalla completa y la región dadas aquí valen solo para esta vez."
+msgstr ""
+"plumnin [game] [options]\n"
+"\n"
+"  game                   cartridge (.gb .gbc .nes .sfc .smc .zip)\n"
+"  --fullscreen           open in full screen\n"
+"  --windowed             open in a window\n"
+"  --console-mode         for playing with a pad (Steam Deck, ROG Ally...): full screen,\n"
+"                         the library and big letters (--desktop-mode to turn it off)\n"
+"  --3d / --2d            with or without the pseudo-3D view\n"
+"  --filter f             none, scanlines or crt\n"
+"  --upscaling u          none, xbr or anime4k (experimental)\n"
+"  --fps                  show the FPS counter with its graph\n"
+"  --region r             auto, jp, us or eu\n"
+"  --load-state N         load the game's saved state N (0-9)\n"
+"  --host                 host a netplay game with the game (port from the Network menu)\n"
+"  --join address         join that host's netplay game (IP:port)\n"
+"  --library folder       open the library of that folder (can be repeated)\n"
+"  --list                 with --library: show it as a list instead of a grid\n"
+"  --cheats               open the game's cheats, with their internet lists\n"
+"  --achievements         open the RetroAchievements window\n"
+"  --game-options         open the game's own options\n"
+"  --game-options controls   ...on the tab of its controls\n"
+"  --test-pattern [gb|gbc|nes|snes]   open the test pattern instead of a game\n"
+"  --record f.avi         record the game from the start, as video (.avi) or GIF (.gif)\n"
+"  --screenshot f.png     save a screenshot after --frames N frames and quit\n"
+"\n"
+"The full screen and region given here apply to this time only."
+
+msgid "plumnin necesita una tarjeta gráfica con OpenGL 3.3 y sus drivers actualizados."
+msgstr "plumnin needs a graphics card with OpenGL 3.3 and up-to-date drivers."
+
+msgid ""
+"plumnin se cerró por un fallo la última vez.\n"
+"El informe está en %s"
+msgstr ""
+"plumnin closed because of a crash last time.\n"
+"The report is in %s"
+
+msgid "plumnin todavía no emula la %s."
+msgstr "plumnin does not emulate the %s yet."
+
+msgid "plumnin todavía no lee los trucos de la %s."
+msgstr "plumnin cannot read the %s's cheats yet."
+
+msgid "plumnin, emulador de Game Boy, Game Boy Color, NES y Super Nintendo con efecto pseudo-3D."
+msgstr "plumnin, a Game Boy, Game Boy Color, NES and Super Nintendo emulator with a pseudo-3D effect."
+
+msgid "vacía"
+msgstr "empty"
+
+msgid "¡Conectados! Eres el jugador %d"
+msgstr "Connected! You are player %d"
+
+msgid "¡Enhorabuena!"
+msgstr "Congratulations!"
+
+msgid "¡Juego completado! Tienes todos sus logros."
+msgstr "Game completed! You have all its achievements."
+
+msgid "¡Juego dominado! Tienes todos sus logros en hardcore."
+msgstr "Game mastered! You have all its achievements in hardcore."
+
+msgid "¡Logro desbloqueado! (%u puntos)"
+msgstr "Achievement unlocked! (%u points)"
+
+msgid "«%s»: %d archivo descargado."
+msgstr "“%s”: %d file downloaded."
+
+msgid "«%s»: %d archivos descargados."
+msgstr "“%s”: %d files downloaded."
+
+msgid "«%s»: ScreenScraper no tiene imágenes de este juego."
+msgstr "“%s”: ScreenScraper has no images of this game."
+
+msgid "· %d sin carátula"
+msgstr "· %d without a cover"
+
+msgid "· %d sin carátulas"
+msgstr "· %d without a cover"
+
+msgid "¿No tienes cuenta? Es gratis:"
+msgstr "No account? It is free:"

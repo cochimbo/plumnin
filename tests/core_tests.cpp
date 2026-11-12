@@ -1,0 +1,1018 @@
+// plumnin's core tests: everything around the consoles, driven by the test pattern
+// (TestConsole), so that they need no commercial ROM. Each console adds its own tests
+// here as it is emulated.
+
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <memory>
+#include <random>
+#include <set>
+#include <string>
+#include <vector>
+
+#include "console.h"
+#include "miniz.h"
+#include "netplay.h"
+#include "render/planes.h"
+#include "render/profile3d.h"
+#include "rewind.h"
+#include "system.h"
+#include "test_console.h"
+#include "frontend/achievements.h"
+#include "frontend/game_info_data.h"
+#include "frontend/library_names.h"
+#include "frontend/screenscraper_data.h"
+#include "frontend/texture_cache.h"
+
+using namespace plumnin;
+
+namespace {
+
+int failures = 0;
+
+void check(bool ok, const char* what) {
+    std::printf("%s %s\n", ok ? "ok  " : "FAIL", what);
+    if (!ok) ++failures;
+}
+
+uint32_t frameHash(const VideoFrame& f) {
+    uint32_t h = 2166136261u;
+    for (int y = 0; y < f.height; ++y)
+        for (int x = 0; x < f.width; ++x) {
+            h ^= f.pixel(x, y);
+            h *= 16777619u;
+        }
+    return h;
+}
+
+uint32_t soundHash(const std::vector<int16_t>& s) {
+    uint32_t h = 2166136261u;
+    for (int16_t v : s) {
+        h ^= static_cast<uint16_t>(v);
+        h *= 16777619u;
+    }
+    return h;
+}
+
+// A test pattern with a "cartridge" in it (any bytes will do).
+std::unique_ptr<TestConsole> testConsole(ConsoleSystem s = ConsoleSystem::Nes, uint8_t cartridge = 1) {
+    auto c = std::make_unique<TestConsole>(s);
+    c->loadRomData(std::vector<uint8_t>(64, cartridge));
+    c->setSampleRate(44100);
+    return c;
+}
+
+bool writeZip(const std::string& path, const std::vector<std::pair<std::string, std::vector<uint8_t>>>& entries) {
+    mz_zip_archive zip{};
+    if (!mz_zip_writer_init_heap(&zip, 0, 0)) return false;
+    for (const auto& [name, data] : entries) {
+        mz_zip_writer_add_mem(&zip, name.c_str(), data.data(), data.size(),
+                              static_cast<mz_uint>(MZ_DEFAULT_COMPRESSION));
+    }
+    void* buf = nullptr;
+    size_t size = 0;
+    const bool ok = mz_zip_writer_finalize_heap_archive(&zip, &buf, &size);
+    if (ok) std::ofstream(path, std::ios::binary).write(static_cast<const char*>(buf), static_cast<std::streamsize>(size));
+    mz_free(buf);
+    mz_zip_writer_end(&zip);
+    return ok;
+}
+
+void writeFile(const std::filesystem::path& p, const std::vector<uint8_t>& d) {
+    std::ofstream(p, std::ios::binary).write(reinterpret_cast<const char*>(d.data()), static_cast<std::streamsize>(d.size()));
+}
+
+// The start of a Game Boy cartridge: its logo at 0x104, and the Color flag at 0x143.
+std::vector<uint8_t> gameBoyRom(bool colorOnly) {
+    static const uint8_t logo[48] = {0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83,
+                                     0x00, 0x0C, 0x00, 0x0D, 0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E,
+                                     0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99, 0xBB, 0xBB, 0x67, 0x63,
+                                     0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E};
+    std::vector<uint8_t> rom(0x8000, 0);
+    std::copy(std::begin(logo), std::end(logo), rom.begin() + 0x104);
+    rom[0x143] = colorOnly ? 0xC0 : 0x00;
+    return rom;
+}
+
+void testSystems() {
+    namespace fs = std::filesystem;
+    std::vector<uint8_t> nes = {'N', 'E', 'S', 0x1A, 2, 1};
+    nes.resize(16 + 0x8000 + 0x2000);
+    check(detectSystemFromData(nes) == ConsoleSystem::Nes, "systems: an iNES header");
+    check(detectSystemFromData(gameBoyRom(false)) == ConsoleSystem::GameBoy, "systems: the Game Boy's logo");
+    check(detectSystemFromData(gameBoyRom(true)) == ConsoleSystem::GameBoyColor, "systems: a Color-only cartridge");
+    check(detectSystemFromData(std::vector<uint8_t>(0x8000, 0xEA)) == ConsoleSystem::Snes, "systems: anything else is the SNES's");
+    check(isGameFile("a.gb") && isGameFile("a.GBC") && isGameFile("a.nes") && isGameFile("a.sfc") && isGameFile("a.smc") &&
+              isGameFile("a.zip") && !isGameFile("notes.txt") && !isGameFile("a.md"),
+          "systems: game file extensions");
+    check(std::string(systemName(ConsoleSystem::Snes)) == "Super Nintendo" && std::string(systemKey(ConsoleSystem::Nes)) == "NES",
+          "systems: names");
+
+    const fs::path dir = fs::temp_directory_path() / "plumnin_systems_test";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    writeFile(dir / "Tetris (World).gb", gameBoyRom(false));
+    writeFile(dir / "Color (USA).gb", gameBoyRom(true));
+    writeFile(dir / "Zelda (USA).nes", nes);
+    writeFile(dir / "Mario (USA).sfc", std::vector<uint8_t>(0x8000, 0));
+    writeZip((dir / "Zipped.zip").string(), {{"README.txt", {'h', 'i'}}, {"games/Color (USA).gbc", gameBoyRom(true)}});
+    writeZip((dir / "Inside.zip").string(), {{"Inner.gb", gameBoyRom(false)}});
+    check(detectSystem((dir / "Tetris (World).gb").string()) == ConsoleSystem::GameBoy &&
+              detectSystem((dir / "Color (USA).gb").string()) == ConsoleSystem::GameBoyColor &&
+              detectSystem((dir / "Zelda (USA).nes").string()) == ConsoleSystem::Nes &&
+              detectSystem((dir / "Mario (USA).sfc").string()) == ConsoleSystem::Snes &&
+              detectSystem((dir / "Zipped.zip").string()) == ConsoleSystem::GameBoyColor &&
+              detectSystem((dir / "Inside.zip").string()) == ConsoleSystem::GameBoy,
+          "systems: detected from the files, zipped ones too");
+    std::vector<uint8_t> rom;
+    std::string name, error;
+    check(readRomFile((dir / "Zipped.zip").string(), rom, &name, &error) && rom == gameBoyRom(true) &&
+              name == "games/Color (USA).gbc",
+          "systems: the cartridge inside a zip, not its other files");
+    writeZip((dir / "Empty.zip").string(), {{"README.txt", {'h', 'i'}}});
+    check(!readRomFile((dir / "Empty.zip").string(), rom, &name, &error) && !error.empty(), "systems: a zip without a cartridge");
+    writeFile(dir / "Broken.zip", {'P', 'K', 3, 4, 0, 0});
+    check(!readRomFile((dir / "Broken.zip").string(), rom, &name, &error) && error.find("dañado") != std::string::npos,
+          "systems: a damaged zip");
+    fs::create_directories(dir / "Folder.nes");
+    check(!readRomFile((dir / "Folder.nes").string(), rom, &name, &error) && !error.empty(),
+          "systems: a folder named like a game is refused");
+    fs::remove_all(dir);
+}
+
+// Until each console is emulated, opening its games says so (and nothing breaks).
+void testConsoles() {
+    for (int s = 0; s < kSystemCount; ++s) {
+        const ConsoleSystem system = static_cast<ConsoleSystem>(s);
+        if (emulated(system)) continue;
+        check(!createConsole(system), "consoles: no console for one not emulated yet");
+    }
+    const std::string path = (std::filesystem::temp_directory_path() / "plumnin_consoles_test.nes").string();
+    writeFile(path, {'N', 'E', 'S', 0x1A, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+    std::string error;
+    if (!emulated(ConsoleSystem::Nes))
+        check(!openGame(path, &error) && error.find("NES") != std::string::npos, "consoles: a game of one not emulated yet");
+    std::remove(path.c_str());
+}
+
+void testTestConsole() {
+    auto c = testConsole();
+    const int x0 = c->spriteX(), y0 = c->spriteY();
+    check(x0 == 120 && y0 == 104 && c->frame().width == 256 && c->frame().height == 224,
+          "test pattern: a TV's picture with the sprite in the middle");
+    PadState right;
+    right.right = right.down = true;
+    for (int i = 0; i < 10; ++i) {
+        c->setPads(right, PadState{});
+        c->runFrame();
+    }
+    check(c->spriteX() == x0 + 10 && c->spriteY() == y0 + 10 && c->frames() == 10, "test pattern: the first pad moves the sprite");
+    PadState left;
+    left.left = true;
+    c->setPads(PadState{}, left);
+    c->runFrame();
+    check(c->spriteX() == x0 + 9, "test pattern: so does the second");
+    PadState a;
+    a.a = true;
+    c->audio().clearSamples();
+    c->setPads(a, PadState{});
+    c->runFrame();
+    const auto& s = c->audio().samples();
+    check(s.size() == 2 * 735 && std::any_of(s.begin(), s.end(), [](int16_t v) { return v != 0; }),
+          "test pattern: a frame of stereo sound, a tone while A is held");
+    const VideoFrame& f = c->frame();
+    const size_t at = static_cast<size_t>(c->spriteY() + 5) * VideoFrame::kMaxWidth + static_cast<size_t>(c->spriteX() + 5);
+    check(f.info[at].layer == Layer::Sprite && f.rgba[at] == f.sprites[at], "test pattern: the sprite on top, as the layers say");
+    c->setWidescreen(43, 43);
+    c->runFrame();
+    check(c->frame().width == 256 + 86 && c->frame().consoleWidth() == 256, "test pattern: widescreen columns");
+
+    auto gb = testConsole(ConsoleSystem::GameBoy);
+    gb->setWidescreen(43, 43);
+    gb->runFrame();
+    check(gb->frame().width == 160 && gb->frame().height == 144 && gb->frame().screenAspect > 1.1f && gb->ports() == 1,
+          "test pattern: the Game Boy's screen, without widescreen");
+    check(wideColumnsFor(16, 9) == 43 && wideColumnsFor(16, 10) == 26 && wideColumnsFor(4, 3) == 0 &&
+              wideColumnsFor(32, 9) == VideoFrame::kMaxWideSide,
+          "video: widescreen columns for each shape");
+}
+
+void testStates() {
+    auto c = testConsole();
+    for (int i = 0; i < 30; ++i) c->runFrame();
+    c->audio().clearSamples();
+    std::vector<uint8_t> state;
+    check(c->saveState(state) && state.size() > 100, "savestate: saved");
+
+    auto run = [&](int frames, std::vector<uint32_t>& hashes, std::vector<int16_t>& sound) {
+        PadState p;
+        for (int i = 0; i < frames; ++i) {
+            p.right = (i / 7) % 2 == 0;  // some input, the same both times
+            p.a = (i / 5) % 3 == 0;
+            c->setPads(p, PadState{});
+            c->runFrame();
+            hashes.push_back(frameHash(c->frame()));
+            sound.insert(sound.end(), c->audio().samples().begin(), c->audio().samples().end());
+            c->audio().clearSamples();
+        }
+    };
+    std::vector<uint32_t> h1, h2;
+    std::vector<int16_t> s1, s2;
+    run(90, h1, s1);
+    std::string error;
+    check(c->loadState(state, &error), "savestate: loaded");
+    run(90, h2, s2);
+    check(h1 == h2 && std::set<uint32_t>(h1.begin(), h1.end()).size() > 10, "savestate: the same frames after loading");
+    check(soundHash(s1) == soundHash(s2) && s1.size() == s2.size(), "savestate: the same sound after loading");
+
+    std::vector<uint8_t> again;
+    c->loadState(state, &error);
+    c->saveState(again);
+    check(again == state, "savestate: save, load, save gives the same bytes");
+
+    std::vector<uint32_t> pixels;
+    int tw = 0, th = 0;
+    check(Console::stateThumbnail(state, pixels, &tw, &th) && tw == 128 && th == 112 && pixels.size() == 128u * 112u,
+          "savestate: thumbnail at half size");
+
+    // Damaged files are rejected and leave the console as it was.
+    c->loadState(state, &error);
+    std::vector<uint8_t> before;
+    c->saveState(before);
+    bool allRejected = true;
+    std::vector<uint8_t> bad(state.begin(), state.begin() + static_cast<long>(state.size() / 2));
+    allRejected &= !c->loadState(bad, &error);
+    bad = {'P', 'L', 'N', 'S', 1, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0x7F};
+    allRejected &= !c->loadState(bad, &error);
+    std::mt19937 rng(1234);
+    int loaded = 0;
+    for (int i = 0; i < 200; ++i) {
+        bad = state;
+        for (int k = 0; k < 4; ++k) bad[12 + rng() % (bad.size() - 12)] ^= static_cast<uint8_t>(1 + rng() % 255);
+        if (c->loadState(bad, &error)) {
+            ++loaded;
+            c->loadState(state, &error);
+        }
+    }
+    std::vector<uint8_t> after;
+    c->saveState(after);
+    check(allRejected && after == before, "savestate: truncated or random files are rejected safely");
+    std::printf("     (%d of 200 randomly damaged states still decompressed and loaded)\n", loaded);
+
+    auto other = testConsole(ConsoleSystem::Nes, 2);  // another cartridge, another CRC
+    check(!other->loadState(state, &error) && error.find("otra ROM") != std::string::npos,
+          "savestate: a state from another ROM is rejected");
+    auto snes = testConsole(ConsoleSystem::Snes);
+    check(!snes->loadState(state, &error) && error.find("otra consola") != std::string::npos,
+          "savestate: a state from another console is rejected");
+}
+
+void testRewindPlayback() {
+    // Rewinding n frames and playing them again with the same pads gives the same
+    // picture as the first time: the snapshots are full states.
+    auto c = testConsole();
+    RewindBuffer r;
+    r.setLimits(600, size_t{64} << 20);
+    std::vector<uint32_t> first;
+    auto pads = [](int i) {
+        PadState p;
+        p.right = (i / 5) % 2 == 0;
+        p.a = i % 3 == 0;
+        return p;
+    };
+    for (int i = 0; i < 120; ++i) {
+        std::vector<uint8_t> s;
+        c->saveState(s, true);
+        r.push(std::move(s));
+        c->setPads(pads(i), PadState{});
+        c->runFrame();
+        c->audio().clearSamples();
+        if (i >= 60) first.push_back(frameHash(c->frame()));
+    }
+    std::vector<uint8_t> s;
+    std::string error;
+    bool ok = true;
+    for (int i = 0; i < 60; ++i) ok &= r.pop(s);
+    ok &= c->loadState(s, &error);
+    std::vector<uint32_t> again;
+    for (int i = 60; i < 120; ++i) {
+        c->setPads(pads(i), PadState{});
+        c->runFrame();
+        c->audio().clearSamples();
+        again.push_back(frameHash(c->frame()));
+    }
+    check(ok && r.size() == 60, "rewind: went back 60 frames");
+    check(again == first, "rewind: replaying from there gives the same frames");
+
+    std::vector<uint8_t> quick;
+    c->saveState(quick, true);
+    std::vector<uint32_t> pixels;
+    int w = 0, h = 0;
+    check(!Console::stateThumbnail(quick, pixels, &w, &h), "rewind: quick snapshots carry no thumbnail");
+}
+
+void testRunAhead() {
+    // Run-ahead shows the next frame now and leaves no trace: the console goes on as if
+    // it had never run ahead, with the same sound.
+    auto pads = [](int i) {
+        PadState p;
+        p.right = (i / 10) % 2 == 0;
+        p.a = (i / 7) % 2 == 0;
+        return p;
+    };
+    auto plain = testConsole(), ahead = testConsole();
+    std::vector<uint32_t> plainFrames, aheadFrames;
+    std::vector<int16_t> plainSound, aheadSound;
+    bool back = true;
+    for (int i = 0; i < 120; ++i) {
+        plain->setPads(pads(i), PadState{});
+        plain->runFrame();
+        plainFrames.push_back(frameHash(plain->frame()));
+        plainSound.insert(plainSound.end(), plain->audio().samples().begin(), plain->audio().samples().end());
+        plain->audio().clearSamples();
+
+        ahead->setPads(pads(i), PadState{});
+        ahead->setDrawing(false);
+        ahead->runFrame();
+        ahead->setDrawing(true);
+        aheadSound.insert(aheadSound.end(), ahead->audio().samples().begin(), ahead->audio().samples().end());
+        ahead->audio().clearSamples();
+        back &= ahead->runAhead(1);
+        aheadFrames.push_back(frameHash(ahead->frame()));
+    }
+    // Frame i shown with run-ahead is frame i + 1, wherever the pads did not change.
+    bool early = true;
+    int compared = 0;
+    for (int i = 0; i + 1 < 120; ++i) {
+        if (pads(i).right != pads(i + 1).right || pads(i).a != pads(i + 1).a) continue;
+        early &= aheadFrames[static_cast<size_t>(i)] == plainFrames[static_cast<size_t>(i + 1)];
+        ++compared;
+    }
+    std::vector<uint8_t> a, b;
+    plain->saveState(a, true);
+    ahead->saveState(b, true);
+    check(back, "run-ahead: the console went back every frame");
+    const std::set<uint32_t> pictures(plainFrames.begin(), plainFrames.end());
+    check(early && compared > 90 && pictures.size() > 1, "run-ahead: the picture is the next frame's");
+    check(a == b && plain->frames() == ahead->frames(), "run-ahead: the console is where it would have been");
+    check(aheadSound == plainSound, "run-ahead: the sound is the same");
+}
+
+void testPlanes() {
+    auto c = testConsole();
+    for (int i = 0; i < 20; ++i) c->runFrame();
+    const VideoFrame& f = c->frame();
+    for (const bool highB : {false, true}) {
+        Planes planes;
+        splitPlanes(f, SplitOptions{highB, false}, planes);
+        // Golden rule: looking straight at the planes, front to back, shows the 2D picture.
+        bool same = planes.width == f.width && planes.height == f.height;
+        bool skyFull = true;
+        for (int y = 0; y < planes.height && same; ++y)
+            for (int x = 0; x < planes.width; ++x) {
+                const size_t o = static_cast<size_t>(y) * planes.width + x;
+                uint32_t seen = 0;
+                for (int p = kPlanes - 1; p >= 0 && !seen; --p)
+                    if (planes[p][o] >> 24) seen = planes[p][o];
+                if ((seen & 0xFFFFFF) != (f.pixel(x, y) & 0xFFFFFF)) same = false;
+                skyFull = skyFull && (planes[PlaneSky][o] >> 24);
+            }
+        check(same, highB ? "planes: straight on = 2D (high B in front)" : "planes: straight on = 2D");
+        check(skyFull, "planes: the sky has no holes");
+    }
+    Planes planes;
+    splitPlanes(f, SplitOptions{}, planes);
+    const size_t sprite = static_cast<size_t>(c->spriteY() + 4) * static_cast<size_t>(planes.width) +
+                          static_cast<size_t>(c->spriteX() + 4);
+    check(planes[PlaneSprites][sprite] != 0, "planes: the sprite on its own plane");
+}
+
+void testEdgeDistance() {
+    constexpr int kW = 64, kH = 48;
+    std::vector<uint32_t> plane(kW * kH, 0);
+    for (int y = 10; y < 30; ++y)
+        for (int x = 10; x < 30; ++x) plane[y * kW + x] = 0xFF123456u;
+    markEdgeDistance(plane, kW, kH);
+    auto distance = [&](int x, int y) { return kMaxEdgeDistance - (255 - int(plane[y * kW + x] >> 24)) / 16; };
+    check(distance(10, 10) == 1 && distance(29, 20) == 1, "edge distance: 1 on the outline");
+    check(distance(11, 20) == 2 && distance(20, 12) == 3, "edge distance: grows inwards");
+    check(distance(20, 20) == kMaxEdgeDistance, "edge distance: capped in the middle");
+    check(plane[0] == 0 && (plane[20 * kW + 20] & 0xFFFFFF) == 0x123456, "edge distance: colours untouched");
+}
+
+void testLiveCamera() {
+    auto frame = std::make_unique<VideoFrame>();
+    Planes planes;
+    planes.width = 256;
+    planes.height = 224;
+    for (auto& p : planes.layer) p.assign(256 * 224, 0);
+    // A sprite on the right of the screen, nothing scrolling.
+    for (int y = 100; y < 120; ++y)
+        for (int x = 220; x < 240; ++x) planes[PlaneSprites][static_cast<size_t>(y) * 256 + x] = 0xFFFFFFFFu;
+    LiveCamera cam;
+    for (int i = 0; i < 300; ++i) {
+        frame->frameNumber = static_cast<uint64_t>(i + 1);
+        cam.update(*frame, planes);
+    }
+    check(cam.yaw() > 1.0f && cam.yaw() <= LiveCamera::kSwayYaw && std::fabs(cam.tilt()) < 1.0f,
+          "live camera: leans towards the sprites, within its limit");
+
+    // No sprites, the level scrolling left (the player running right), wrapping round.
+    for (auto& p : planes.layer) p.assign(256 * 224, 0);
+    LiveCamera run;
+    int scroll = 5;
+    for (int i = 0; i < 300; ++i) {
+        frame->frameNumber = static_cast<uint64_t>(i + 1);
+        for (auto& l : frame->lines) l.hscrollA = static_cast<int16_t>(scroll);
+        scroll = (scroll - 4 + 1024) % 1024;
+        run.update(*frame, planes);
+    }
+    check(run.yaw() > 1.0f && run.yaw() <= LiveCamera::kSwayYaw, "live camera: leans with the scroll");
+    const float before = run.yaw();
+    for (int i = 0; i < 10; ++i) run.update(*frame, planes);  // the same frame again: only eases
+    check(std::fabs(run.yaw() - before) < 0.5f, "live camera: a repeated frame does not jolt it");
+}
+
+void testCheats() {
+    // A made-up code kind, "AAAA:VV": a byte written to RAM, as each console's decoder will do.
+    const CheatDecoder decoder = [](const std::string& code, CheatPatch* out, std::string* error) {
+        unsigned address = 0, value = 0;
+        char tail = 0;
+        if (std::sscanf(code.c_str(), "%4x:%2x%c", &address, &value, &tail) != 2) {
+            if (error) *error = "no";
+            return false;
+        }
+        *out = {address, static_cast<uint16_t>(value), true, -1, true};
+        return true;
+    };
+    std::vector<CheatPatch> many;
+    std::string error;
+    check(decodeCheatCodes("00C0:12 + 00c1:34", decoder, &many, &error) && many.size() == 2 && many[0].address == 0xC0 &&
+              many[1].value == 0x34,
+          "cheats: codes joined with + give all their writes");
+    check(!decodeCheatCodes("00C0:12+XX", decoder, &many, &error) && many.empty(), "cheats: one bad part refuses the whole code");
+    check(!decodeCheatCodes("+", decoder, &many, &error), "cheats: nothing between the + is no code");
+    check(!decodeCheatCodes("00C0:12", CheatDecoder{}, &many, &error) && !error.empty(),
+          "cheats: a console without cheats yet says so");
+    check(!cheatDecoderFor(ConsoleSystem::Nes) || cheatFormatsFor(ConsoleSystem::Nes)[0], "cheats: a console's codes have a name");
+
+    std::vector<Cheat> cheats = {{"ABCD-EFGH", "Vidas infinitas", true}, {"00C0:12", "", false}};
+    const std::vector<Cheat> back = parseCheats(formatCheats(cheats));
+    check(back.size() == 2 && back[0].code == "ABCD-EFGH" && back[0].name == "Vidas infinitas" && back[0].enabled &&
+              back[1].code == "00C0:12" && back[1].name.empty() && !back[1].enabled,
+          "cheats: cheat file round trip");
+    const std::string cht = "cheats = 3\n\ncheat0_desc = \"Infinite lives\"\ncheat0_code = \"SXIOPO\"\n"
+                            "cheat0_enable = false\n\ncheat1_desc = \"Rumble\"\ncheat1_code = \"\"\ncheat1_handler = 1\n"
+                            "cheat2_desc = \"Infinite Energy\"\r\ncheat2_code = \"aeuzz+01FF0763\"\r\ncheat2_enable = true\r\n";
+    const std::vector<Cheat> fromCht = parseChtFile(cht);
+    check(fromCht.size() == 2 && fromCht[0].name == "Infinite lives" && fromCht[0].code == "SXIOPO" && !fromCht[0].enabled &&
+              fromCht[1].code == "AEUZZ+01FF0763" && !fromCht[1].enabled,
+          "cheats: RetroArch .cht lists, without the entries that have no code");
+    const std::vector<Cheat> kept = parseCheats(formatCheats(fromCht));
+    check(kept.size() == 2 && kept[1].code == fromCht[1].code && kept[1].name == "Infinite Energy",
+          "cheats: a joined code survives the cheat file");
+}
+
+void testRewindBuffer() {
+    RewindBuffer r;
+    r.setLimits(3, 1000);
+    for (uint8_t i = 1; i <= 5; ++i) r.push(std::vector<uint8_t>(10, i));
+    std::vector<uint8_t> s;
+    check(r.size() == 3 && r.bytes() == 30, "rewind: keeps only the newest snapshots");
+    check(r.pop(s) && s[0] == 5 && r.pop(s) && s[0] == 4 && r.pop(s) && s[0] == 3 && !r.pop(s) && r.bytes() == 0,
+          "rewind: pops newest first, then runs out");
+    r.setLimits(100, 25);
+    for (uint8_t i = 1; i <= 5; ++i) r.push(std::vector<uint8_t>(10, i));
+    check(r.size() == 2 && r.bytes() == 20, "rewind: the byte limit drops the oldest too");
+    r.setLimits(0, 1000);
+    r.push(std::vector<uint8_t>(10, 9));
+    check(r.empty(), "rewind: no frames means off");
+}
+
+void testFramePacer() {
+    auto total = [](double speed, int ticks, int* most = nullptr) {
+        FramePacer p;
+        int sum = 0, top = 0;
+        for (int i = 0; i < ticks; ++i) {
+            const int n = p.framesForTick(speed);
+            sum += n;
+            top = std::max(top, n);
+        }
+        if (most) *most = top;
+        return sum;
+    };
+    int most = 0;
+    check(total(1.0, 60, &most) == 60 && most == 1, "speed: normal runs one frame per tick");
+    check(total(4.0, 60, &most) == 240 && most == 4, "speed: fast forward x4");
+    check(total(0.5, 60, &most) == 30 && most == 1, "speed: slow motion at 50% runs every other tick");
+    check(total(0.1, 100) == 10, "speed: 10% adds up without losing frames to rounding");
+    check(total(2.5, 4) == 10, "speed: fractions carry over between ticks");
+}
+
+void testProfiles() {
+    RenderOptions r;
+    r.pseudo3d = true;
+    r.style = Style3D::Layers;
+    r.depth = 0.8f;
+    r.tilt = 40;
+    r.yaw = -30;
+    r.zoom = 1.5f;
+    r.extrusion = 0.2f;
+    r.thickness = 0.7f;
+    r.shadows = false;
+    r.highBInFront = true;
+    r.flatB = true;
+    r.tiltCamera = false;
+    r.lighting = false;
+    r.liveCamera = true;
+    r.smooth = true;  // not part of a profile
+    const std::string text = formatProfile(r, "Sonic.md");
+    RenderOptions back;
+    check(parseProfile(text, back) && same3D(back, r), "profile: written and read back the same");
+    check(!back.smooth, "profile: only carries the 3D options");
+
+    RenderOptions partial;
+    const RenderOptions defaults;
+    check(parseProfile("[profile_3d]\ntilt_3d = 500\ndepth_3d = 30\n", partial) && partial.tilt == kMaxTilt &&
+              std::fabs(partial.depth - 0.3f) < 1e-6f && partial.yaw == defaults.yaw,
+          "profile: missing keys keep their value, out of range ones are clamped");
+    RenderOptions untouched;
+    check(!parseProfile("[video]\ntilt_3d = 10\n", untouched) && untouched.tilt == defaults.tilt,
+          "profile: a file without [profile_3d] is not a profile");
+
+    RenderOptions target;
+    target.smooth = true;
+    copy3D(r, target);
+    check(same3D(target, r) && target.smooth, "profile: copy3D leaves the other options alone");
+}
+
+// The detail panel's data: libretro-database's metadat files and Wikipedia's answers.
+void testGameInfo() {
+    const std::string genres = "clrmamepro (\n\tname \"Sega - Mega Drive - Genesis\"\n)\n\n"
+                               "game (\n\tcomment \"Sonic The Hedgehog 2 (World)\"\n\tgenre \"Platform\"\n"
+                               "\trom ( crc 24AB4C3A )\n)\n\n"
+                               "game (\n\tcomment \"Sonic The Hedgehog 2 (World) (Rev A)\"\n\tgenre \"Platform\"\n)\n\n"
+                               "game (\n\tcomment \"Columns (World)\"\n\trom ( crc 03163D7A )\n)\n";
+    const auto entries = parseMetadat(genres, "genre");
+    check(entries.size() == 2 && entries[0].first == "Sonic The Hedgehog 2 (World)" && entries[0].second == "Platform",
+          "game info: metadat entries with the field, the others left out");
+    const std::string users = "game (\n\tcomment \"Streets of Rage 2 (USA)\"\n\tusers 2\n\trom ( crc E01FA526 )\n)\n";
+    check(parseMetadat(users, "users").size() == 1 && parseMetadat(users, "users")[0].second == "2",
+          "game info: unquoted values");
+    DetailsTable table;
+    table.add("genre", genres);
+    table.add("maxusers", users);
+    table.add("developer", "game (\n\tcomment \"Sonic The Hedgehog 2 (World)\"\n\tdeveloper \"SEGA\"\n)\n");
+    const GameDetails* d = table.find("Sonic The Hedgehog 2 (World)");
+    check(d && d->genre == "Platform" && d->developer == "SEGA", "game info: the fields of one game together");
+    d = table.find("Sonic The Hedgehog 2 (Europe) [!]");
+    check(d && d->developer == "SEGA", "game info: another region of the same title");
+    d = table.find("streets of rage 2 (usa)");
+    check(d && d->players == "2", "game info: names without case");
+    check(!table.find("Ecco the Dolphin (Europe)"), "game info: a game it does not know");
+
+    const std::string answer =
+        "{\"batchcomplete\":true,\"query\":{\"pages\":[{\"pageid\":2,\"ns\":0,\"title\":\"Sonic the Hedgehog\","
+        "\"index\":2,\"extract\":\"Otro.\"},{\"pageid\":1,\"ns\":0,\"title\":\"Sonic the Hedgehog 2\",\"index\":1,"
+        "\"extract\":\"Sonic the Hedgehog 2 es un videojuego de plataformas \\u00e9\\n\\\"Sega\\\".\"}]}}";
+    const auto pages = parseWikiSearch(answer);
+    check(pages.size() == 2 && pages[0].title == "Sonic the Hedgehog 2" && pages[0].index == 1,
+          "game info: Wikipedia's pages in search order");
+    check(!pages.empty() && pages[0].extract == "Sonic the Hedgehog 2 es un videojuego de plataformas \xc3\xa9\n\"Sega\".",
+          "game info: Wikipedia's escapes");
+    check(wikiTitleDistance("Sonic The Hedgehog 2", "Sonic the Hedgehog 2") == 0, "game info: the same title");
+    check(wikiTitleDistance("Sonic The Hedgehog 2", "Sonic the Hedgehog") < 0, "game info: not the first game for the second");
+    check(wikiTitleDistance("Golden Axe II", "Golden Axe 2 (videojuego)") == 0, "game info: roman numerals and notes");
+    check(wikiTitleDistance("Phantasy Star IV", "Phantasy Star IV: The End of the Millennium") > 0,
+          "game info: a longer title of the same game");
+    check(wikiTitleDistance("Sonic 3D Blast", "Sonic") < 0, "game info: too little in common");
+    check(wikiTitleDistance("Columns", "Ecco the Dolphin") < 0, "game info: nothing in common");
+}
+
+void testScreenScraper() {
+    // A jeuInfos answer as the API gives it (trimmed), with its trailing comma.
+    const std::string info =
+        "{\"header\":{\"success\":\"true\"},\"response\":{\"ssuser\":{\"requeststoday\":\"12\",\"maxrequestsperday\":\"20000\"},"
+        "\"jeu\":{\"id\":\"3\",\"systeme\":{\"id\":\"1\",\"text\":\"Megadrive\"},"
+        "\"noms\":[{\"region\":\"wor\",\"text\":\"Sonic The Hedgehog\"},{\"region\":\"jp\",\"text\":\"\\u30bd\\u30cb\\u30c3\\u30af\"}],"
+        "\"editeur\":{\"id\":\"1\",\"text\":\"SEGA\"},\"developpeur\":{\"text\":\"Sonic Team\"},\"joueurs\":{\"text\":\"1\"},"
+        "\"note\":{\"text\":\"17\"},\"dates\":[{\"region\":\"us\",\"text\":\"1991-06-23\"},{\"region\":\"eu\",\"text\":\"1991-06-21\"}],"
+        "\"synopsis\":[{\"langue\":\"en\",\"text\":\"Run.\"},{\"langue\":\"es\",\"text\":\"Corre.\"}],"
+        "\"genres\":[{\"id\":\"7\",\"noms\":[{\"langue\":\"en\",\"text\":\"Platform\"},{\"langue\":\"es\",\"text\":\"Plataformas\"}]}],"
+        "\"medias\":[{\"type\":\"box-2D\",\"region\":\"us\",\"format\":\"png\","
+        "\"url\":\"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=d&devpassword=p&softname=s&ssid=u&sspassword=x&systemeid=1&jeuid=3&media=box-2D(us)\"},"
+        "{\"type\":\"box-2D\",\"region\":\"eu\",\"format\":\"png\",\"url\":\"https://a.screenscraper.fr/api2/mediaJeu.php?jeuid=3&media=box-2D(eu)\"},"
+        "{\"type\":\"wheel\",\"region\":\"wor\",\"format\":\"png\",\"url\":\"https://a.screenscraper.fr/api2/mediaJeu.php?media=wheel(wor)\"},"
+        "{\"type\":\"fanart\",\"format\":\"jpg\",\"url\":\"https://a.screenscraper.fr/api2/mediaJeu.php?media=fanart\"},"
+        "]}}}";
+    SsAnswer a = parseSsAnswer(200, info);
+    check(a.result == SsAnswer::Ok && a.games.size() == 1, "screenscraper: one game");
+    if (a.games.size() == 1) {
+        const SsGame& g = a.games[0];
+        const auto regions = ssRegions("Europe · Rev A");
+        check(g.id == 3 && g.system == 1 && g.publisher == "SEGA" && g.rating == "17", "screenscraper: the game's data");
+        check(g.name(regions) == "Sonic The Hedgehog" && g.date(regions) == "1991-06-21" && g.year(regions) == "1991",
+              "screenscraper: names and dates in the ROM's region");
+        check(g.text(ssLanguages("es")) == "Corre." && g.genre(ssLanguages("es")) == "Plataformas",
+              "screenscraper: texts in the user's language");
+        check(g.names.size() == 2 && g.names[1].second == "\xe3\x82\xbd\xe3\x83\x8b\xe3\x83\x83\xe3\x82\xaf", "screenscraper: escapes");
+        const SsMedia* cover = ssPickMedia(g, *ssKind("portada"), regions);
+        check(cover && cover->region == "eu", "screenscraper: the cover of the ROM's region");
+        const SsMedia* us = ssPickMedia(g, *ssKind("portada"), ssRegions("USA"));
+        check(us && us->url.find("devpassword") == std::string::npos && us->url.find("sspassword") == std::string::npos &&
+                  us->url.find("jeuid=3&media=box-2D(us)") != std::string::npos,
+              "screenscraper: the accounts are not kept with the media");
+        check(ssPickMedia(g, *ssKind("logo"), regions) != nullptr, "screenscraper: a second type for a kind");
+        check(ssPickMedia(g, *ssKind("fanart"), regions) != nullptr, "screenscraper: media without a region");
+        check(ssPickMedia(g, *ssKind("etiqueta"), regions) == nullptr, "screenscraper: a kind it does not have");
+        // What plumnin keeps reads back the same.
+        const SsAnswer back = parseSsAnswer(200, ssGameJson(g));
+        check(back.games.size() == 1 && back.games[0].id == 3 && back.games[0].names == g.names &&
+                  back.games[0].medias.size() == g.medias.size() && back.games[0].genres == g.genres &&
+                  back.games[0].synopsis == g.synopsis && back.games[0].players == "1",
+              "screenscraper: the kept answer reads back");
+    }
+    check(a.requestsToday == 12 && a.maxRequests == 20000, "screenscraper: the day's requests");
+
+    const SsAnswer search = parseSsAnswer(200, "{\"response\":{\"jeux\":[{\"id\":\"3\",\"noms\":[{\"region\":\"wor\",\"text\":\"A\"}]},"
+                                               "{\"id\":\"5\",\"noms\":[{\"region\":\"wor\",\"text\":\"B\"}]}]}}");
+    check(search.result == SsAnswer::Ok && search.games.size() == 2 && search.games[1].id == 5, "screenscraper: a search's games");
+    check(parseSsAnswer(200, "{\"response\":{\"jeux\":[{}]}}").result == SsAnswer::NotFound, "screenscraper: an empty search");
+    check(parseSsAnswer(404, "Erreur : Rom/Iso/Dossier non trouvée !  ").result == SsAnswer::NotFound, "screenscraper: not found");
+    check(parseSsAnswer(403, "Erreur de login : Verifier vos identifiants developpeur !").result == SsAnswer::Login,
+          "screenscraper: a wrong account");
+    check(parseSsAnswer(430, "Votre quota de scrape est dépassé pour aujourd'hui !").result == SsAnswer::Quota,
+          "screenscraper: the day's quota");
+    check(parseSsAnswer(429, "The maximum threads allowed to leecher users is already used").result == SsAnswer::Busy,
+          "screenscraper: too busy");
+    check(parseSsAnswer(0, "").result == SsAnswer::Offline, "screenscraper: no connection");
+    // A good answer is not taken for an error by the words in it (the servers' "threadsmin", a synopsis...).
+    const SsAnswer words = parseSsAnswer(200, "{\"header\":{\"success\":\"true\",\"error\":\"\"},\"response\":{"
+                                              "\"serveurs\":{\"threadsmin\":\"1\"},\"ssuser\":{\"requeststoday\":\"3\","
+                                              "\"maxrequestsperday\":\"20000\"},\"jeu\":{\"id\":\"9\",\"synopsis\":[{\"langue\":"
+                                              "\"fr\",\"text\":\"Un quota d'identifiants non trouvés.\"}]}}}");
+    check(words.result == SsAnswer::Ok && words.games.size() == 1 && words.requestsToday == 3,
+          "screenscraper: words in a good answer");
+    check(parseSsAnswer(200, "{\"header\":{\"success\":\"false\",\"error\":\"Votre quota de scrape est dépassé\"}}").result ==
+              SsAnswer::Quota,
+          "screenscraper: a JSON answer that says it failed");
+
+    SsCredentials c{"dev id", "p&w", "plumnin", "me", "secret"};
+    const std::string url = ssUrl(c, "jeuInfos.php", ssRomParams(2, "Zelda (Europe).zip", 131088, 0xF9394E97u, false));
+    check(url == "https://api.screenscraper.fr/api2/jeuInfos.php?devid=dev%20id&devpassword=p%26w&softname=plumnin&output=json"
+                 "&ssid=me&sspassword=secret&systemeid=3&romtype=rom&romnom=Zelda%20%28Europe%29.zip&romtaille=131088&crc=F9394E97",
+          "screenscraper: a ROM's request");
+    check(ssRomParams(0, "Tetris.gb", 0, 0, false).rfind("systemeid=9&", 0) == 0 &&
+              ssRomParams(1, "a.gbc", 0, 0, false).rfind("systemeid=10&", 0) == 0 &&
+              ssRomParams(3, "a.sfc", 0, 0, false).rfind("systemeid=4&", 0) == 0,
+          "screenscraper: each console's number");
+    check(ssWithCredentials("https://a.screenscraper.fr/api2/mediaJeu.php?devid=old&jeuid=3", c) ==
+              "https://a.screenscraper.fr/api2/mediaJeu.php?devid=dev%20id&devpassword=p%26w&softname=plumnin&ssid=me&sspassword=secret&jeuid=3",
+          "screenscraper: a medium's accounts");
+    check(ssWithCredentials("https://example.com/x.png?a=1", c) == "https://example.com/x.png?a=1",
+          "screenscraper: other servers get no accounts");
+    const auto regions = ssRegions("USA · Europe");
+    check(regions.size() > 3 && regions[0] == "us" && regions[1] == "eu" && regions[2] == "wor", "screenscraper: regions in order");
+    JsonValue j;
+    check(!parseJson("Erreur", j) && parseJson("[1, \"a\", {\"b\": null},]", j) && j.items.size() == 3, "screenscraper: JSON");
+}
+
+void testLibraryNames() {
+    check(gameTitle("Lion King, The (World)") == "The Lion King", "library: trailing ', The' moves to the front");
+    check(gameTitle("Adventures of Batman & Robin, The (USA)") == "The Adventures of Batman & Robin",
+          "library: article with an ampersand in the name");
+    check(gameTitle("Sonic The Hedgehog 2 (World) (Rev B)") == "Sonic The Hedgehog 2", "library: tags dropped");
+    check(gameTitle("Golden Axe III") == "Golden Axe III", "library: name without tags kept");
+    check(gameTags("Sonic The Hedgehog 2 (World) (Rev B)") == "World · Rev B", "library: tags listed");
+    const auto names = coverNames("Comix Zone (USA) (Sega Smash Pack)");
+    check(names.size() > 2 && names[0] == "Comix Zone (USA) (Sega Smash Pack)" && names[1] == "Comix Zone (USA)",
+          "library: cover names drop trailing tags one by one");
+    check(coverNames("Sonic & Knuckles (World)")[0] == "Sonic _ Knuckles (World)", "library: '&' becomes '_' like libretro");
+    const auto bare = coverNames("Golden Axe III");
+    check(!bare.empty() && bare[0] == "Golden Axe III (USA)", "library: a bare name tries the usual regions");
+    check(urlEncode("Columns (USA, Europe)") == "Columns%20%28USA%2C%20Europe%29", "library: URL encoding");
+    check(searchKey("Dr. Robotnik's  Mean-Bean") == "dr robotnik s mean bean", "library: search key");
+
+    const std::string html = "<a href=\"../\">../</a>\n<a href=\"Sonic%20The%20Hedgehog%202%20%28World%29.png\">Sonic...</a>\n"
+                             "<a href=\"Ecco%20the%20Dolphin%20%28USA%29.png\">Ecco</a>\n<a href=\"Tools.txt\">x</a>";
+    const auto fromHtml = parseCoverList(html);
+    check(fromHtml.size() == 2 && fromHtml[0] == "Ecco the Dolphin (USA)" && fromHtml[1] == "Sonic The Hedgehog 2 (World)",
+          "library: cover list from libretro's index");
+    const std::string json = "{\"tree\":[{\"path\": \"Pok\\u00e9mon (Japan).png\",\"type\":\"blob\"},"
+                             "{\"path\":\"Golden Axe II (World).png\"}]}";
+    const auto fromJson = parseCoverList(json);
+    check(fromJson.size() == 2 && fromJson[0] == "Golden Axe II (World)" && fromJson[1] == "Pok\xc3\xa9mon (Japan)",
+          "library: cover list from GitHub's tree");
+    const std::vector<std::string> set = {"Golden Axe (World)", "Golden Axe II (World)", "Golden Axe III (Japan)",
+                                          "Sonic The Hedgehog (USA, Europe)", "Sonic The Hedgehog 2 (World)",
+                                          "Sonic The Hedgehog 3 (USA)", "Streets of Rage 2 (USA)", "Lion King, The (World)"};
+    auto similar = similarCoverNames(set, "Golden Axe 2", 3);
+    check(!similar.empty() && similar[0] == "Golden Axe II (World)", "library: '2' finds the 'II' cover first");
+    similar = similarCoverNames(set, "sonic hedgehod 3", 2);
+    check(!similar.empty() && similar[0] == "Sonic The Hedgehog 3 (USA)", "library: a typo still finds the cover");
+    similar = similarCoverNames(set, "The Lion King (Europe)", 5);
+    check(!similar.empty() && similar[0] == "Lion King, The (World)", "library: ', The' and other regions");
+    check(similarCoverNames(set, "Columns", 5).empty(), "library: nothing alike, no suggestions");
+
+    const std::string tree = "{\"tree\":[{\"path\":\"Sonic The Hedgehog (USA, Europe).cht\"},"
+                             "{\"path\":\"Sonic The Hedgehog 2 (World) (Rev A).cht\"},{\"path\":\"Sonic The Hedgehog 2 (World).cht\"},"
+                             "{\"path\":\"Sonic The Hedgehog 2 (World) (Action Replay).cht\"},{\"path\":\"cover.png\"}]}";
+    const auto chts = parseFileList(tree, ".cht");
+    check(chts.size() == 4 && std::is_sorted(chts.begin(), chts.end()), "library: cheat lists from GitHub's tree");
+    auto lists = cheatFileNames(chts, "Sonic The Hedgehog 2 (World)", 5);
+    check(lists.size() == 4 && lists[0] == "Sonic The Hedgehog 2 (World)" &&
+              lists[1] == "Sonic The Hedgehog 2 (World) (Action Replay)",
+          "library: the cheat list named like the ROM first, then its Action Replay one, then similar ones");
+    lists = cheatFileNames(chts, "Sonic The Hedgehog 2 (Europe)", 5);
+    check(!lists.empty() && lists[0] == "Sonic The Hedgehog 2 (World)", "library: another region's cheat list");
+    check(cheatFileNames(chts, "Columns (World)", 5).empty(), "library: no cheat lists for an unknown game");
+}
+
+// A network between two netplay sessions, in memory: each packet arrives `delay`
+// milliseconds later (plus some jitter, so some overtake others), and some are lost
+// or arrive twice.
+struct SimLink {
+    struct Packet {
+        uint32_t at;
+        std::vector<uint8_t> data;
+    };
+    std::vector<Packet> toA, toB;
+    std::mt19937 rng{1234};
+    uint32_t now = 0;
+    uint32_t delay = 40;
+    int lossPercent = 10;
+
+    void post(std::vector<Packet>& q, const uint8_t* d, size_t n) {
+        if (static_cast<int>(rng() % 100) < lossPercent) return;
+        const int copies = rng() % 20 == 0 ? 2 : 1;
+        for (int i = 0; i < copies; ++i)
+            q.push_back({now + delay + static_cast<uint32_t>(rng() % 30), std::vector<uint8_t>(d, d + n)});
+    }
+    static bool take(std::vector<Packet>& q, uint32_t now, std::vector<uint8_t>& out) {
+        for (size_t i = 0; i < q.size(); ++i)
+            if (q[i].at <= now) {
+                out = std::move(q[i].data);
+                q.erase(q.begin() + static_cast<std::ptrdiff_t>(i));
+                return true;
+            }
+        return false;
+    }
+};
+
+struct SimEnd : NetTransport {
+    SimLink& link;
+    bool isA;
+    SimEnd(SimLink& l, bool a) : link(l), isA(a) {}
+    void send(const uint8_t* d, size_t n) override { link.post(isA ? link.toB : link.toA, d, n); }
+    bool receive(std::vector<uint8_t>& p) override { return SimLink::take(isA ? link.toA : link.toB, link.now, p); }
+};
+
+// What each player presses on their n-th frame: a new random pad every few frames.
+PadState scriptedPad(int player, uint32_t n) {
+    std::mt19937 rng(static_cast<uint32_t>(player * 7919 + n / 5));
+    return unpackPad(static_cast<uint16_t>(rng() & 0xFFF));
+}
+
+
+void testNetplay() {
+    check(packPad(unpackPad(0xA5C)) == 0xA5C && packPad(PadState{}) == 0, "netplay: los mandos caben en 12 bits");
+
+    constexpr uint32_t kFrames = 400;
+    NetplaySession::Config config;
+    config.inputDelay = 2;
+    config.maxRollback = 8;
+    // Without the network: frame f has the pads pressed on frame f - inputDelay.
+    std::vector<uint32_t> reference;
+    {
+        auto c = testConsole();
+        for (int i = 0; i < 30; ++i) c->runFrame();  // the host played a little alone first
+        for (uint32_t f = 0; f < kFrames; ++f) {
+            const bool early = f < static_cast<uint32_t>(config.inputDelay);
+            const uint32_t n = early ? 0 : f - static_cast<uint32_t>(config.inputDelay);
+            c->setPads(early ? PadState{} : scriptedPad(0, n), early ? PadState{} : scriptedPad(1, n));
+            c->runFrame();
+            reference.push_back(frameHash(c->frame()));
+        }
+    }
+
+    SimLink link;
+    SimEnd hostEnd(link, true), guestEnd(link, false);
+    NetplaySession host(hostEnd, NetplaySession::Role::Host, config);
+    NetplaySession guest(guestEnd, NetplaySession::Role::Guest, config);
+    auto a = testConsole(), b = testConsole();
+    for (int i = 0; i < 30; ++i) a->runFrame();
+    b->setPadType(1, PadType::None);  // the host's pad types win
+    std::vector<uint32_t> hashA(kFrames), hashB(kFrames);
+    host.onFrame = [&](uint32_t f, Console& c) { if (f < kFrames) hashA[f] = frameHash(c.frame()); };
+    guest.onFrame = [&](uint32_t f, Console& c) { if (f < kFrames) hashB[f] = frameHash(c.frame()); };
+    int rollbacks = 0, stalls = 0;
+    for (int step = 0; step < 40000; ++step) {
+        link.now = static_cast<uint32_t>(step);  // one millisecond per step
+        // The two displays tick at slightly different rates, as two monitors do.
+        const bool hostTick = step % 16 == 0, guestTick = step % 17 == 3;
+        host.poll(*a, link.now);
+        guest.poll(*b, link.now);
+        if (hostTick && host.frame() < kFrames) {
+            if (!host.advance(*a, scriptedPad(0, host.frame()))) ++stalls;
+            rollbacks += host.lastRollback() > 0;
+        }
+        if (guestTick && guest.frame() < kFrames) {
+            if (!guest.advance(*b, scriptedPad(1, guest.frame()))) ++stalls;
+            rollbacks += guest.lastRollback() > 0;
+        }
+        if (host.frame() >= kFrames) host.catchUp(*a);
+        if (guest.frame() >= kFrames) guest.catchUp(*b);
+        if (host.confirmedFrames() >= kFrames && guest.confirmedFrames() >= kFrames) break;
+    }
+    check(host.phase() == NetplaySession::Phase::Playing && guest.phase() == NetplaySession::Phase::Playing,
+          "netplay: el invitado se conecta y los dos juegan");
+    check(host.confirmedFrames() >= kFrames && guest.confirmedFrames() >= kFrames,
+          "netplay: los dos confirman todos los fotogramas pese a perder paquetes");
+    check(rollbacks > 0, "netplay: hay vueltas atrás cuando el mando del otro llega tarde");
+    check(hashA == hashB, "netplay: las dos consolas ven lo mismo en cada fotograma");
+    check(hashA == reference, "netplay: igual que jugando los dos en la misma consola");
+    check(host.desyncFrame() < 0 && guest.desyncFrame() < 0, "netplay: no se detecta ningún descompás");
+    check(host.pingMs() > 60 && host.pingMs() < 140, "netplay: el ping se mide (unos 2 x 40 ms)");
+    std::printf("     %d vueltas atrás, %d esperas, ping %d ms\n", rollbacks, stalls, host.pingMs());
+
+    guest.end();
+    for (uint32_t t = 0; t < 200; ++t) {
+        link.now += 1;
+        host.poll(*a, link.now);
+    }
+    check(host.phase() == NetplaySession::Phase::Ended && host.endReason().find("salido") != std::string::npos,
+          "netplay: el anfitrión se entera de que el invitado se va");
+
+    // A guest with another game is turned away with a reason.
+    SimLink link2;
+    link2.lossPercent = 0;
+    SimEnd h2(link2, true), g2(link2, false);
+    NetplaySession host2(h2, NetplaySession::Role::Host, config);
+    NetplaySession guest2(g2, NetplaySession::Role::Guest, config);
+    auto c = testConsole(), d = testConsole(ConsoleSystem::Nes, 9);
+    for (int step = 0; step < 2000 && guest2.phase() != NetplaySession::Phase::Ended; ++step) {
+        link2.now = static_cast<uint32_t>(step);
+        host2.poll(*c, link2.now);
+        guest2.poll(*d, link2.now);
+    }
+    check(guest2.phase() == NetplaySession::Phase::Ended && guest2.endReason().find("otro juego") != std::string::npos &&
+              host2.phase() == NetplaySession::Phase::Waiting,
+          "netplay: un invitado con otro juego no entra y el anfitrión sigue esperando");
+}
+
+// RetroAchievements: the game's hash, its memory as the achievements address it, and a
+// whole session (login, game, an achievement earned) against a made-up server.
+void testAchievements() {
+    TestConsole c;
+    c.loadRomData(std::vector<uint8_t>(0x200, 0));
+    check(Achievements::gameHash(c) == "bf619eac0cdf3f68d496ea9344137e8b", "logros: hash = MD5 de la ROM");
+    std::vector<MemoryRegion> map = c.memoryMap();
+    uint8_t* ram = map.empty() ? nullptr : map[0].data;
+    if (!ram) {
+        check(false, "logros: la consola da su memoria");
+        return;
+    }
+    ram[0x10] = 0x12;
+    ram[0x11] = 0x34;
+    ram[0xFF] = 0x56;
+    uint8_t bytes[3] = {};
+    check(Achievements::readMemory(c, 0x10, bytes, 2) == 2 && bytes[0] == 0x12 && bytes[1] == 0x34,
+          "logros: la memoria como la da la consola");
+    check(Achievements::readMemory(c, 0xFF, bytes, 2) == 1 && bytes[0] == 0x56, "logros: nada más allá de su mapa");
+
+    std::vector<std::string> asked;
+    auto server = [&](const std::string& url, const std::string& post, const std::string& agent, std::string& body) {
+        asked.push_back(post);
+        check(agent.rfind("plumnin/", 0) == 0 && agent.find("rcheevos/") != std::string::npos,
+              "logros: el User-Agent dice plumnin y rcheevos");
+        (void)url;
+        if (post.rfind("r=login2", 0) == 0)
+            body = "{\"Success\":true,\"User\":\"Probador\",\"Token\":\"FICHA\",\"Score\":100,\"SoftcoreScore\":0,"
+                   "\"Messages\":0,\"Permissions\":1,\"AccountType\":\"Registered\"}";
+        else if (post.rfind("r=achievementsets", 0) == 0)
+            body = "{\"Success\":true,\"GameId\":7,\"Title\":\"Juego de prueba\",\"ConsoleId\":7,"
+                   "\"ImageIconUrl\":\"http://servidor/juego.png\",\"RichPresenceGameId\":7,\"RichPresencePatch\":\"\","
+                   "\"Sets\":[{\"AchievementSetId\":70,\"GameId\":7,\"Title\":null,\"Type\":\"core\","
+                   "\"ImageIconUrl\":\"http://servidor/juego.png\",\"Achievements\":["
+                   "{\"ID\":701,\"Title\":\"Cinco\",\"Description\":\"Llega a cinco\",\"Flags\":3,\"Points\":10,"
+                   "\"MemAddr\":\"0xH0010=5\",\"Author\":\"Alguien\",\"BadgeName\":\"00001\","
+                   "\"Created\":1367266583,\"Modified\":1376929305}],\"Leaderboards\":[]}]}";
+        else if (post.rfind("r=startsession", 0) == 0)
+            body = "{\"Success\":true,\"Unlocks\":[],\"HardcoreUnlocks\":[]}";
+        else if (post.rfind("r=awardachievement", 0) == 0)
+            body = "{\"Success\":true,\"Score\":110,\"SoftcoreScore\":0,\"AchievementID\":701,\"AchievementsRemaining\":0}";
+        else
+            body = "{\"Success\":true}";
+        return 200;
+    };
+    Achievements ra(server, false);
+    ra.loadGame(c, Achievements::gameHash(c));  // before logging in: it waits for it
+    ra.loginWithPassword("Probador", "secreta");
+    for (int i = 0; i < 6; ++i) ra.poll();
+    check(ra.loggedIn() && ra.token() == "FICHA", "logros: sesión iniciada, con la ficha para la próxima vez");
+    check(ra.gameLoaded() && ra.gameTitle() == "Juego de prueba" && ra.achievementCount() == 1,
+          "logros: el juego identificado por su hash, con su logro");
+    bool gameNotice = false;
+    for (const auto& n : ra.takeNotices()) gameNotice |= n.kind == Achievements::Notice::Kind::GameStarted;
+    check(gameNotice, "logros: aviso de juego con logros");
+
+    ram[0x10] = 0;
+    ra.doFrame();
+    ra.doFrame();
+    check(ra.takeNotices().empty(), "logros: nada mientras no se cumple");
+    ram[0x10] = 5;
+    ra.doFrame();
+    const auto notices = ra.takeNotices();
+    check(notices.size() == 1 && notices[0].kind == Achievements::Notice::Kind::Unlocked && notices[0].title == "Cinco" &&
+              notices[0].points == 10,
+          "logros: logro conseguido al cumplirse");
+    ra.poll();
+    check(!asked.empty() && asked.back().rfind("r=awardachievement", 0) == 0 && asked.back().find("a=701") != std::string::npos,
+          "logros: el logro se envía al servidor");
+    check(ra.unlockedCount() == 1, "logros: cuenta como conseguido");
+
+    // Savestates keep the progress; an empty one starts over.
+    const std::vector<uint8_t> progress = ra.saveProgress();
+    check(!progress.empty(), "logros: el progreso cabe en el estado");
+    ra.unloadGame();
+    check(!ra.gameLoaded(), "logros: juego cerrado");
+}
+
+void testTextureCache() {
+    const int w = 61, h = 37;
+    std::vector<uint32_t> px(static_cast<size_t>(w) * h);
+    uint32_t seed = 12345;
+    for (size_t i = 0; i < px.size(); ++i) {
+        seed = seed * 1103515245u + 12345u;
+        const uint32_t kind = (seed >> 16) % 6;
+        const uint32_t prev = i ? px[i - 1] : 0xFF000000u;
+        if (kind == 0) px[i] = prev;                                   // a run
+        else if (kind == 1 && i > 20) px[i] = px[i - 17];              // probably in the index
+        else if (kind == 2) px[i] = (prev & 0xFF000000u) | ((prev + 0x010101u) & 0xFFFFFFu);  // a small step
+        else if (kind == 3) px[i] = (prev & 0xFF000000u) | ((prev + 0x0A0C0Eu) & 0xFFFFFFu);  // a larger one
+        else if (kind == 4) px[i] = (seed & 0x00FFFFFFu) | (((seed >> 8) & 1) ? 0x80000000u : 0xFF000000u);
+        else px[i] = seed;
+    }
+    for (size_t i = 0; i < 100; ++i) px[500 + i] = 0xFF336699u;  // longer than a run can say
+    const std::vector<uint8_t> qoi = TextureCache::encodeQoi(px, w, h);
+    std::vector<uint32_t> back;
+    int bw = 0, bh = 0;
+    check(TextureCache::decodeQoi(qoi.data(), qoi.size(), back, &bw, &bh) && bw == w && bh == h && back == px,
+          "texture cache: QOI gives back the same pixels");
+    check(!TextureCache::decodeQoi(qoi.data(), qoi.size() / 2, back, &bw, &bh), "texture cache: a cut QOI is refused");
+
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    const fs::path dir = fs::temp_directory_path(ec) / "plumnin-texture-cache-test";
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    const std::string source = (dir / "cover.png").u8string();
+    { std::ofstream(fs::u8path(source), std::ios::binary) << "not really a png"; }
+    TextureCache cache;
+    cache.setFolder((dir / "cache").u8string() + "/");
+    const uint64_t key = TextureCache::key(source, 7);
+    check(key != 0 && key != TextureCache::key(source, 8) && TextureCache::key((dir / "none.png").u8string(), 7) == 0,
+          "texture cache: the key depends on the file and how it was shrunk");
+    check(!cache.load(key, back, &bw, &bh), "texture cache: nothing cached yet");
+    cache.store(key, px, w, h);
+    back.clear();
+    check(cache.load(key, back, &bw, &bh) && back == px, "texture cache: read back from disk");
+    cache.prune({key});
+    check(cache.load(key, back, &bw, &bh), "texture cache: prune keeps what is used");
+    cache.prune({});
+    check(!cache.load(key, back, &bw, &bh), "texture cache: prune deletes what is not");
+    fs::remove_all(dir, ec);
+}
+
+
+}  // namespace
+
+int main() {
+    testSystems();
+    testConsoles();
+    testTestConsole();
+    testStates();
+    testRewindBuffer();
+    testFramePacer();
+    testRewindPlayback();
+    testRunAhead();
+    testPlanes();
+    testEdgeDistance();
+    testProfiles();
+    testLiveCamera();
+    testCheats();
+    testLibraryNames();
+    testScreenScraper();
+    testGameInfo();
+    testTextureCache();
+    testNetplay();
+    testAchievements();
+    std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
+    return failures ? EXIT_FAILURE : EXIT_SUCCESS;
+}

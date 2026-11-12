@@ -1,0 +1,37 @@
+# One-off cleanup: removes the GitHub Releases of the old 0.0.x alpha builds.
+# The git tags are kept, so those versions can still be checked out.
+# Run it by hand from the Actions tab.
+name: Delete alpha releases
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only list the releases that would be deleted'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete releases whose tag ends in -alpha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          tags=$(gh release list --limit 1000 --json tagName --jq '.[].tagName' | grep -E '^v0\.0\.[0-9.]+-alpha$' || true)
+          if [ -z "$tags" ]; then echo "No alpha releases left."; exit 0; fi
+          echo "Alpha releases ($(echo "$tags" | wc -l)):"
+          echo "$tags"
+          if [ "$DRY_RUN" = "true" ]; then echo "Dry run: nothing deleted."; exit 0; fi
+          for t in $tags; do
+            # No --cleanup-tag: the git tag stays.
+            gh release delete "$t" --yes
+            echo "Deleted release $t (tag kept)"
+          done

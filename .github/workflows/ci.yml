@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Only documentation changed?
+        id: changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: bash tools/ci/needs-build.sh
+      - name: Install SDL2
+        if: steps.changes.outputs.build == 'true'
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
+      - name: Build
+        if: steps.changes.outputs.build == 'true'
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+      - name: Core tests
+        if: steps.changes.outputs.build == 'true'
+        run: ctest --test-dir build --output-on-failure
+      - name: Screenshot of the test pattern
+        if: steps.changes.outputs.build == 'true'
+        run: ./build/plumnin-headless --test-rom --frames 120 --png test-pattern.png --quiet
+      - uses: actions/upload-artifact@v4
+        if: steps.changes.outputs.build == 'true'
+        with:
+          name: test-pattern-screenshot
+          path: test-pattern.png
+
+  # The emulator without a window: builds without SDL2 or OpenGL, as a CI job or a
+  # Claude thread would to reproduce a bug, and keeps a run's outputs as an artifact.
+  headless:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Only documentation changed?
+        id: changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: bash tools/ci/needs-build.sh
+      - name: Build (no frontend)
+        if: steps.changes.outputs.build == 'true'
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPLUMNIN_BUILD_FRONTEND=OFF
+          cmake --build build --parallel --target plumnin-headless core_tests
+      - name: Headless tests
+        if: steps.changes.outputs.build == 'true'
+        run: ctest --test-dir build --output-on-failure -R "headless|core_tests"
+      - name: Sample run with an input script
+        if: steps.changes.outputs.build == 'true'
+        run: |
+          mkdir -p headless-out
+          ./build/plumnin-headless --test-rom --frames 120 --out-dir headless-out \
+            --do "30+30 right" --do "45 screenshot" --do "90 screenshot" --json headless-out/moves.json
+          ./build/plumnin-headless --test-rom --system gb --frames 300 --png-every 100 --out-dir headless-out \
+            --do "50-250 a" --wav headless-out/test-pattern.wav --hash-log headless-out/test-pattern-hashes.txt \
+            --json headless-out/test-pattern.json
+      - uses: actions/upload-artifact@v4
+        if: steps.changes.outputs.build == 'true'
+        with:
+          name: headless-output
+          path: headless-out

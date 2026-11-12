@@ -1,0 +1,3 @@
+// The plum icon of plumnin.exe: the first icon in the file is the one Explorer, the
+// taskbar and SDL's window use.
+1 ICON "assets/plumnin.ico"
