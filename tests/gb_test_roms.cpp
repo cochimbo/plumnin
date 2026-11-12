@@ -4,7 +4,7 @@
 //
 //   gb-test-roms ROOT              the suite below; exit code 1 if one that should pass fails
 //   gb-test-roms ROOT --all        also the ones not expected to pass yet
-//   gb-test-roms --run ROM [--frames N] [--png OUT] [--ref PNG]   one ROM, to look at it
+//   gb-test-roms --run ROM [--frames N] [--png OUT] [--ref PNG] [--peek ADDR]   one ROM, to look at it
 //
 // A test passes in one of three ways, depending on how it reports:
 //   serial     blargg's: "Passed" sent through the link cable (or in the cartridge RAM)
@@ -179,29 +179,18 @@ const Test kTests[] = {
     {"blargg/mem_timing/mem_timing.gb", Kind::Serial, 300},
     {"blargg/mem_timing-2/mem_timing.gb", Kind::Serial, 300},
     {"blargg/halt_bug.gb", Kind::Screen, 200, "blargg/halt_bug-dmg-cgb.png"},
-    // The wave channel's RAM read and written while it plays (09, 10, 12) is not emulated.
-    {"blargg/dmg_sound/dmg_sound.gb", Kind::Serial, 3000, nullptr, false},
-    {"blargg/cgb_sound/cgb_sound.gb", Kind::Serial, 3000, nullptr, false},
-    {"blargg/interrupt_time/interrupt_time.gb", Kind::Serial, 300, nullptr, false},
+    {"blargg/dmg_sound/dmg_sound.gb", Kind::Serial, 3000},
+    {"blargg/cgb_sound/cgb_sound.gb", Kind::Serial, 3000},
+    {"blargg/interrupt_time/interrupt_time.gb", Kind::Screen, 300, "blargg/interrupt_time/interrupt_time-cgb.png"},
     {"dmg-acid2/dmg-acid2.gb", Kind::Screen, 60, "dmg-acid2/dmg-acid2-dmg.png"},
     {"cgb-acid2/cgb-acid2.gbc", Kind::Screen, 60, "cgb-acid2/cgb-acid2.png"},
 };
 
 // mooneye's acceptance tests and the cartridge ones, all of them but those for other
-// models (boot_* of the dmg0, mgb, sgb and the Color) and these, not passing yet.
+// models (boot_* of the dmg0, mgb, sgb and the Color).
 const char* const kMooneyeFolders[] = {"mooneye-test-suite/acceptance", "mooneye-test-suite/emulator-only"};
-const char* const kMooneyeKnownFailures[] = {
-    "acceptance/ppu/intr_2_mode0_timing.gb",
-    "acceptance/ppu/intr_2_mode0_timing_sprites.gb",
-    "acceptance/ppu/intr_2_mode3_timing.gb",
-    "acceptance/ppu/intr_2_oam_ok_timing.gb",
-    "acceptance/ppu/lcdon_timing-GS.gb",
-    "acceptance/ppu/lcdon_write_timing-GS.gb",
-    "acceptance/ppu/stat_lyc_onoff.gb",
-    "acceptance/serial/boot_sclk_align-dmgABCmgb.gb",
-    "acceptance/timer/rapid_toggle.gb",
-    "emulator-only/mbc1/multicart_rom_8Mb.gb",
-};
+// Those that do not pass yet, if any: run only with --all, and not counted as failures.
+const char* const kMooneyeKnownFailures[] = {nullptr};
 // clang-format on
 
 bool otherModel(const std::string& name) {
@@ -217,10 +206,12 @@ int main(int argc, char** argv) {
         const std::string rom = argv[2];
         int frames = 600;
         std::string out, ref;
+        std::vector<int> peeks;
         for (int i = 3; i + 1 < argc; i += 2) {
             if (!std::strcmp(argv[i], "--frames")) frames = std::atoi(argv[i + 1]);
             else if (!std::strcmp(argv[i], "--png")) out = argv[i + 1];
             else if (!std::strcmp(argv[i], "--ref")) ref = argv[i + 1];
+            else if (!std::strcmp(argv[i], "--peek")) peeks.push_back(static_cast<int>(std::strtol(argv[i + 1], nullptr, 16)));
         }
         std::string error;
         auto gb = load(rom, &error);
@@ -240,6 +231,7 @@ int main(int argc, char** argv) {
         int code = 0;
         std::string text;
         if (blarggRamDone(*gb, &code, &text)) std::printf("A000 result %d: %s\n", code, text.c_str());
+        for (int a : peeks) std::printf("%04X: %02X\n", a, gb->peek(static_cast<uint16_t>(a)));
         if (!out.empty()) writePng(*gb, out);
         if (!ref.empty()) {
             std::string detail;
@@ -248,7 +240,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (argc < 2) {
-        std::fprintf(stderr, "usage: gb-test-roms ROOT [--all] | --run ROM [--frames N] [--png OUT] [--ref PNG]\n");
+        std::fprintf(stderr, "usage: gb-test-roms ROOT [--all] | --run ROM [--frames N] [--png OUT] [--ref PNG] [--peek ADDR]\n");
         return 2;
     }
     const std::string root = std::string(argv[1]) + "/";
@@ -271,7 +263,7 @@ int main(int argc, char** argv) {
             const std::string name = rom.substr(root.size() + std::strlen("mooneye-test-suite/"));
             if (otherModel(name)) continue;
             bool expected = true;
-            for (const char* f : kMooneyeKnownFailures) expected = expected && name != f;
+            for (const char* f : kMooneyeKnownFailures) expected = expected && (!f || name != f);
             if (!expected && !all) continue;
             const Result r = run(rom, Kind::Mooneye, 600, "");
             std::printf("%s mooneye/%s%s%s\n", r.pass ? "ok  " : expected ? "FAIL" : "fail", name.c_str(),

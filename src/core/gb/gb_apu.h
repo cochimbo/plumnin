@@ -33,7 +33,7 @@ public:
                s.envPeriod, s.envTimer, s.sweepPeriod, s.sweepDown, s.sweepShift, s.sweepTimer, s.sweepOn, s.shadow,
                s.negUsed, s.nrx2);
         ar(wave_.on, wave_.dac, wave_.length, wave_.lengthOn, wave_.timer, wave_.freq, wave_.pos, wave_.level,
-           wave_.sample, waveRam_);
+           wave_.sample, wave_.loaded, waveRam_);
         ar(noise_.on, noise_.dac, noise_.length, noise_.lengthOn, noise_.timer, noise_.lfsr, noise_.nr43,
            noise_.volume, noise_.envInit, noise_.envUp, noise_.envPeriod, noise_.envTimer, noise_.nr42);
         ar(power_, nr50_, nr51_, seqStep_, regs_, acc_, accCycles_, sampleClock_, dcL_, dcR_);
@@ -65,6 +65,7 @@ private:
         int timer = 0;
         uint16_t freq = 0;
         uint8_t pos = 0, level = 0, sample = 0;
+        int loaded = 0;  // the period the timer was last reloaded with (0: not since the trigger)
     };
     struct Noise {
         bool on = false, dac = false;
@@ -80,6 +81,7 @@ private:
     };
 
     uint16_t sweepCalc(Square& s);
+    bool waveJustRead() const;
     void trigger(int ch);
     void lengthWrite(bool& lengthOn, int& length, bool& on, uint8_t value, int max);
     static void envelope(uint8_t& volume, bool up, uint8_t period, uint8_t& timer);

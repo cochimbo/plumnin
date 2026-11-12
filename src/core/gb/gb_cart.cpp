@@ -45,6 +45,10 @@ bool Cartridge::load(const std::vector<uint8_t>& rom, std::string* error) {
     rom_.resize(size, 0xFF);
     romMask_ = size - 1;
     mbc30_ = mapper_ == Mapper::Mbc3 && size > 0x200000;
+    // MBC1 multicarts (the collections of several games on one 8 Mbit ROM) wire the
+    // chip's bank lines one bit lower; each game has its own header and logo.
+    multicart_ = mapper_ == Mapper::Mbc1 && size == 0x100000 &&
+                 std::equal(rom_.begin() + 0x104, rom_.begin() + 0x134, rom_.begin() + 0x40104);
 
     size_t ramSize = 0;
     switch (rom[0x149]) {
@@ -88,7 +92,7 @@ std::string Cartridge::title() const {
 }
 
 size_t Cartridge::romOffset0() const {
-    if (mapper_ == Mapper::Mbc1 && mode_) return (static_cast<size_t>(bank2_) << 19) & romMask_;
+    if (mapper_ == Mapper::Mbc1 && mode_) return (static_cast<size_t>(bank2_) << (multicart_ ? 18 : 19)) & romMask_;
     return 0;
 }
 
@@ -96,7 +100,9 @@ size_t Cartridge::romOffsetN() const {
     size_t bank = 1;
     switch (mapper_) {
         case Mapper::None: bank = 1; break;
-        case Mapper::Mbc1: bank = static_cast<size_t>(bank2_) << 5 | bank1_; break;
+        case Mapper::Mbc1:
+            bank = multicart_ ? static_cast<size_t>(bank2_) << 4 | (bank1_ & 0x0F) : static_cast<size_t>(bank2_) << 5 | bank1_;
+            break;
         default: bank = romBank_; break;
     }
     return (bank << 14) & romMask_;

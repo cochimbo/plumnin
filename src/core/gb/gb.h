@@ -75,6 +75,7 @@ private:
         busWrite(address, value);
     }
     uint8_t busRead(uint16_t address) const;
+    uint8_t dmaRead(uint16_t address) const;
     void busWrite(uint16_t address, uint8_t value);
     uint8_t readIo(uint16_t address) const;
     void writeIo(uint16_t address, uint8_t value);
@@ -133,8 +134,8 @@ private:
     uint8_t buttons_ = 0x00;  // pressed, 1 = held: right left up down a b select start
     uint16_t div_ = 0;
     uint8_t tima_ = 0, tma_ = 0, tac_ = 0;
-    bool timaOverflow_ = false, timaReloaded_ = false;
-    int serialCycles_ = 0;
+    bool timaOverflow_ = false, timaReloaded_ = false, timaIrqNew_ = false;
+    int serialCycles_ = 0;  // bits left to shift
     bool doubleSpeed_ = false;
     uint8_t key1_ = 0;
     // OAM DMA.

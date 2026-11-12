@@ -68,7 +68,7 @@ private:
     std::vector<uint8_t> rom_;
     std::vector<uint8_t> ram_;
     Mapper mapper_ = Mapper::None;
-    bool battery_ = false, hasClock_ = false, rumble_ = false, mbc30_ = false;
+    bool battery_ = false, hasClock_ = false, rumble_ = false, mbc30_ = false, multicart_ = false;
     size_t romMask_ = 0;  // ROM size - 1, a power of two
     bool changed_ = false;
 

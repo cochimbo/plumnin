@@ -74,7 +74,7 @@ void GameBoy::reset() {
     sc_ = 0;
     tima_ = tma_ = 0;
     tac_ = 0;
-    timaOverflow_ = timaReloaded_ = false;
+    timaOverflow_ = timaReloaded_ = timaIrqNew_ = false;
     serialCycles_ = 0;
     doubleSpeed_ = false;
     key1_ = 0;
@@ -91,13 +91,29 @@ void GameBoy::reset() {
 bool GameBoy::timerBit(uint16_t div) const { return (tac_ & 4) && (div & kTimerMask[tac_ & 3]); }
 
 void GameBoy::timaIncrement() {
-    if (++tima_ == 0) timaOverflow_ = true;  // TMA is loaded one M-cycle later
+    if (++tima_ != 0) return;
+    // TMA is loaded one M-cycle later; the interrupt is seen from now (the processor
+    // looks at it at the end of the cycle it fetches in), unless TIMA is written first.
+    timaOverflow_ = true;
+    timaIrqNew_ = !(if_ & 4);
+    if_ |= 4;
 }
 
 void GameBoy::setDiv(uint16_t value) {
     const uint16_t old = div_;
     div_ = value;
     if (timerBit(old) && !timerBit(value)) timaIncrement();
+    // The link cable's clock is divided from the same counter: a bit every falling edge
+    // of bit 8 (bit 3 at the Color's fast speed), so a transfer ends on its eighth. Its
+    // interrupt is seen by the fetch of the next cycle, hence the counter one cycle on.
+    const uint16_t link = color_ && (sc_ & 2) ? 0x8 : 0x100;
+    const uint16_t next = static_cast<uint16_t>(value + 4);
+    if ((sc_ & 0x81) == 0x81 && serialCycles_ > 0 && (static_cast<uint16_t>(old + 4) & link) && !(next & link) &&
+        --serialCycles_ == 0) {
+        sb_ = 0xFF;  // nobody on the other end of the cable
+        sc_ &= 0x7F;
+        if_ |= 8;
+    }
     const uint16_t sound = doubleSpeed_ ? 0x2000 : 0x1000;
     if ((old & sound) && !(value & sound)) apu_.frameSequencerClock();
 }
@@ -108,21 +124,15 @@ void GameBoy::tick() {
     if (timaOverflow_) {
         timaOverflow_ = false;
         tima_ = tma_;
-        if_ |= 4;
         timaReloaded_ = true;
     }
     setDiv(static_cast<uint16_t>(div_ + 4));
 
-    if ((sc_ & 0x81) == 0x81 && serialCycles_ > 0 && --serialCycles_ == 0) {
-        sb_ = 0xFF;  // nobody on the other end of the cable
-        sc_ &= 0x7F;
-        if_ |= 8;
-    }
 
     if (dmaCopying_) {
         uint16_t from = static_cast<uint16_t>(dmaSource_ << 8 | dmaIndex_);
         if (from >= 0xE000) from = static_cast<uint16_t>(from - 0x2000);
-        ppu_.oam[dmaIndex_] = busRead(from);
+        ppu_.oam[dmaIndex_] = dmaRead(from);
         if (++dmaIndex_ == 0xA0) dmaActive_ = dmaCopying_ = false;
     }
     if (dmaDelay_ && --dmaDelay_ == 0) {
@@ -144,12 +154,12 @@ uint8_t GameBoy::busRead(uint16_t a) const {
             if (p.address == a && (p.compare < 0 || p.compare == v)) return static_cast<uint8_t>(p.value);
         return v;
     }
-    if (a < 0xA000) return ppu_.vram[color_ ? ppu_.vramBank : 0][a - 0x8000];
+    if (a < 0xA000) return ppu_.vramBlocked() ? 0xFF : ppu_.vram[color_ ? ppu_.vramBank : 0][a - 0x8000];
     if (a < 0xC000) return cart_.readRam(a);
     if (a < 0xD000) return wram_[a - 0xC000];
     if (a < 0xE000) return wram_[static_cast<size_t>(wramBank_) * 0x1000 + (a - 0xD000)];
     if (a < 0xFE00) return busRead(static_cast<uint16_t>(a - 0x2000));
-    if (a < 0xFEA0) return dmaActive_ ? 0xFF : ppu_.oam[a - 0xFE00];
+    if (a < 0xFEA0) return dmaActive_ || ppu_.oamBlocked() ? 0xFF : ppu_.oam[a - 0xFE00];
     if (a < 0xFF00) return color_ ? 0x00 : 0xFF;
     if (a < 0xFF80) return readIo(a);
     if (a < 0xFFFF) return hram_[a - 0xFF80];
@@ -158,15 +168,23 @@ uint8_t GameBoy::busRead(uint16_t a) const {
 
 uint8_t GameBoy::peek(uint16_t address) const { return busRead(address); }
 
+// The DMAs read past what the picture processor blocks for the processor.
+uint8_t GameBoy::dmaRead(uint16_t a) const {
+    if (a >= 0x8000 && a < 0xA000) return ppu_.vram[color_ ? ppu_.vramBank : 0][a - 0x8000];
+    return busRead(a);
+}
+
 void GameBoy::busWrite(uint16_t a, uint8_t v) {
     if (a < 0x8000) cart_.write(a, v);
-    else if (a < 0xA000) ppu_.vram[color_ ? ppu_.vramBank : 0][a - 0x8000] = v;
+    else if (a < 0xA000) {
+        if (!ppu_.vramWriteBlocked()) ppu_.vram[color_ ? ppu_.vramBank : 0][a - 0x8000] = v;
+    }
     else if (a < 0xC000) cart_.write(a, v);
     else if (a < 0xD000) wram_[a - 0xC000] = v;
     else if (a < 0xE000) wram_[static_cast<size_t>(wramBank_) * 0x1000 + (a - 0xD000)] = v;
     else if (a < 0xFE00) busWrite(static_cast<uint16_t>(a - 0x2000), v);
     else if (a < 0xFEA0) {
-        if (!dmaActive_) ppu_.oam[a - 0xFE00] = v;
+        if (!dmaActive_ && !ppu_.oamWriteBlocked()) ppu_.oam[a - 0xFE00] = v;
     } else if (a < 0xFF00) {
     } else if (a < 0xFF80) writeIo(a, v);
     else if (a < 0xFFFF) hram_[a - 0xFF80] = v;
@@ -220,7 +238,7 @@ uint8_t GameBoy::readIo(uint16_t a) const {
 
 void GameBoy::hdmaBlock() {
     for (int i = 0; i < 16; ++i) {
-        const uint8_t v = busRead(hdmaSource_);
+        const uint8_t v = dmaRead(hdmaSource_);
         ppu_.vram[ppu_.vramBank][hdmaDest_ & 0x1FFF] = v;
         hdmaSource_ = static_cast<uint16_t>(hdmaSource_ + 1);
         hdmaDest_ = static_cast<uint16_t>(((hdmaDest_ + 1) & 0x1FFF) | 0x8000);
@@ -247,14 +265,14 @@ void GameBoy::writeIo(uint16_t a, uint8_t v) {
             if ((sc_ & 0x81) == 0x81) {
                 serial_ += static_cast<char>(sb_);
                 if (serial_.size() > 65536) serial_.erase(0, 32768);
-                serialCycles_ = color_ && (sc_ & 2) ? 32 : 1024;
-                if (doubleSpeed_) serialCycles_ *= 2;
+                serialCycles_ = 8;
             }
             return;
         case 0xFF04: setDiv(0); return;
         case 0xFF05:
             if (timaReloaded_) return;  // the reload from TMA wins
             tima_ = v;
+            if (timaOverflow_ && timaIrqNew_) if_ &= ~4;
             timaOverflow_ = false;
             return;
         case 0xFF06:
@@ -412,7 +430,7 @@ void GameBoy::saveBlocks(StateBlocks& blocks) {
         w(a_, f_, b_, c_, d_, e_, h_, l_, sp_, pc_, ime_, eiDelay_, halted_, haltBug_, stopped_);
     });
     blocks.add("GBMM", [&](StateWriter& w) {
-        w(wram_, hram_, wramBank_, if_, ie_, p1_, sb_, sc_, div_, tima_, tma_, tac_, timaOverflow_, timaReloaded_,
+        w(wram_, hram_, wramBank_, if_, ie_, p1_, sb_, sc_, div_, tima_, tma_, tac_, timaOverflow_, timaReloaded_, timaIrqNew_,
           serialCycles_, doubleSpeed_, key1_, dmaActive_, dmaCopying_, dmaDelay_, dmaSource_, dmaNextSource_,
           dmaIndex_, dmaReg_, hdmaSource_, hdmaDest_, hdmaLength_, hdmaActive_, cycles_);
     });
@@ -424,7 +442,7 @@ void GameBoy::saveBlocks(StateBlocks& blocks) {
 bool GameBoy::loadBlock(uint32_t id, StateReader& r) {
     if (id == fourcc("GBCP")) r(a_, f_, b_, c_, d_, e_, h_, l_, sp_, pc_, ime_, eiDelay_, halted_, haltBug_, stopped_);
     else if (id == fourcc("GBMM"))
-        r(wram_, hram_, wramBank_, if_, ie_, p1_, sb_, sc_, div_, tima_, tma_, tac_, timaOverflow_, timaReloaded_,
+        r(wram_, hram_, wramBank_, if_, ie_, p1_, sb_, sc_, div_, tima_, tma_, tac_, timaOverflow_, timaReloaded_, timaIrqNew_,
           serialCycles_, doubleSpeed_, key1_, dmaActive_, dmaCopying_, dmaDelay_, dmaSource_, dmaNextSource_,
           dmaIndex_, dmaReg_, hdmaSource_, hdmaDest_, hdmaLength_, hdmaActive_, cycles_);
     else if (id == fourcc("GBPP")) ppu_.state(r);

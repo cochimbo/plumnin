@@ -126,9 +126,17 @@ void Apu::trigger(int ch) {
             if (s.sweepShift) sweepCalc(s);
         }
     } else if (ch == 2) {
+        // The Game Boy's bug: retriggered just as it reads a sample, the channel
+        // overwrites the start of the wave RAM with the bytes around the one it reads.
+        if (!color_ && wave_.on && wave_.timer <= 2) {
+            const int at = ((wave_.pos + 1) >> 1) & 15;
+            if (at < 4) waveRam_[0] = waveRam_[at];
+            else std::memmove(waveRam_, waveRam_ + (at & ~3), 4);
+        }
         wave_.on = wave_.dac;
         wave_.timer = (2048 - wave_.freq) * 2 + 6;
         wave_.pos = 0;
+        wave_.loaded = 0;
     } else {
         noise_.on = noise_.dac;
         noise_.timer = noisePeriod(noise_.nr43);
@@ -151,8 +159,22 @@ void Apu::lengthWrite(bool& lengthOn, int& length, bool& on, uint8_t value, int 
     }
 }
 
+// The Game Boy reaches the wave RAM while channel 3 plays only within 2 clocks of the
+// channel reading a sample.
+bool Apu::waveJustRead() const {
+    if (!wave_.loaded) return false;
+    const int ago = wave_.loaded - wave_.timer;
+    return ago >= 0 && ago < 2;
+}
+
 uint8_t Apu::read(uint16_t address) const {
-    if (address >= 0xFF30) return waveRam_[address - 0xFF30];
+    if (address >= 0xFF30) {
+        if (!wave_.on) return waveRam_[address - 0xFF30];
+        // While it plays, the wave RAM answers with the byte the channel is reading; the
+        // Game Boy's only in the moment it reads it.
+        if (color_ || waveJustRead()) return waveRam_[wave_.pos >> 1];
+        return 0xFF;
+    }
     const int r = address - 0xFF10;
     if (address == 0xFF26) {
         return static_cast<uint8_t>((power_ ? 0x80 : 0) | 0x70 | (sq_[0].on ? 1 : 0) | (sq_[1].on ? 2 : 0) |
@@ -163,7 +185,8 @@ uint8_t Apu::read(uint16_t address) const {
 
 void Apu::write(uint16_t address, uint8_t value) {
     if (address >= 0xFF30) {
-        waveRam_[address - 0xFF30] = value;
+        if (!wave_.on) waveRam_[address - 0xFF30] = value;
+        else if (color_ || waveJustRead()) waveRam_[wave_.pos >> 1] = value;
         return;
     }
     const int r = address - 0xFF10;
@@ -285,7 +308,8 @@ void Apu::run(int cycles) {
     if (wave_.on) {
         wave_.timer -= cycles;
         while (wave_.timer <= 0) {
-            wave_.timer += (2048 - wave_.freq) * 2;
+            wave_.loaded = (2048 - wave_.freq) * 2;
+            wave_.timer += wave_.loaded;
             wave_.pos = (wave_.pos + 1) & 31;
             const uint8_t b = waveRam_[wave_.pos >> 1];
             wave_.sample = wave_.pos & 1 ? (b & 0x0F) : (b >> 4);

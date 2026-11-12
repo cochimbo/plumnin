@@ -43,6 +43,18 @@ public:
         return h;
     }
     bool lcdOn() const { return lcdc_ & 0x80; }
+    // What the processor cannot reach while the picture is being drawn: OAM in modes 2
+    // and 3, VRAM and the Color's palettes in mode 3.
+    bool oamBlocked() const { return (lcdc_ & 0x80) && (mode_ == 3 || (mode_ == 2 && !firstLine_)); }
+    bool vramBlocked() const {
+        return (lcdc_ & 0x80) && (mode_ == 3 || (mode_ == 2 && dot_ >= 80 && !firstLine_));
+    }
+    // Writes get through for a little longer: OAM in a line's first cycle and between
+    // modes 2 and 3, VRAM until mode 3 really starts.
+    bool oamWriteBlocked() const {
+        return (lcdc_ & 0x80) && (mode_ == 3 || (mode_ == 2 && !firstLine_ && dot_ >= 4 && dot_ < 80));
+    }
+    bool vramWriteBlocked() const { return (lcdc_ & 0x80) && mode_ == 3; }
     bool color() const { return color_; }
 
     uint8_t vram[2][0x2000] = {};
@@ -52,7 +64,7 @@ public:
     template <class Ar>
     void state(Ar& ar) {
         ar(vram[0], vram[1], oam, vramBank, lcdc_, stat_, scy_, scx_, ly_, lyc_, bgp_, obp_, wy_, wx_, line_, dot_,
-           mode_, mode3End_, statLine_, wyHit_, winLine_, firstLine_, offDots_, frameDone_, hblank_, bcps_, ocps_,
+           mode_, mode3End_, statLine_, lycFlag_, lineStart_, wyHit_, winLine_, firstLine_, offDots_, frameDone_, hblank_, bcps_, ocps_,
            bgPal_, obPal_, opri_, unwrappedScx_, sprites_, spriteCount_);
     }
 
@@ -74,6 +86,8 @@ private:
     uint8_t wy_ = 0, wx_ = 0;
     int line_ = 0, dot_ = 0, mode_ = 0, mode3End_ = 252;
     bool statLine_ = false;
+    bool lycFlag_ = false;
+    bool lineStart_ = false;  // the first cycle of a line
     bool wyHit_ = false;
     int winLine_ = 0;
     bool firstLine_ = false;  // the line after the LCD is switched on has no mode 2

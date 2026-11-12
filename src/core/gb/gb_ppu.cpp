@@ -24,6 +24,8 @@ void Ppu::reset(bool color) {
     mode_ = 2;
     mode3End_ = 252;
     statLine_ = false;
+    lycFlag_ = true;
+    lineStart_ = false;
     wyHit_ = false;
     winLine_ = 0;
     firstLine_ = false;
@@ -45,7 +47,9 @@ uint32_t Ppu::cgbColour(const uint8_t* pal, int palette, int index) const {
 }
 
 void Ppu::updateStat(uint8_t& irq) {
-    const bool line = ((stat_ & 0x40) && ly_ == lyc_) || ((stat_ & 0x08) && mode_ == 0) ||
+    // The LY=LYC comparison only runs with the LCD on; off, its result stays as it was.
+    if (lcdc_ & 0x80) lycFlag_ = ly_ == lyc_;
+    const bool line = ((stat_ & 0x40) && lycFlag_) || ((stat_ & 0x08) && mode_ == 0) ||
                       ((stat_ & 0x10) && mode_ == 1) || ((stat_ & 0x20) && mode_ == 2);
     if (line && !statLine_) irq |= Stat;
     statLine_ = line;
@@ -71,13 +75,20 @@ int Ppu::mode3Length() {
 
     int length = 172 + (scx_ & 7);
     if ((lcdc_ & 0x20) && wyHit_ && wx_ < 167) length += 6;
-    if (lcdc_ & 2)
+    // Each sprite costs 6 dots, and the first one in each background tile also waits
+    // for that tile's fetch to end: 5 dots less one per pixel it starts into the tile.
+    if (lcdc_ & 2) {
+        int tiles[10], seen = 0;
         for (int i = 0; i < spriteCount_; ++i) {
             const int x = oam[sprites_[i] * 4 + 1];
             if (x >= 168) continue;
-            const int t = (x + scx_) & 7;
-            length += 6 + std::max(0, 5 - t);
+            length += 6;
+            const int tile = (x + (scx_ & 7)) >> 3;
+            if (std::find(tiles, tiles + seen, tile) != tiles + seen) continue;
+            tiles[seen++] = tile;
+            length += std::max(0, 5 - ((x + scx_) & 7));
         }
+    }
     return std::min(length, 289);
 }
 
@@ -93,10 +104,14 @@ void Ppu::run(int dots, uint8_t& irq) {
         }
         ++dot_;
         if (line_ < kScreenHeight) {
-            if (dot_ == 80) {
+            // STAT shows each mode a cycle after the interrupts see it start.
+            if (dot_ == 84) {
                 mode3End_ = 80 + mode3Length();
                 setMode(3, irq);
             } else if (dot_ == mode3End_) {
+                if ((stat_ & 0x08) && !statLine_) irq |= Stat;
+                statLine_ = statLine_ || (stat_ & 0x08);
+            } else if (dot_ == mode3End_ + 1) {
                 renderLine();
                 setMode(0, irq);
                 hblank_ = true;
@@ -105,6 +120,7 @@ void Ppu::run(int dots, uint8_t& irq) {
             ly_ = 0;  // the last line reads as line 0 almost from its start
             updateStat(irq);
         }
+        if (dot_ == 4) lineStart_ = false;
         if (dot_ < kDotsPerLine) continue;
         dot_ = 0;
         firstLine_ = false;
@@ -117,6 +133,8 @@ void Ppu::run(int dots, uint8_t& irq) {
             }
             if (ly_ == wy_) wyHit_ = true;
             setMode(2, irq);
+            // For its first cycle a line shows mode 0 and no LY=LYC in STAT.
+            lineStart_ = line_ > 0;
         } else if (line_ == kScreenHeight) {
             irq |= VBlank;
             frameDone_ = true;
@@ -133,8 +151,8 @@ uint8_t Ppu::read(uint16_t address) const {
     switch (address) {
         case 0xFF40: return lcdc_;
         case 0xFF41: {
-            const int mode = (lcdc_ & 0x80) ? (firstLine_ && mode_ == 2 ? 0 : mode_) : 0;
-            return static_cast<uint8_t>(0x80 | (stat_ & 0x78) | (ly_ == lyc_ && (lcdc_ & 0x80) ? 4 : 0) | mode);
+            const int mode = (lcdc_ & 0x80) && !lineStart_ ? (firstLine_ && mode_ == 2 ? 0 : mode_) : 0;
+            return static_cast<uint8_t>(0x80 | (stat_ & 0x78) | (lycFlag_ && !lineStart_ ? 4 : 0) | mode);
         }
         case 0xFF42: return scy_;
         case 0xFF43: return scx_;
@@ -169,12 +187,15 @@ void Ppu::write(uint16_t address, uint8_t value, uint8_t& irq) {
                 ly_ = 0;
                 mode_ = 0;
                 offDots_ = 0;
-                statLine_ = false;
+                statLine_ = (stat_ & 0x40) && lycFlag_;
             } else if (!was && (value & 0x80)) {
-                line_ = dot_ = 0;
+                // The first line starts 4 dots late, and with no OAM search.
+                line_ = 0;
+                dot_ = 4;
                 ly_ = 0;
                 mode_ = 2;
                 firstLine_ = true;
+                lineStart_ = false;
                 wyHit_ = wy_ == 0;
                 winLine_ = 0;
                 // The first line has no OAM search: what reads as mode 2 is mode 0.

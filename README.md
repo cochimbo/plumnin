@@ -19,8 +19,10 @@ screen. What there is:
   3D view, the Color's palettes, VRAM banks and DMA, double speed, the sound (two square
   waves, wave and noise), and the cartridges with ROM only, MBC1, MBC2, MBC3 (with its
   clock, saved the way VBA-M and BGB save it) and MBC5. Cheats in Game Genie and GameShark
-  codes, and RetroAchievements. It passes blargg's `cpu_instrs`, `instr_timing` and
-  `mem_timing`, `dmg-acid2`, `cgb-acid2` and most of mooneye's tests (see Tests).
+  codes, and RetroAchievements. It passes all of blargg's tests but `oam_bug` (`cpu_instrs`,
+  `instr_timing`, `mem_timing`, `halt_bug`, `interrupt_time`, `dmg_sound`, `cgb_sound`),
+  `dmg-acid2`, `cgb-acid2` and all of mooneye's acceptance and cartridge tests for the
+  models it emulates (see Tests).
 
 - The frontend from plumsg: the menus, the game library (covers, details and media from
   ScreenScraper and libretro-database, console tabs for the four consoles), savestates
@@ -84,8 +86,8 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
 - `gb_test_roms`: the Game Boy's test ROMs (blargg, mooneye, dmg-acid2, cgb-acid2), which
   are not part of plumnin. Unpack a release of
   [game-boy-test-roms](https://github.com/c-sp/game-boy-test-roms/releases) and configure
-  with `-DGB_TEST_ROMS=path/to/it`; `gb-test-roms path/to/it --all` also runs the ones that
-  do not pass yet, and `gb-test-roms --run ROM --png out.png` runs one to look at it.
+  with `-DGB_TEST_ROMS=path/to/it`. `gb-test-roms --run ROM --png out.png` runs one to look
+  at it.
 
 ```sh
 ./build/plumnin-headless --test-rom --system gb --frames 300 --do "60-120 right a" --png out.png
