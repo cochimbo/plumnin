@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "console.h"
+#include "gb/gb.h"
 #include "miniz.h"
 #include "netplay.h"
 #include "render/planes.h"
@@ -97,6 +98,34 @@ std::vector<uint8_t> gameBoyRom(bool colorOnly) {
     std::vector<uint8_t> rom(0x8000, 0);
     std::copy(std::begin(logo), std::end(logo), rom.begin() + 0x104);
     rom[0x143] = colorOnly ? 0xC0 : 0x00;
+    return rom;
+}
+
+// A small Game Boy program, so that the Game Boy can be tested without any game: it
+// fills the background with a checkerboard of solid tiles that scrolls one pixel a
+// frame, puts a sprite of a solid tile at (0x50, 0x50) that the cross moves, and beeps
+// on the first square channel while A is held.
+std::vector<uint8_t> gameBoyProgram(uint8_t type = 0x00, uint8_t ramSize = 0x00) {
+    std::vector<uint8_t> rom = gameBoyRom(false);
+    static const uint8_t code[] = {
+        0xF3, 0x31, 0xFE, 0xFF, 0xF0, 0x44, 0xFE, 0x90, 0x20, 0xFA, 0xAF, 0xE0, 0x40, 0x21, 0x10, 0x80,
+        0x3E, 0xFF, 0x06, 0x10, 0x22, 0x05, 0x20, 0xFC, 0x21, 0x00, 0x98, 0x06, 0x00, 0x7D, 0xE6, 0x01,
+        0x22, 0x05, 0x20, 0xF9, 0x21, 0x00, 0xFE, 0x3E, 0x50, 0x22, 0x22, 0x3E, 0x01, 0x22, 0xAF, 0x77,
+        0x3E, 0xE4, 0xE0, 0x47, 0xE0, 0x48, 0x3E, 0x93, 0xE0, 0x40, 0x3E, 0x80, 0xE0, 0x26, 0x3E, 0xFF,
+        0xE0, 0x25, 0x3E, 0x77, 0xE0, 0x24, 0xF0, 0x44, 0xFE, 0x90, 0x20, 0xFA, 0x3E, 0x20, 0xE0, 0x00,
+        0xF0, 0x00, 0xF0, 0x00, 0x2F, 0x47, 0xCB, 0x40, 0x28, 0x04, 0x21, 0x01, 0xFE, 0x34, 0xCB, 0x48,
+        0x28, 0x04, 0x21, 0x01, 0xFE, 0x35, 0xCB, 0x50, 0x28, 0x04, 0x21, 0x00, 0xFE, 0x35, 0xCB, 0x58,
+        0x28, 0x04, 0x21, 0x00, 0xFE, 0x34, 0x3E, 0x10, 0xE0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0x2F, 0xCB,
+        0x47, 0x28, 0x08, 0x3E, 0xF0, 0xE0, 0x12, 0x3E, 0x87, 0xE0, 0x14, 0xF0, 0x43, 0x3C, 0xE0, 0x43,
+        0xF0, 0x44, 0xFE, 0x90, 0x28, 0xFA, 0x18, 0xAE,
+    };
+    const uint8_t start[] = {0x00, 0xC3, 0x50, 0x01};  // NOP; JP 0150
+    std::copy(std::begin(start), std::end(start), rom.begin() + 0x100);
+    const char title[] = "PLUMNIN TEST";
+    std::copy(title, title + sizeof title - 1, rom.begin() + 0x134);
+    rom[0x147] = type;
+    rom[0x149] = ramSize;
+    std::copy(std::begin(code), std::end(code), rom.begin() + 0x150);
     return rom;
 }
 
@@ -993,6 +1022,117 @@ void testTextureCache() {
 
 }  // namespace
 
+void testGameBoy() {
+    check(emulated(ConsoleSystem::GameBoy) && emulated(ConsoleSystem::GameBoyColor), "game boy: emulated");
+    auto gb = std::make_unique<GameBoy>();
+    std::string error;
+    check(gb->loadRomData(gameBoyProgram(), &error) && gb->system() == ConsoleSystem::GameBoy &&
+              gb->title() == "PLUMNIN TEST" && !gb->hasSaveData() && gb->ports() == 1,
+          "game boy: a cartridge with only ROM");
+    std::vector<uint8_t> unknown = gameBoyProgram(0xFC);
+    check(!GameBoy().loadRomData(unknown, &error) && error.find("FC") != std::string::npos,
+          "game boy: a cartridge chip it does not emulate is refused");
+    for (int i = 0; i < 10; ++i) gb->runFrame();
+    check(gb->peek(0xFE00) == 0x50 && gb->peek(0xFE01) == 0x50, "game boy: the program put its sprite in OAM");
+    PadState right;
+    right.right = true;
+    gb->setPad(0, right);
+    for (int i = 0; i < 20; ++i) gb->runFrame();
+    const int x = gb->peek(0xFE01), y = gb->peek(0xFE00);
+    check(x >= 0x50 + 19 && x <= 0x50 + 21 && y == 0x50, "game boy: the cross moves the sprite");
+    gb->setPad(0, PadState{});
+    gb->runFrame();
+    const VideoFrame& f = gb->frame();
+    const int sx = gb->peek(0xFE01) - 8 + 3, sy = gb->peek(0xFE00) - 16 + 3;
+    check(f.width == 160 && f.height == 144 && f.pixel(sx, sy) == 0xFF081820u &&
+              f.info[static_cast<size_t>(sy) * VideoFrame::kMaxWidth + sx].layer == Layer::Sprite,
+          "game boy: the sprite is drawn darkest, on the sprite layer");
+    int back = 0, clear = 0;
+    for (int i = 0; i < 160; ++i) {
+        const size_t at = static_cast<size_t>(10) * VideoFrame::kMaxWidth + i;
+        if (f.planeB[at] >> 24) ++back;
+        else ++clear;
+    }
+    check(back == 80 && clear == 80 && f.lines[10].displayEnabled, "game boy: the checkerboard is on the back plane, colour 0 clear");
+    const int16_t scroll = f.lines[10].hscrollB;
+    gb->runFrame();
+    check(gb->frame().lines[10].hscrollB == scroll - 1, "game boy: the scroll goes into the frame");
+
+    gb->audio().clearSamples();
+    gb->setSampleRate(48000);
+    PadState a;
+    a.a = true;
+    gb->setPad(0, a);
+    for (int i = 0; i < 5; ++i) gb->runFrame();
+    const std::vector<int16_t>& samples = gb->audio().samples();
+    int loud = 0;
+    for (int16_t v : samples) loud = std::max(loud, std::abs(static_cast<int>(v)));
+    check(samples.size() > 7900 && samples.size() < 8200 && loud > 1000, "game boy: A beeps, at the asked rate");
+    gb->setPad(0, PadState{});
+
+    // A state brings back the same frames and sound.
+    std::vector<uint8_t> state;
+    check(gb->saveState(state), "game boy: savestate");
+    auto runSome = [&](GameBoy& g) {
+        uint32_t h = 2166136261u;
+        PadState p;
+        for (int i = 0; i < 40; ++i) {
+            p.left = i < 10;
+            p.down = i > 20;
+            p.a = i % 7 == 0;
+            g.setPad(0, p);
+            g.audio().clearSamples();
+            g.runFrame();
+            for (int yy = 0; yy < 144; ++yy)
+                for (int xx = 0; xx < 160; ++xx) h = (h ^ g.frame().pixel(xx, yy)) * 16777619u;
+            for (int16_t v : g.audio().samples()) h = (h ^ static_cast<uint16_t>(v)) * 16777619u;
+        }
+        return h;
+    };
+    const uint32_t first = runSome(*gb);
+    check(gb->loadState(state, &error) && runSome(*gb) == first, "game boy: a savestate replays the same frames and sound");
+    GameBoy other;
+    other.loadRomData(gameBoyProgram(), &error);
+    other.setSampleRate(48000);
+    check(other.loadState(state, &error) && runSome(other) == first, "game boy: and in another console");
+
+    // Cheats: a Game Genie code patches what the ROM answers, a GameShark one RAM.
+    CheatPatch p;
+    const CheatDecoder decode = cheatDecoderFor(ConsoleSystem::GameBoy);
+    check(decode && decode("00A-17B-C49", &p, &error) && p.address == 0x4A17 && p.value == 0 && p.compare == 0xC8 && !p.ram,
+          "game boy: a Game Genie code");
+    check(decode("01AAC0C0", &p, &error) && p.ram && p.address == 0xC0C0 && p.value == 0xAA, "game boy: a GameShark code");
+    check(!decode("12345", &p, &error) && !decode("01AAC0CG", &p, &error), "game boy: wrong codes");
+    std::vector<CheatPatch> patches;
+    check(decodeCheatCodes("121-51F+01AAC0C0", decode, &patches, &error) && patches.size() == 2, "game boy: two codes");
+    gb->setCheats(patches);
+    gb->runFrame();
+    check(gb->peek(0x0151) == 0x12 && gb->peek(0xC0C0) == 0xAA, "game boy: the cheats are on");
+    gb->setCheats({});
+    check(gb->peek(0x0151) == 0x31, "game boy: and off");
+
+    check(gb->achievementsConsole() == 4 && !gb->memoryMap().empty() && gb->memoryMap()[0].address == 0,
+          "game boy: the achievements' memory map");
+
+    // A battery-backed MBC3 with its clock: the save is the RAM and 48 bytes of clock.
+    GameBoy mbc3;
+    check(mbc3.loadRomData(gameBoyProgram(0x10, 0x03), &error) && mbc3.hasSaveData(), "game boy: an MBC3 with battery");
+    std::vector<uint8_t> save = mbc3.saveData();
+    check(save.size() == 0x8000 + 48, "game boy: its save carries the clock");
+    save[5] = 0x42;
+    mbc3.loadSaveData(save);
+    check(mbc3.saveData()[5] == 0x42, "game boy: the save loads back");
+
+    auto color = createConsole(ConsoleSystem::GameBoyColor);
+    std::vector<uint8_t> cgb = gameBoyProgram();
+    cgb[0x143] = 0x80;
+    check(color && color->loadRomData(cgb, &error) && color->system() == ConsoleSystem::GameBoyColor &&
+              color->achievementsConsole() == 6,
+          "game boy: a game for the Color runs on a Color");
+    for (int i = 0; i < 10; ++i) color->runFrame();
+    check(color->frame().pixel(0, 0) == 0xFFFFFFFFu, "game boy: the Color's palettes start white");
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -1013,6 +1153,7 @@ int main() {
     testTextureCache();
     testNetplay();
     testAchievements();
+    testGameBoy();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

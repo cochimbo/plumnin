@@ -64,6 +64,15 @@ jobs:
       - name: Headless tests
         if: steps.changes.outputs.build == 'true'
         run: ctest --test-dir build --output-on-failure -R "headless|core_tests"
+      # The Game Boy's test ROMs (blargg, mooneye, the acid2 pictures): downloaded, never committed.
+      - name: Game Boy test ROMs
+        if: steps.changes.outputs.build == 'true'
+        run: |
+          curl -sSL -o gbtr.zip https://github.com/c-sp/game-boy-test-roms/releases/download/v7.0/game-boy-test-roms-v7.0.zip
+          mkdir -p gbtr && unzip -q gbtr.zip -d gbtr
+          cmake build -DGB_TEST_ROMS="$PWD/gbtr"
+          cmake --build build --parallel --target gb-test-roms
+          ctest --test-dir build --output-on-failure -R gb_test_roms
       - name: Sample run with an input script
         if: steps.changes.outputs.build == 'true'
         run: |

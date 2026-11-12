@@ -868,6 +868,9 @@ msgstr "Fonte: ScreenScraper"
 msgid "GIF guardado en %s"
 msgstr "GIF guardado em %s"
 
+msgid "Game Genie (ABC-DEF-GHI) o GameShark (01FF34C1)"
+msgstr "Game Genie (ABC-DEF-GHI) ou GameShark (01FF34C1)"
+
 msgid "General"
 msgstr "Geral"
 
@@ -1952,6 +1955,12 @@ msgstr "o arquivo está vazio: %s"
 msgid "el archivo no es un estado de plumnin"
 msgstr "o arquivo não é um estado do plumnin"
 
+msgid "el cartucho usa un chip que plumnin no emula (tipo %02X)"
+msgstr "o cartucho usa um chip que o plumnin não emula (tipo %02X)"
+
+msgid "el código Game Genie apunta fuera de la ROM"
+msgstr "o código Game Genie aponta para fora da ROM"
+
 msgid "el estado es de otra ROM"
 msgstr "o estado é de outra ROM"
 
@@ -1969,6 +1978,9 @@ msgstr "o zip está danificado: %s"
 
 msgid "el zip no contiene ninguna ROM (.gb, .gbc, .nes, .sfc o .smc): %s"
 msgstr "o zip não contém nenhuma ROM (.gb, .gbc, .nes, .sfc ou .smc): %s"
+
+msgid "la ROM es demasiado pequeña para ser de Game Boy"
+msgstr "a ROM é pequena demais para ser de Game Boy"
 
 msgid "no se pudo leer %s"
 msgstr "não foi possível ler %s"
@@ -2052,6 +2064,15 @@ msgstr "O plumnin ainda não lê os truques do %s."
 
 msgid "plumnin, emulador de Game Boy, Game Boy Color, NES y Super Nintendo con efecto pseudo-3D."
 msgstr "plumnin, emulador de Game Boy, Game Boy Color, NES e Super Nintendo com efeito pseudo-3D."
+
+msgid "tipo de código GameShark desconocido"
+msgstr "tipo de código GameShark desconhecido"
+
+msgid "un código de Game Boy solo lleva cifras hexadecimales"
+msgstr "um código de Game Boy só tem dígitos hexadecimais"
+
+msgid "un código de Game Boy tiene 6 o 9 cifras (Game Genie) u 8 (GameShark)"
+msgstr "um código de Game Boy tem 6 ou 9 dígitos (Game Genie) ou 8 (GameShark)"
 
 msgid "vacía"
 msgstr "vazio"

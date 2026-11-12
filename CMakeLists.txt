@@ -61,6 +61,11 @@ add_library(plumnin_core STATIC
   src/core/console.cpp
   src/core/consoles.cpp
   src/core/test_console.cpp
+  src/core/gb/gb.cpp
+  src/core/gb/gb_cpu.cpp
+  src/core/gb/gb_ppu.cpp
+  src/core/gb/gb_apu.cpp
+  src/core/gb/gb_cart.cpp
   src/core/system.cpp
   src/core/cheats.cpp
   src/core/rewind.cpp
@@ -252,6 +257,16 @@ if(PLUMNIN_BUILD_TESTS)
   target_compile_definitions(core_tests PRIVATE PLUMNIN_TEST_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests")
   target_link_libraries(core_tests PRIVATE plumnin_core plumnin_achievements)
   add_test(NAME core_tests COMMAND core_tests)
+
+  # The Game Boy's test ROMs, when their folder is given: -DGB_TEST_ROMS=path/to/game-boy-test-roms
+  # (a release of https://github.com/c-sp/game-boy-test-roms, unpacked).
+  add_executable(gb-test-roms tests/gb_test_roms.cpp)
+  target_include_directories(gb-test-roms PRIVATE third_party/stb)
+  target_link_libraries(gb-test-roms PRIVATE plumnin_core)
+  set(GB_TEST_ROMS "" CACHE PATH "Folder of the game-boy-test-roms release, for the gb_test_roms test")
+  if(GB_TEST_ROMS)
+    add_test(NAME gb_test_roms COMMAND gb-test-roms ${GB_TEST_ROMS})
+  endif()
 
   # Every text in tr() has its translation in every .po (tools/i18n.py --update adds the new ones).
   find_package(Python3 COMPONENTS Interpreter QUIET)
