@@ -871,6 +871,9 @@ msgstr "GIF saved to %s"
 msgid "Game Genie (ABC-DEF-GHI) o GameShark (01FF34C1)"
 msgstr "Game Genie (ABC-DEF-GHI) or GameShark (01FF34C1)"
 
+msgid "Game Genie (SXIOPO o YEUZUGAA) o Pro Action Replay (0075:09)"
+msgstr "Game Genie (SXIOPO or YEUZUGAA) or Pro Action Replay (0075:09)"
+
 msgid "General"
 msgstr "General"
 
@@ -1955,11 +1958,17 @@ msgstr "the file is empty: %s"
 msgid "el archivo no es un estado de plumnin"
 msgstr "the file is not a plumnin state"
 
+msgid "el cartucho usa el mapper %d, que plumnin no emula todavía"
+msgstr "the cartridge uses mapper %d, which plumnin does not emulate yet"
+
 msgid "el cartucho usa un chip que plumnin no emula (tipo %02X)"
 msgstr "the cartridge uses a chip plumnin does not emulate (type %02X)"
 
 msgid "el código Game Genie apunta fuera de la ROM"
 msgstr "the Game Genie code points outside the ROM"
+
+msgid "el código apunta a los registros del NES, no a su memoria"
+msgstr "the code points at the NES's registers, not at its memory"
 
 msgid "el estado es de otra ROM"
 msgstr "the state is from another ROM"
@@ -1979,8 +1988,17 @@ msgstr "the zip is damaged: %s"
 msgid "el zip no contiene ninguna ROM (.gb, .gbc, .nes, .sfc o .smc): %s"
 msgstr "the zip holds no ROM (.gb, .gbc, .nes, .sfc or .smc): %s"
 
+msgid "la ROM de NES está cortada"
+msgstr "the NES ROM is truncated"
+
+msgid "la ROM de NES no tiene PRG"
+msgstr "the NES ROM has no PRG"
+
 msgid "la ROM es demasiado pequeña para ser de Game Boy"
 msgstr "the ROM is too small to be a Game Boy one"
+
+msgid "no es una ROM de NES (le falta la cabecera iNES)"
+msgstr "not a NES ROM (it has no iNES header)"
 
 msgid "no se pudo leer %s"
 msgstr "could not read %s"
@@ -2073,6 +2091,9 @@ msgstr "a Game Boy code has only hexadecimal digits"
 
 msgid "un código de Game Boy tiene 6 o 9 cifras (Game Genie) u 8 (GameShark)"
 msgstr "a Game Boy code has 6 or 9 digits (Game Genie) or 8 (GameShark)"
+
+msgid "un código de NES es un Game Genie de 6 u 8 letras o un Pro Action Replay (0075:09)"
+msgstr "a NES code is a Game Genie of 6 or 8 letters or a Pro Action Replay (0075:09)"
 
 msgid "vacía"
 msgstr "empty"

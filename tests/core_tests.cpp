@@ -18,6 +18,7 @@
 
 #include "console.h"
 #include "gb/gb.h"
+#include "nes/nes.h"
 #include "miniz.h"
 #include "netplay.h"
 #include "render/planes.h"
@@ -126,6 +127,139 @@ std::vector<uint8_t> gameBoyProgram(uint8_t type = 0x00, uint8_t ramSize = 0x00)
     rom[0x147] = type;
     rom[0x149] = ramSize;
     std::copy(std::begin(code), std::end(code), rom.begin() + 0x150);
+    return rom;
+}
+
+// A tiny 6502 assembler, enough for the NES program below: bytes, labels and the
+// relative branches to them.
+struct Asm6502 {
+    std::vector<uint8_t> code;
+    std::vector<std::pair<size_t, size_t*>> branches;  // where the offset goes, the label
+    uint16_t here() const { return static_cast<uint16_t>(0x8000 + code.size()); }
+    void emit(std::initializer_list<int> bytes) {
+        for (int b : bytes) code.push_back(static_cast<uint8_t>(b));
+    }
+    void abs(int op, uint16_t a) { emit({op, a & 0xFF, a >> 8}); }
+    void branch(int op, size_t* label) {
+        emit({op, 0});
+        branches.push_back({code.size() - 1, label});
+    }
+    void resolve() {
+        for (auto& [at, label] : branches) code[at] = static_cast<uint8_t>(*label - (at + 1));
+    }
+};
+
+// A small NES program (NROM, 16 KB of PRG and 8 KB of CHR), so that the NES can be
+// tested without any game: vertical stripes of a solid tile that scroll one pixel a
+// frame, a red sprite of the same tile at (0x50, 0x50) that the cross moves, and a
+// beep on the first pulse channel while A is held. Its work is done in the NMI.
+std::vector<uint8_t> nesProgram(bool battery = false) {
+    Asm6502 a;
+    size_t vb1, vb2, fill, clear, loop, nmi, noA, noL, noR;
+    a.emit({0x78, 0xD8, 0xA2, 0xFF, 0x9A, 0xA9, 0x00});  // sei cld ldx #$FF txs lda #0
+    a.abs(0x8D, 0x2000);
+    a.abs(0x8D, 0x2001);
+    vb1 = a.code.size();
+    a.abs(0x2C, 0x2002);
+    a.branch(0x10, &vb1);
+    vb2 = a.code.size();
+    a.abs(0x2C, 0x2002);
+    a.branch(0x10, &vb2);
+    // Palette: black backdrop, white background colour 1, red sprite colour 1.
+    auto ppuAddr = [&](uint16_t addr) {
+        a.emit({0xA9, addr >> 8});
+        a.abs(0x8D, 0x2006);
+        a.emit({0xA9, addr & 0xFF});
+        a.abs(0x8D, 0x2006);
+    };
+    auto ppuData = [&](int v) {
+        a.emit({0xA9, v});
+        a.abs(0x8D, 0x2007);
+    };
+    ppuAddr(0x3F00);
+    ppuData(0x0F);
+    ppuData(0x30);
+    ppuAddr(0x3F11);
+    ppuData(0x16);
+    // The nametable and its attributes: tiles 0 1 0 1...
+    ppuAddr(0x2000);
+    a.emit({0xA0, 0x00, 0xA2, 0x04});  // ldy #0 ldx #4
+    fill = a.code.size();
+    a.emit({0x98, 0x29, 0x01});  // tya and #1
+    a.abs(0x8D, 0x2007);
+    a.emit({0xC8});  // iny
+    a.branch(0xD0, &fill);
+    a.emit({0xCA});  // dex
+    a.branch(0xD0, &fill);
+    // Sprites at 0200: all hidden but the first.
+    a.emit({0xA2, 0x00, 0xA9, 0xFF});
+    clear = a.code.size();
+    a.abs(0x9D, 0x0200);
+    a.emit({0xE8});
+    a.branch(0xD0, &clear);
+    a.emit({0xA9, 0x50});
+    a.abs(0x8D, 0x0200);
+    a.abs(0x8D, 0x0203);
+    a.emit({0xA9, 0x01});
+    a.abs(0x8D, 0x0201);
+    a.abs(0x8D, 0x4015);  // the first pulse on
+    a.emit({0xA9, 0x00});
+    a.abs(0x8D, 0x0202);
+    a.abs(0x8D, 0x2005);
+    a.abs(0x8D, 0x2005);
+    a.emit({0xA9, 0x80});
+    a.abs(0x8D, 0x2000);  // NMI on
+    a.emit({0xA9, 0x1E});
+    a.abs(0x8D, 0x2001);  // background and sprites, the left column too
+    loop = a.code.size();
+    a.abs(0x4C, static_cast<uint16_t>(0x8000 + loop));
+
+    nmi = a.code.size();
+    a.emit({0xA9, 0x02});
+    a.abs(0x8D, 0x4014);  // sprite DMA from 0200
+    a.emit({0xA9, 0x01});
+    a.abs(0x8D, 0x4016);
+    a.emit({0xA9, 0x00});
+    a.abs(0x8D, 0x4016);
+    a.abs(0xAD, 0x4016);  // A
+    a.emit({0x29, 0x01});
+    a.branch(0xF0, &noA);
+    a.emit({0xA9, 0xBF});
+    a.abs(0x8D, 0x4000);
+    a.emit({0xA9, 0xFD});
+    a.abs(0x8D, 0x4002);
+    a.emit({0xA9, 0x08});
+    a.abs(0x8D, 0x4003);
+    noA = a.code.size();
+    for (int i = 0; i < 5; ++i) a.abs(0xAD, 0x4016);  // B Select Start Up Down
+    a.abs(0xAD, 0x4016);  // Left
+    a.emit({0x29, 0x01});
+    a.branch(0xF0, &noL);
+    a.abs(0xCE, 0x0203);
+    noL = a.code.size();
+    a.abs(0xAD, 0x4016);  // Right
+    a.emit({0x29, 0x01});
+    a.branch(0xF0, &noR);
+    a.abs(0xEE, 0x0203);
+    noR = a.code.size();
+    a.emit({0xE6, 0x10, 0xA5, 0x10});  // inc $10 lda $10
+    a.abs(0x8D, 0x2005);
+    a.emit({0xA9, 0x00});
+    a.abs(0x8D, 0x2005);
+    a.emit({0x40});  // rti
+    a.resolve();
+
+    std::vector<uint8_t> rom = {'N', 'E', 'S', 0x1A, 1, 1, static_cast<uint8_t>(battery ? 0x02 : 0x00), 0};
+    rom.resize(16 + 0x4000 + 0x2000, 0);
+    std::copy(a.code.begin(), a.code.end(), rom.begin() + 16);
+    auto vector = [&](size_t at, uint16_t to) {
+        rom[16 + at] = static_cast<uint8_t>(to);
+        rom[16 + at + 1] = static_cast<uint8_t>(to >> 8);
+    };
+    vector(0x3FFA, static_cast<uint16_t>(0x8000 + nmi));
+    vector(0x3FFC, 0x8000);
+    vector(0x3FFE, static_cast<uint16_t>(0x8000 + loop));
+    for (int i = 0; i < 8; ++i) rom[16 + 0x4000 + 16 + i] = 0xFF;  // tile 1: solid colour 1
     return rom;
 }
 
@@ -1133,6 +1267,129 @@ void testGameBoy() {
     check(color->frame().pixel(0, 0) == 0xFFFFFFFFu, "game boy: the Color's palettes start white");
 }
 
+void testNes() {
+    check(emulated(ConsoleSystem::Nes), "nes: emulated");
+    auto nes = std::make_unique<Nes>();
+    std::string error;
+    check(nes->loadRomData(nesProgram(), &error) && nes->system() == ConsoleSystem::Nes && !nes->hasSaveData() &&
+              nes->ports() == 2 && nes->effectiveRegion() == Region::UsaNtsc,
+          "nes: an NROM cartridge");
+    std::vector<uint8_t> unknown = nesProgram();
+    unknown[6] = 0x50;  // mapper 5, the MMC5
+    check(!Nes().loadRomData(unknown, &error) && error.find("5") != std::string::npos,
+          "nes: a mapper it does not emulate is refused");
+    check(!Nes().loadRomData({'N', 'E', 'S', 0x1A, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, &error),
+          "nes: a cut ROM is refused");
+    for (int i = 0; i < 10; ++i) nes->runFrame();
+    check(nes->peek(0x0200) == 0x50 && nes->peek(0x0203) == 0x50, "nes: the program put its sprite in OAM");
+    PadState right;
+    right.right = true;
+    nes->setPad(0, right);
+    for (int i = 0; i < 20; ++i) nes->runFrame();
+    const int x = nes->peek(0x0203);
+    check(x >= 0x50 + 19 && x <= 0x50 + 21, "nes: the cross moves the sprite");
+    nes->setPad(0, PadState{});
+    nes->runFrame();
+    nes->runFrame();
+    const VideoFrame& f = nes->frame();
+    // The sprite's OAM y is a line above it; the frame leaves out the first 8 lines.
+    const int sx = nes->peek(0x0203) + 3, sy = 0x50 + 1 - 8 + 3;
+    const size_t at = static_cast<size_t>(sy) * VideoFrame::kMaxWidth + static_cast<size_t>(sx);
+    check(f.width == 256 && f.height == 224 && f.pixel(sx, sy) == 0xFFB53120u && f.info[at].layer == Layer::Sprite &&
+              f.spriteInfo[at].priority,
+          "nes: the sprite is drawn red, on the sprite layer");
+    int back = 0, clear = 0;
+    for (int i = 0; i < 256; ++i) {
+        const size_t p = static_cast<size_t>(100) * VideoFrame::kMaxWidth + static_cast<size_t>(i);
+        if (f.planeB[p] >> 24) ++back;
+        else ++clear;
+    }
+    check(back == 128 && clear == 128 && f.lines[100].displayEnabled && f.backdrop[100] == 0xFF000000u,
+          "nes: the stripes are on the back plane, colour 0 clear");
+    const int16_t scroll = f.lines[100].hscrollB;
+    nes->runFrame();
+    check(nes->frame().lines[100].hscrollB == scroll - 1, "nes: the scroll goes into the frame");
+
+    nes->audio().clearSamples();
+    nes->setSampleRate(48000);
+    PadState a;
+    a.a = true;
+    nes->setPad(0, a);
+    for (int i = 0; i < 6; ++i) nes->runFrame();
+    const std::vector<int16_t>& samples = nes->audio().samples();
+    int loud = 0;
+    for (int16_t v : samples) loud = std::max(loud, std::abs(static_cast<int>(v)));
+    check(samples.size() > 9400 && samples.size() < 9800 && loud > 1000, "nes: A beeps, at the asked rate");
+    nes->setPad(0, PadState{});
+
+    // A state brings back the same frames and sound.
+    std::vector<uint8_t> state;
+    check(nes->saveState(state), "nes: savestate");
+    auto runSome = [&](Nes& n) {
+        uint32_t h = 2166136261u;
+        PadState p;
+        for (int i = 0; i < 40; ++i) {
+            p.left = i < 10;
+            p.right = i > 20;
+            p.a = i % 7 == 0;
+            n.setPad(0, p);
+            n.audio().clearSamples();
+            n.runFrame();
+            for (int yy = 0; yy < 224; ++yy)
+                for (int xx = 0; xx < 256; ++xx) h = (h ^ n.frame().pixel(xx, yy)) * 16777619u;
+            for (int16_t v : n.audio().samples()) h = (h ^ static_cast<uint16_t>(v)) * 16777619u;
+        }
+        return h;
+    };
+    const uint32_t first = runSome(*nes);
+    check(nes->loadState(state, &error) && runSome(*nes) == first, "nes: a savestate replays the same frames and sound");
+    Nes other;
+    other.loadRomData(nesProgram(), &error);
+    other.setSampleRate(48000);
+    check(other.loadState(state, &error) && runSome(other) == first, "nes: and in another console");
+
+    // Cheats: a Game Genie code patches what the ROM answers, a Pro Action Replay one RAM.
+    CheatPatch p;
+    const CheatDecoder decode = cheatDecoderFor(ConsoleSystem::Nes);
+    check(decode && decode("GOSSIP", &p, &error) && p.address == 0xD1DD && p.value == 0x14 && p.compare < 0 && !p.ram,
+          "nes: a 6-letter Game Genie code");
+    check(decode("ZEXPYGLA", &p, &error) && p.address == 0x94A7 && p.value == 0x02 && p.compare == 0x03,
+          "nes: an 8-letter Game Genie code");
+    check(decode("0075:09", &p, &error) && p.ram && p.address == 0x75 && p.value == 9, "nes: a Pro Action Replay code");
+    check(!decode("GOSSI", &p, &error) && !decode("2002:00", &p, &error) && !decode("12345G", &p, &error),
+          "nes: wrong codes");
+    std::vector<CheatPatch> patches;
+    check(decodeCheatCodes("AAAAAA+0300:2A", decode, &patches, &error) && patches.size() == 2, "nes: two codes");
+    nes->setCheats(patches);
+    nes->runFrame();
+    check(nes->peek(0x0300) == 0x2A, "nes: the RAM cheat is on");
+    nes->setCheats({});
+
+    check(nes->achievementsConsole() == 7 && nes->memoryMap().size() >= 4 && nes->memoryMap()[0].address == 0 &&
+              nes->memoryMap()[0].size == 0x800,
+          "nes: the achievements' memory map");
+
+    // A battery-backed cartridge: the save is its PRG RAM.
+    Nes saved;
+    check(saved.loadRomData(nesProgram(true), &error) && saved.hasSaveData() && saved.saveData().size() == 0x2000,
+          "nes: a cartridge with battery");
+    std::vector<uint8_t> save = saved.saveData();
+    save[5] = 0x42;
+    saved.loadSaveData(save);
+    check(saved.saveData()[5] == 0x42 && saved.peek(0x6005) == 0x42, "nes: the save loads back at 6000");
+
+    // PAL: the header's flag, or the region chosen.
+    std::vector<uint8_t> palRom = nesProgram();
+    palRom[9] = 1;
+    Nes pal;
+    check(pal.loadRomData(palRom, &error) && pal.effectiveRegion() == Region::EuropePal && pal.refreshRate() < 51,
+          "nes: a PAL cartridge runs at 50 Hz");
+    nes->setRegion(Region::EuropePal);
+    check(nes->effectiveRegion() == Region::EuropePal && nes->refreshRate() < 51, "nes: the region can be chosen");
+    for (int i = 0; i < 5; ++i) nes->runFrame();
+    check(nes->peek(0x0200) == 0x50, "nes: and the game runs again on it");
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -1154,6 +1411,7 @@ int main() {
     testNetplay();
     testAchievements();
     testGameBoy();
+    testNes();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

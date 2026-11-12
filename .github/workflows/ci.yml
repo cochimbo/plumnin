@@ -73,6 +73,15 @@ jobs:
           cmake build -DGB_TEST_ROMS="$PWD/gbtr"
           cmake --build build --parallel --target gb-test-roms
           ctest --test-dir build --output-on-failure -R gb_test_roms
+      # The NES's (blargg, sprite hit and overflow, MMC3...), at a fixed commit.
+      - name: NES test ROMs
+        if: steps.changes.outputs.build == 'true'
+        run: |
+          curl -sSL -o nestr.zip https://github.com/christopherpow/nes-test-roms/archive/95d8f621ae55cee0d09b91519a8989ae0e64753b.zip
+          unzip -q nestr.zip && mv nes-test-roms-95d8f621ae55cee0d09b91519a8989ae0e64753b nestr
+          cmake build -DNES_TEST_ROMS="$PWD/nestr"
+          cmake --build build --parallel --target nes-test-roms
+          ctest --test-dir build --output-on-failure -R nes_test_roms
       - name: Sample run with an input script
         if: steps.changes.outputs.build == 'true'
         run: |
