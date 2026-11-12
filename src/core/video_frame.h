@@ -15,12 +15,15 @@ enum class Layer : uint8_t { Backdrop = 0, Back = 1, Front = 2, Window = 3, Spri
 // Colour math state of a pixel (the SNES darkens or brightens some pixels by halves).
 enum class Shade : uint8_t { Normal = 0, Shadow = 1, Highlight = 2 };
 
+// Trivial on purpose (no member initializers): Pixel{} is all zeros, the backdrop, and
+// the frame's arrays of 300 000 of them stay cheap for the compiler (MSVC runs out of
+// heap otherwise). Always write Pixel{} or Pixel{...}, never a bare `Pixel p;`.
 struct Pixel {
-    uint8_t color = 0;  // palette * 16 + index; index 0 is transparent (the backdrop shows)
-    Layer layer = Layer::Backdrop;
-    bool priority = false;  // priority bit of the tile or sprite
-    Shade shade = Shade::Normal;
-    uint16_t source = 0;    // tile number or sprite number
+    uint8_t color;  // palette * 16 + index; index 0 is transparent (the backdrop shows)
+    Layer layer;
+    bool priority;  // priority bit of the tile or sprite
+    Shade shade;
+    uint16_t source;  // tile number or sprite number
 };
 
 // Everything the picture processor produced for one frame. Not just a picture: for
