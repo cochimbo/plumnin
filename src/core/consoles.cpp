@@ -1,17 +1,27 @@
 #include "console.h"
+#include "gb/gb.h"
 #include "i18n.h"
 
 namespace plumnin {
 
 // The consoles are added here as they are emulated: the Game Boy and Game Boy Color
 // first, then the NES, then the Super Nintendo.
-bool emulated(ConsoleSystem) { return false; }
+namespace {
 
-std::unique_ptr<Console> createConsole(ConsoleSystem) { return nullptr; }
+bool gameBoy(ConsoleSystem s) { return s == ConsoleSystem::GameBoy || s == ConsoleSystem::GameBoyColor; }
 
-CheatDecoder cheatDecoderFor(ConsoleSystem) { return {}; }
+}  // namespace
 
-const char* cheatFormatsFor(ConsoleSystem) { return ""; }
+bool emulated(ConsoleSystem s) { return gameBoy(s); }
+
+std::unique_ptr<Console> createConsole(ConsoleSystem s) {
+    if (gameBoy(s)) return std::make_unique<GameBoy>();
+    return nullptr;
+}
+
+CheatDecoder cheatDecoderFor(ConsoleSystem s) { return gameBoy(s) ? GameBoy::decoder() : CheatDecoder{}; }
+
+const char* cheatFormatsFor(ConsoleSystem s) { return gameBoy(s) ? GameBoy::cheatFormats() : ""; }
 
 std::unique_ptr<Console> openGame(const std::string& path, std::string* error) {
     const ConsoleSystem system = detectSystem(path);
