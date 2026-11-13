@@ -104,7 +104,16 @@ there is:
   cymbal by how bright it is); the rest go by their register (a bass), whether they hold
   their note (a looped sample: a flute if it is nearly all fundamental, brass if bright,
   strings otherwise; one that dies away: marimba, guitar or piano), and the DSP's noise
-  is the drums too. An instrument editor to choose them by hand is next. `plumnin-headless --synth file.sf2 --wav out.wav` records it without a window.
+  is the drums too. `plumnin-headless --synth file.sf2 --wav out.wav` records it without
+  a window.
+- **Sound > Instrument editor...** (or `--instruments`): while the game plays through the
+  synthesizer, its instruments as they are heard (pulses, waves, triangle, noise or
+  samples, lettered in the order they first sounded, green while they play), what each
+  is on the chip, its channels and notes, and what it sounds as: the rules' suggestion
+  until another General MIDI instrument (with its octave and volume), a piece of the drum
+  kit or **Original (the chip)** is chosen. **Hear only this one** silences the rest, on
+  the chip too, and **Suggestion** goes back to the rules. It is heard at once and saved
+  per game in `sound/<game>.ini`, in plumsg's format.
 - The 2D and pseudo-3D views, with the xBR and Anime4K upscalers and the scanline and
   CRT filters.
 - Netplay over UDP with rollback.

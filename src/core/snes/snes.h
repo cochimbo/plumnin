@@ -74,7 +74,7 @@ public:
     static const char* cheatFormats();
 
 protected:
-    void setChipVoices(uint32_t full, int percent) override { apu_.setVoiceGains(full, percent); }
+    void setChipVoices(uint32_t full, uint32_t silent, int percent) override { apu_.setVoiceGains(full, silent, percent); }
     void saveBlocks(StateBlocks& blocks) override;
     bool loadBlock(uint32_t id, StateReader& r) override;
     bool insert(const std::vector<uint8_t>& rom, std::string* error) override;

@@ -2304,6 +2304,23 @@ void testSynth() {
         for (int i = 0; i < 40; ++i) gb.runFrame();
         check((synth.chipVoices() & 1) && soundLevel(gb.audio().samples()) > chip / 3,
               "synth: an instrument left original is heard from the chip");
+        // Listening to one instrument: the rest stay silent, on the chip too.
+        synth.setAssignments({});
+        uint32_t pulse = 0;
+        std::set<uint32_t> others;
+        for (const auto& [fp, seen] : synth.seen()) {
+            if (seen.kind == Kind::Pulse) pulse = fp;
+            else others.insert(fp);
+        }
+        synth.setListening(0, others);
+        log.clear();
+        for (int i = 0; i < 40; ++i) gb.runFrame();
+        bool drums = false;
+        for (const std::string& l : log) drums = drums || l.rfind("9 on", 0) == 0;
+        check(pulse && !drums && (synth.silentVoices() & 8),
+              "synth: hearing only one instrument silences the others, on the chip too");
+        synth.setListening(0, {});
+        check(!synth.silentVoices(), "synth: and everything is heard again after");
         gb.setSynth(nullptr, 0);
         log.clear();
         for (int i = 0; i < 30; ++i) gb.runFrame();

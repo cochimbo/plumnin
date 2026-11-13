@@ -29,8 +29,9 @@ public:
     // volume and its key ons. A voice playing the noise is Kind::Noise.
     void musicVoice(int i, SynthMusic::VoiceState& out);
     // The voices (a bit each) heard at full volume; the rest at `percent`.
-    void setVoiceGains(uint32_t full, int percent) {
-        for (int i = 0; i < 8; ++i) gains_[static_cast<size_t>(i)] = (full >> i) & 1 ? 100 : percent;
+    void setVoiceGains(uint32_t full, uint32_t silent, int percent) {
+        for (int i = 0; i < 8; ++i)
+            gains_[static_cast<size_t>(i)] = (silent >> i) & 1 ? 0 : (full >> i) & 1 ? 100 : percent;
     }
     // A sample in the sound RAM, decoded from its BRR blocks (up to 2 seconds): where it
     // loops back to and whether it does. Public for the tests.
@@ -121,7 +122,7 @@ public:
     // the DSP's samples.
     void setSynth(SynthMusic* synth) { synth_ = synth; }
     uint64_t musicClock() const { return dspSamples_; }
-    void setVoiceGains(uint32_t full, int percent) { dsp_.setVoiceGains(full, percent); }
+    void setVoiceGains(uint32_t full, uint32_t silent, int percent) { dsp_.setVoiceGains(full, silent, percent); }
 
     std::array<uint8_t, 0x10000>& ram() { return ram_; }
 

@@ -662,6 +662,7 @@ UiActions Ui::frame(const UiState& state) {
     if (showAbout_) drawAbout();
     if (showCheats_) drawCheats(state, out);
     if (showGameOptions_) drawGameOptions(state, out);
+    if (synth_) editor_.draw(*synth_, state.romLoaded ? state.romPath : std::string(), state.synthOn);
     // With no game running, the covers can take more of each frame.
     library_.update(state.romLoaded && !state.paused ? 3 : 10);
     gameInfo_.update();
@@ -714,6 +715,7 @@ UiActions Ui::frame(const UiState& state) {
 // the system pointer when it is None.
 void Ui::hideIdleCursor(const UiState& state) {
     const bool windowOpen = showControls_ || showVideo_ || showAbout_ || showCheats_ || showGameOptions_ || showLibrary_ ||
+                            editor_.isOpen() ||
                             showScraping_ || showNetplay_ || stateMenu_.open || browser_.isOpen() ||
                             (achievements_ && achievements_->windowOpen()) ||
                             !error_.empty() || capture_.active ||
@@ -1030,6 +1032,10 @@ void Ui::drawSoundMenu(UiActions& out) {
     ImGui::SetNextItemWidth(160);
     ImGui::SliderInt(tr("Chorus"), &settings_.chorus, 0, 100, "%d%%", ImGuiSliderFlags_AlwaysClamp);
     if (ImGui::IsItemDeactivatedAfterEdit()) out.settingsChanged = true;
+    if (ImGui::MenuItem(tr("Editor de instrumentos..."), nullptr, editor_.isOpen())) editor_.open();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s", tr("Mientras juegas, cada instrumento del juego con lo que suena en el sintetizador:\n"
+                                   "elige otro instrumento General MIDI, una pieza de la batería o su sonido original."));
     ImGui::EndDisabled();
 }
 

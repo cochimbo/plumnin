@@ -268,10 +268,12 @@ void Console::setSynth(SynthMusic* synth, int chipPercent) {
 
 void Console::updateChipVoices() {
     const uint32_t full = synth_ ? synth_->chipVoices() : ~0u;
-    if (chipSet_ && full == chipFull_) return;
+    const uint32_t silent = synth_ ? synth_->silentVoices() : 0u;
+    if (chipSet_ && full == chipFull_ && silent == chipSilent_) return;
     chipSet_ = true;
     chipFull_ = full;
-    setChipVoices(full, synth_ ? synthPercent_ : 100);
+    chipSilent_ = silent;
+    setChipVoices(full, silent, synth_ ? synthPercent_ : 100);
 }
 
 bool Console::runAhead(int frames) {

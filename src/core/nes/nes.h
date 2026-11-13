@@ -118,7 +118,7 @@ private:
 
     // The processor (nes_cpu.cpp).
     void step();
-    void setChipVoices(uint32_t full, int percent) override { apu_.setChannelGains(full, percent); }
+    void setChipVoices(uint32_t full, uint32_t silent, int percent) override { apu_.setChannelGains(full, silent, percent); }
     // Hands the synthesizer what each sound channel is doing, about 480 times a second.
     void pollMusic();
     int64_t lastPoll_ = 0;

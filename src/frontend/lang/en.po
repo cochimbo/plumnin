@@ -30,6 +30,9 @@ msgstr "%d games."
 msgid "%d juegos. Buscando carátulas, quedan %d..."
 msgstr "%d games. Looking for covers, %d left..."
 
+msgid "%d notas"
+msgstr "%d notes"
+
 msgid "%d resultados. Pulsa uno para verlo."
 msgstr "%d results. Click one to see it."
 
@@ -360,6 +363,9 @@ msgstr "Banjo"
 msgid "Barra de menús"
 msgstr "Menu bar"
 
+msgid "Batería: %s"
+msgstr "Drums: %s"
+
 msgid "Beat'em up"
 msgstr "Beat'em up"
 
@@ -465,6 +471,9 @@ msgstr "Tubular bells"
 msgid "Campanilla"
 msgstr "Tinkle bell"
 
+msgid "Canales"
+msgstr "Channels"
+
 msgid "Cancelar"
 msgstr "Cancel"
 
@@ -473,6 +482,9 @@ msgstr "Layers"
 
 msgid "Captura"
 msgstr "Screenshot"
+
+msgid "Carga un juego y juega: sus instrumentos aparecen aquí a medida que suenan."
+msgstr "Load a game and play: its instruments show up here as they sound."
 
 msgid "Cargar estado"
 msgstr "Load state"
@@ -812,6 +824,12 @@ msgstr "Dulcimer"
 msgid "EE. UU. (NTSC)"
 msgstr "USA (NTSC)"
 
+msgid "Editor de instrumentos"
+msgstr "Instrument editor"
+
+msgid "Editor de instrumentos..."
+msgstr "Instrument editor..."
+
 msgid "Educativo"
 msgstr "Educational"
 
@@ -908,6 +926,9 @@ msgstr "Choose image"
 msgid "Elegir otro (.sf2)..."
 msgstr "Choose another (.sf2)..."
 
+msgid "Elige Sonido > Sintetizador para que la música suene con el SoundFont; entonces sus instrumentos aparecen aquí a medida que suenan."
+msgstr "Choose Sound > Synthesizer for the music to play on the SoundFont; its instruments then show up here as they sound."
+
 msgid "Elige la carpeta donde tienes tus juegos de Game Boy, Game Boy Color, NES o Super Nintendo."
 msgstr "Choose the folder where you keep your Game Boy, Game Boy Color, NES or Super Nintendo games."
 
@@ -925,6 +946,9 @@ msgstr "On ScreenScraper: “%s”"
 
 msgid "En casa, tu amigo se une a %s:%d."
 msgstr "At home, your friend joins %s:%d."
+
+msgid "En el chip"
+msgstr "On the chip"
 
 msgid "En modo hardcore no se pueden cargar estados"
 msgstr "States cannot be loaded in hardcore mode"
@@ -1263,6 +1287,9 @@ msgstr "You left the game."
 msgid "Helicóptero"
 msgstr "Helicopter"
 
+msgid "Huella"
+msgstr "Fingerprint"
+
 msgid "IP o nombre, y :puerto si no es el de arriba"
 msgstr "IP or name, and :port if not the one above"
 
@@ -1295,6 +1322,9 @@ msgstr "Logging in..."
 
 msgid "Iniciar sesión"
 msgstr "Log in"
+
+msgid "Instrumento"
+msgstr "Instrument"
 
 msgid "Intensidad del filtro"
 msgstr "Filter strength"
@@ -1464,6 +1494,9 @@ msgstr ""
 "The game's frames per second and how long each one takes to emulate,\n"
 "with a graph of the last 10 seconds."
 
+msgid "Los instrumentos que el juego ha tocado hasta ahora, en el orden en que sonaron. Lo que elijas se oye al momento y se guarda para este juego."
+msgstr "The instruments the game has played so far, in the order they sounded. What you choose is heard at once and saved for this game."
+
 msgid ""
 "Los lados de arriba se guardan para %s y se recuperan al abrirlo.\n"
 "Al desmarcarlo, el juego vuelve a usar los generales."
@@ -1551,6 +1584,13 @@ msgstr "Synth brass 1"
 msgid "Metales sintetizados 2"
 msgstr "Synth brass 2"
 
+msgid ""
+"Mientras juegas, cada instrumento del juego con lo que suena en el sintetizador:\n"
+"elige otro instrumento General MIDI, una pieza de la batería o su sonido original."
+msgstr ""
+"While you play, each of the game's instruments and what it plays on the synthesizer:\n"
+"choose another General MIDI instrument, a piece of the drum kit or its original sound."
+
 msgid "Modo consola"
 msgstr "Console mode"
 
@@ -1563,11 +1603,26 @@ msgstr "Hardcore mode: no cheats, slow motion or rewinding"
 msgid "Mostrar la barra de menús (Esc)"
 msgstr "Show the menu bar (Esc)"
 
+msgid "Muestra"
+msgstr "Sample"
+
+msgid "Muestra con bucle"
+msgstr "Looped sample"
+
+msgid "Muestra de %.2f s"
+msgstr "Sample of %.2f s"
+
+msgid "Muestra sin nota"
+msgstr "Sample without a note"
+
 msgid "Música"
 msgstr "Music"
 
 msgid "Música y baile"
 msgstr "Music and dance"
+
+msgid "Nada"
+msgstr "Nothing"
 
 msgid "Ninguno"
 msgstr "None"
@@ -1649,6 +1704,9 @@ msgstr "The cheat list could not be downloaded. Is there an internet connection?
 msgid "No se pudo escribir %s: ¿falta espacio en el disco?"
 msgstr "Could not write %s: is the disk full?"
 
+msgid "No se pudo guardar %s"
+msgstr "Could not save %s"
+
 msgid "No se pudo guardar el estado en %s: ¿falta espacio en el disco?"
 msgstr "The state could not be saved to %s: is the disk full?"
 
@@ -1700,14 +1758,29 @@ msgstr "Game name"
 msgid "Nota"
 msgstr "Rating"
 
+msgid "Notas"
+msgstr "Notes"
+
 msgid "Oboe"
 msgstr "Oboe"
 
 msgid "Ocarina"
 msgstr "Ocarina"
 
+msgid "Octava, volumen"
+msgstr "Octave, volume"
+
+msgid "Octavas arriba o abajo"
+msgstr "Octaves up or down"
+
 msgid "Olas"
 msgstr "Seashore"
+
+msgid "Onda"
+msgstr "Wave"
+
+msgid "Onda de la Game Boy"
+msgstr "Game Boy wave"
 
 msgid "Opciones"
 msgstr "Options"
@@ -1730,8 +1803,17 @@ msgstr "Unknown option: %s"
 msgid "Original"
 msgstr "Original"
 
+msgid "Original (el chip)"
+msgstr "Original (the chip)"
+
 msgid "Overclock"
 msgstr "Overclock"
+
+msgid "Oír solo este"
+msgstr "Hear only this one"
+
+msgid "Oír todos"
+msgstr "Hear all"
 
 msgid "P  pausa"
 msgstr "P  pause"
@@ -1904,6 +1986,12 @@ msgstr "Click a box and then the key or the pad button. \"+\" adds another, \"x\
 msgid "Pulsa una tecla..."
 msgstr "Press a key..."
 
+msgid "Pulso"
+msgstr "Pulse"
+
+msgid "Pulso de %s"
+msgstr "Pulse of %s"
+
 msgid "Puzle"
 msgstr "Puzzle"
 
@@ -2032,6 +2120,12 @@ msgstr "Reverb"
 
 msgid "Rol (RPG)"
 msgstr "Role-playing (RPG)"
+
+msgid "Ruido"
+msgstr "Noise"
+
+msgid "Ruido, altura %d de 15"
+msgstr "Noise, pitch %d of 15"
 
 msgid "Run-ahead"
 msgstr "Run-ahead"
@@ -2262,6 +2356,15 @@ msgstr "Smooth pixels"
 msgid "Subir"
 msgstr "Up"
 
+msgid "Suena como"
+msgstr "Sounds as"
+
+msgid "Sugerencia"
+msgstr "Suggestion"
+
+msgid "Sugerencia: %s"
+msgstr "Suggested: %s"
+
 msgid "Sí"
 msgstr "Yes"
 
@@ -2313,6 +2416,12 @@ msgstr "Low timbale"
 msgid "Timbales"
 msgstr "Timpani"
 
+msgid "Todavía no ha sonado nada."
+msgstr "Nothing has sounded yet."
+
+msgid "Todo a las sugerencias"
+msgstr "All back to suggestions"
+
 msgid "Todos"
 msgstr "All"
 
@@ -2352,11 +2461,17 @@ msgstr "Working..."
 msgid "Traste de guitarra"
 msgstr "Guitar fret noise"
 
+msgid "Triángulo"
+msgstr "Triangle"
+
 msgid "Triángulo abierto"
 msgstr "Open triangle"
 
 msgid "Triángulo apagado"
 msgstr "Muted triangle"
+
+msgid "Triángulo de la NES"
+msgstr "NES triangle"
 
 msgid "Trombón"
 msgstr "Trombone"
@@ -2502,6 +2617,9 @@ msgstr "Voice \"ooh\""
 msgid "Voz sintetizada"
 msgstr "Synth voice"
 
+msgid "Vuelve a lo que dan las reglas"
+msgstr "Back to what the rules give"
+
 msgid "Vídeo"
 msgstr "Video"
 
@@ -2614,6 +2732,7 @@ msgid ""
 "  --library carpeta      abrir la biblioteca de esa carpeta (se puede repetir)\n"
 "  --list                 con --library: verla como lista en vez de cuadrícula\n"
 "  --cheats               abrir los trucos del juego, con sus listas de internet\n"
+"  --instruments          abrir el editor de instrumentos\n"
 "  --achievements         abrir la ventana de RetroAchievements\n"
 "  --game-options         abrir las opciones propias del juego\n"
 "  --game-options controls   ...en la pestaña de sus controles\n"
@@ -2622,33 +2741,7 @@ msgid ""
 "  --screenshot f.png     guardar una captura tras --frames N fotogramas y salir\n"
 "\n"
 "La pantalla completa y la región dadas aquí valen solo para esta vez."
-msgstr ""
-"plumnin [game] [options]\n"
-"\n"
-"  game                   cartridge (.gb .gbc .nes .sfc .smc .zip)\n"
-"  --fullscreen           open in full screen\n"
-"  --windowed             open in a window\n"
-"  --console-mode         for playing with a pad (Steam Deck, ROG Ally...): full screen,\n"
-"                         the library and big letters (--desktop-mode to turn it off)\n"
-"  --3d / --2d            with or without the pseudo-3D view\n"
-"  --filter f             none, scanlines or crt\n"
-"  --upscaling u          none, xbr or anime4k (experimental)\n"
-"  --fps                  show the FPS counter with its graph\n"
-"  --region r             auto, jp, us or eu\n"
-"  --load-state N         load the game's saved state N (0-9)\n"
-"  --host                 host a netplay game with the game (port from the Network menu)\n"
-"  --join address         join that host's netplay game (IP:port)\n"
-"  --library folder       open the library of that folder (can be repeated)\n"
-"  --list                 with --library: show it as a list instead of a grid\n"
-"  --cheats               open the game's cheats, with their internet lists\n"
-"  --achievements         open the RetroAchievements window\n"
-"  --game-options         open the game's own options\n"
-"  --game-options controls   ...on the tab of its controls\n"
-"  --test-pattern [gb|gbc|nes|snes]   open the test pattern instead of a game\n"
-"  --record f.avi         record the game from the start, as video (.avi) or GIF (.gif)\n"
-"  --screenshot f.png     save a screenshot after --frames N frames and quit\n"
-"\n"
-"The full screen and region given here apply to this time only."
+msgstr "plumnin [game] [options]\n\n  game                   cartridge (.gb .gbc .nes .sfc .smc .zip)\n  --fullscreen           open in full screen\n  --windowed             open in a window\n  --console-mode         for playing with a pad (Steam Deck, ROG Ally...): full screen,\n                         the library and big letters (--desktop-mode to turn it off)\n  --3d / --2d            with or without the pseudo-3D view\n  --filter f             none, scanlines or crt\n  --upscaling u          none, xbr or anime4k (experimental)\n  --fps                  show the FPS counter with its graph\n  --region r             auto, jp, us or eu\n  --load-state N         load the game's saved state N (0-9)\n  --host                 host a netplay game with the game (port from the Network menu)\n  --join address         join that host's netplay game (IP:port)\n  --library folder       open the library of that folder (can be repeated)\n  --list                 with --library: show it as a list instead of a grid\n  --cheats               open the game's cheats, with their internet lists\n  --instruments          open the instrument editor\n  --achievements         open the RetroAchievements window\n  --game-options         open the game's own options\n  --game-options controls   ...on the tab of its controls\n  --test-pattern [gb|gbc|nes|snes]   open the test pattern instead of a game\n  --record f.avi         record the game from the start, as video (.avi) or GIF (.gif)\n  --screenshot f.png     save a screenshot after --frames N frames and quit\n\nThe full screen and region given here apply to this time only."
 
 msgid "plumnin necesita una tarjeta gráfica con OpenGL 3.3 y sus drivers actualizados."
 msgstr "plumnin needs a graphics card with OpenGL 3.3 and up-to-date drivers."
