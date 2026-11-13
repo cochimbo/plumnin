@@ -83,6 +83,7 @@ struct Paths {
     std::string covers;    // folder for the library's downloaded covers
     std::string info;      // folder for the library's game data, descriptions and screenshots
     std::string videos;    // folder for the games' video and GIF recordings
+    std::string firmware;  // folder for the firmware of cartridges' chips (dsp1b.rom...)
 };
 
 Paths findPaths() {
@@ -94,17 +95,17 @@ Paths findPaths() {
         if (SDL_RWops* f = SDL_RWFromFile(portable.c_str(), "rb")) {
             SDL_RWclose(f);
             return {portable, base + "states/", base + "profiles/", base + "cheats/", base + "covers/", base + "game-info/",
-                    base + "recordings/"};
+                    base + "recordings/", base + "firmware/"};
         }
     }
     if (char* pref = SDL_GetPrefPath("plumnin", "plumnin")) {
         const std::string dir = pref;
         SDL_free(pref);
         return {dir + "plumnin.ini", dir + "states/", dir + "profiles/", dir + "cheats/", dir + "covers/", dir + "game-info/",
-                dir + "recordings/"};
+                dir + "recordings/", dir + "firmware/"};
     }
     return {base + "plumnin.ini", base + "states/", base + "profiles/", base + "cheats/", base + "covers/", base + "game-info/",
-            base + "recordings/"};
+            base + "recordings/", base + "firmware/"};
 }
 
 struct App {
@@ -499,6 +500,12 @@ int main(int argc, char** argv) {
     const std::string crashDir = settingsDir + "crash-reports/";
     installCrashHandler(crashDir);
     Settings settings = Settings::load(paths.ini);
+    {
+        // Made empty at the first run, so that it is there to put the files in.
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::u8path(paths.firmware), ec);
+        Console::setFirmwareFolders({paths.firmware});
+    }
     // Until a language is picked in Opciones > Idioma, the system's.
     applyLanguage(settings.language.empty() ? systemLanguage() : settings.language);
     if (cmd.help || !cmd.unknown.empty()) {

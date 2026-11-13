@@ -53,6 +53,8 @@ Running
   --widescreen L,R      or with L more columns on the left and R on the right (up to 56)
   --overclock PERCENT   run the processor at 100-400% of its speed (default 100)
   --load-state FILE     start from this savestate (after loading the game)
+  --firmware DIR        where the firmware of a cartridge's chip is (dsp1b.rom...), besides
+                        the game's folder
   --cheat CODE          the console's Game Genie or Pro Action Replay code, several
                         joined with + (can repeat)
 
@@ -418,6 +420,7 @@ int main(int argc, char** argv) {
         }
         else if (a == "--overclock") number(&overclock);
         else if (a == "--load-state") stateIn = next();
+        else if (a == "--firmware") Console::setFirmwareFolders({next()});
         else if (a == "--cheat") cheats.push_back(next());
         else if (a == "--input") scripts.push_back(next());
         else if (a == "--do") lines.push_back(next());

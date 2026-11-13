@@ -50,6 +50,9 @@ public:
     // in Spanish, if this console cannot run it.
     bool loadRom(const std::string& path, std::string* error);
     bool loadRomData(std::vector<uint8_t> rom, std::string* error = nullptr);
+    // Where to look for the firmware some cartridges' chips need (the DSP-1's...), after
+    // the game's own folder and a "firmware" folder inside it. For every console.
+    static void setFirmwareFolders(std::vector<std::string> folders);
     bool loaded() const { return !rom_.empty(); }
     // The cartridge as it was loaded, before any cheat, and its CRC-32.
     const std::vector<uint8_t>& rom() const { return rom_; }
@@ -161,6 +164,9 @@ protected:
     // Called by setRegion when the region changes.
     virtual void regionChanged() {}
 
+    // The firmware file `name` (inside insert), empty if no folder has it.
+    std::vector<uint8_t> findFirmware(const std::string& name) const;
+
     std::array<PadState, 2> pads_{};
     std::array<PadType, 2> padTypes_{PadType::Pad, PadType::Pad};
     AudioOut audio_;
@@ -169,7 +175,10 @@ protected:
     std::string loadNotice_;
 
 private:
+    bool loadRomFrom(std::vector<uint8_t> rom, const std::string& path, std::string* error);
+
     std::vector<uint8_t> rom_;
+    std::string romPath_;  // the file of the game being loaded, empty if from memory
     uint32_t romCrc_ = 0;
     Region region_ = Region::Auto;
     std::vector<uint8_t> aheadState_;

@@ -1,5 +1,10 @@
 #include "console.h"
 
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <mutex>
+
 #include "i18n.h"
 #include "miniz.h"
 
@@ -10,6 +15,9 @@ namespace {
 constexpr uint32_t kStateMagic = 0x534E4C50;  // "PLNS"
 constexpr uint32_t kStateVersion = 1;
 constexpr uint32_t kMaxStateSize = 64u << 20;
+
+std::mutex firmwareMutex;
+std::vector<std::string> firmwareFolders;
 
 uint32_t tagId(const char (&tag)[5]) {
     return static_cast<uint32_t>(tag[0]) | static_cast<uint32_t>(tag[1]) << 8 | static_cast<uint32_t>(tag[2]) << 16 |
@@ -44,10 +52,41 @@ void Console::StateBlocks::raw(const char (&tag)[5], const std::vector<uint8_t>&
 bool Console::loadRom(const std::string& path, std::string* error) {
     std::vector<uint8_t> rom;
     if (!readRomFile(path, rom, nullptr, error)) return false;
-    return loadRomData(std::move(rom), error);
+    return loadRomFrom(std::move(rom), path, error);
 }
 
-bool Console::loadRomData(std::vector<uint8_t> rom, std::string* error) {
+bool Console::loadRomData(std::vector<uint8_t> rom, std::string* error) { return loadRomFrom(std::move(rom), {}, error); }
+
+void Console::setFirmwareFolders(std::vector<std::string> folders) {
+    std::lock_guard<std::mutex> lock(firmwareMutex);
+    firmwareFolders = std::move(folders);
+}
+
+std::vector<uint8_t> Console::findFirmware(const std::string& name) const {
+    namespace fs = std::filesystem;
+    std::vector<fs::path> dirs;
+    if (!romPath_.empty()) {
+        const fs::path game = fs::u8path(romPath_).parent_path();
+        dirs.push_back(game);
+        dirs.push_back(game / "firmware");
+    }
+    {
+        std::lock_guard<std::mutex> lock(firmwareMutex);
+        for (const std::string& f : firmwareFolders) dirs.push_back(fs::u8path(f));
+    }
+    for (const fs::path& d : dirs) {
+        std::error_code ec;
+        const fs::path p = d / fs::u8path(name);
+        if (!fs::is_regular_file(p, ec)) continue;
+        std::ifstream in(p, std::ios::binary);
+        std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        if (!data.empty()) return data;
+    }
+    return {};
+}
+
+bool Console::loadRomFrom(std::vector<uint8_t> rom, const std::string& path, std::string* error) {
+    romPath_ = path;
     loadNotice_.clear();
     if (rom.empty()) {
         if (error) *error = tr("el archivo está vacío");

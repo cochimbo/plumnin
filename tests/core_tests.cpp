@@ -20,6 +20,7 @@
 #include "gb/gb.h"
 #include "nes/nes.h"
 #include "snes/snes.h"
+#include "snes/snes_necdsp.h"
 #include "miniz.h"
 #include "netplay.h"
 #include "render/planes.h"
@@ -1645,6 +1646,141 @@ void testSnes() {
     check(withChip.loadNotice().find("Super FX") != std::string::npos, "snes: and says which chip it lacks");
 }
 
+// A small uPD7725 program, as the DSP-1's would talk: it asks for two words (K and L),
+// and gives back their product's high word (Q15 times Q15), over and over.
+std::vector<uint32_t> necMultiplyProgram() {
+    auto opOp = [](uint32_t pselect, uint32_t alu, uint32_t asl, uint32_t src, uint32_t dst) {
+        return pselect << 20 | alu << 16 | asl << 15 | src << 4 | dst;
+    };
+    auto jp = [](uint32_t brch, uint32_t to) { return 2u << 22 | brch << 13 | to << 2; };
+    auto ld = [](uint32_t id, uint32_t dst) { return 3u << 22 | id << 6 | dst; };
+    return {
+        ld(0, 1),            // 0: A = 0
+        opOp(0, 0, 0, 8, 0), // 1: ask for a word (RQM)
+        jp(0x0BE, 2),        // 2: until the host has written it
+        opOp(0, 0, 0, 8, 10),// 3: K = DR, ask for the next
+        jp(0x0BE, 4),        // 4
+        opOp(0, 0, 0, 9, 13),// 5: L = DR
+        opOp(2, 5, 0, 0, 0), // 6: A += M
+        opOp(0, 0, 0, 1, 6), // 7: DR = A, for the host
+        jp(0x0BE, 8),        // 8: until read
+        jp(0x100, 0),        // 9: again
+    };
+}
+
+std::vector<uint8_t> necFirmware(bool msbFirst) {
+    std::vector<uint8_t> f(snes::NecDsp::firmwareSize(snes::NecDsp::Model::Upd7725), 0xFF);
+    const std::vector<uint32_t> program = necMultiplyProgram();
+    for (size_t i = 0; i < 2048; ++i) {
+        const uint32_t w = i < program.size() ? program[i] : 0x000000;  // nop
+        const uint8_t b[3] = {static_cast<uint8_t>(w >> 16), static_cast<uint8_t>(w >> 8), static_cast<uint8_t>(w)};
+        for (size_t k = 0; k < 3; ++k) f[i * 3 + k] = msbFirst ? b[k] : b[2 - k];
+    }
+    return f;
+}
+
+void testNecDsp() {
+    using snes::NecDsp;
+    NecDsp dsp;
+    dsp.loadProgram(NecDsp::Model::Upd7725, NecDsp::Map::LoRom, necMultiplyProgram(), {}, 7600000);
+    auto run = [&] {
+        for (int i = 0; i < 50; ++i) dsp.step();
+    };
+    auto put = [&](uint16_t v) {
+        dsp.writeDr(static_cast<uint8_t>(v));
+        dsp.writeDr(static_cast<uint8_t>(v >> 8));
+        run();
+    };
+    run();
+    check(dsp.readSr() & 0x80, "nec dsp: asks for data (RQM)");
+    put(0x4000);
+    check(dsp.readSr() & 0x80, "nec dsp: takes a word and asks for the next");
+    put(0x2000);
+    const uint8_t lo = dsp.readDr(), hi = dsp.readDr();
+    check((hi << 8 | lo) == 0x1000, "nec dsp: the multiplier (0.5 x 0.25 = 0.125)");
+    run();
+    put(0xC000);
+    put(0x2000);
+    const uint8_t lo2 = dsp.readDr(), hi2 = dsp.readDr();
+    check((hi2 << 8 | lo2) == 0xF000, "nec dsp: signed (-0.5 x 0.25)");
+
+    // The ALU's flags and saturation, one instruction at a time.
+    auto opOp = [](uint32_t pselect, uint32_t alu, uint32_t asl, uint32_t src, uint32_t dst) {
+        return pselect << 20 | alu << 16 | asl << 15 | src << 4 | dst;
+    };
+    auto ld = [](uint32_t id, uint32_t dst) { return 3u << 22 | id << 6 | dst; };
+    NecDsp alu;
+    alu.loadProgram(NecDsp::Model::Upd7725, NecDsp::Map::LoRom,
+                    {ld(0x7FFF, 1), ld(0x0001, 3), opOp(1, 5, 0, 3, 0),  // A = 7FFF + TR(1): overflows
+                     opOp(0, 0, 0, 7, 2),                                 // B = SGN: 7FFF, the saturated value
+                     opOp(0, 0, 0, 2, 15),                                // RAM[0] = B
+                     ld(0x0012, 4), ld(0xABCD, 15),                       // DP = 12, RAM[12] = ABCD
+                     opOp(0, 15, 1, 15, 0)},                              // B = swap(B)
+                    {}, 7600000);
+    for (int i = 0; i < 8; ++i) alu.step();
+    check(alu.dataRam(0) == 0x7FFF && alu.dataRam(0x12) == 0xABCD, "nec dsp: overflow gives the saturated sign, DP and RAM");
+
+    // On the console: the firmware file next to the game, the registers at 30:8000/30:C000.
+    namespace fs = std::filesystem;
+    struct Asm {
+        std::vector<uint8_t> code;
+        void emit(std::initializer_list<int> bytes) {
+            for (int b : bytes) code.push_back(static_cast<uint8_t>(b));
+        }
+    } a;
+    a.emit({0x78, 0x18, 0xFB, 0xE2, 0x30});  // sei clc xce sep #$30
+    auto waitRqm = [&] { a.emit({0xAF, 0x00, 0xC0, 0x30, 0x10, 0xFA}); };  // lda $30C000, bpl -6
+    auto send = [&](uint16_t v) {
+        waitRqm();
+        a.emit({0xA9, v & 0xFF, 0x8F, 0x00, 0x80, 0x30, 0xA9, v >> 8, 0x8F, 0x00, 0x80, 0x30});
+    };
+    send(0x4000);
+    send(0x2000);
+    waitRqm();
+    a.emit({0xAF, 0x00, 0x80, 0x30, 0x85, 0x10, 0xAF, 0x00, 0x80, 0x30, 0x85, 0x11});  // lda, sta $10, $11
+    a.emit({0x80, 0xFE});
+    std::vector<uint8_t> rom(0x8000, 0);
+    std::copy(a.code.begin(), a.code.end(), rom.begin());
+    std::fill(rom.begin() + 0x7FC0, rom.begin() + 0x7FD5, ' ');
+    const char* title = "PLUMNIN DSP TEST";
+    std::copy(title, title + std::strlen(title), rom.begin() + 0x7FC0);
+    rom[0x7FD5] = 0x20;
+    rom[0x7FD6] = 0x03;  // ROM and a DSP
+    rom[0x7FD7] = 0x05;
+    rom[0x7FD9] = 0x01;
+    rom[0x7FDC] = rom[0x7FDD] = 0xFF;
+    rom[0x7FFC] = 0x00;
+    rom[0x7FFD] = 0x80;
+
+    std::string error;
+    Snes without;
+    check(without.loadRomData(rom, &error) && without.loadNotice().find("dsp1b.rom") != std::string::npos &&
+              !without.coprocessor(),
+          "snes: a DSP-1 game without the firmware says which file it needs");
+    std::error_code ec;
+    const fs::path dir = fs::temp_directory_path() / "plumnin_dsp_test";
+    fs::create_directories(dir, ec);
+    const std::string game = (dir / "game.sfc").string();
+    std::ofstream(game, std::ios::binary).write(reinterpret_cast<const char*>(rom.data()), static_cast<std::streamsize>(rom.size()));
+    for (bool msbFirst : {true, false}) {
+        const std::vector<uint8_t> fw = necFirmware(msbFirst);
+        std::ofstream(dir / "dsp1b.rom", std::ios::binary)
+            .write(reinterpret_cast<const char*>(fw.data()), static_cast<std::streamsize>(fw.size()));
+        Snes snes;
+        check(snes.loadRom(game, &error) && snes.loadNotice().empty() && snes.coprocessor() &&
+                  snes.cartInfo().chip == snes::Chip::Dsp1,
+              "snes: the DSP-1's firmware is found next to the game");
+        snes.runFrame();
+        snes.runFrame();
+        check(snes.peek(0x10) == 0x00 && snes.peek(0x11) == 0x10,
+              msbFirst ? "snes: the game talks to the DSP-1" : "snes: firmware with the bytes the other way round");
+        // The chip's state goes in the savestate.
+        std::vector<uint8_t> state;
+        check(snes.saveState(state, true) && snes.loadState(state, &error), "snes: a savestate with the DSP-1");
+    }
+    fs::remove_all(dir, ec);
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -1668,6 +1804,7 @@ int main() {
     testGameBoy();
     testNes();
     testSnes();
+    testNecDsp();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -11,18 +11,41 @@ namespace plumnin::snes {
 // How the cartridge's ROM appears in the processor's banks.
 enum class Mapping : uint8_t { LoRom, HiRom, ExHiRom };
 
+// The chip beside the ROM.
+enum class Chip : uint8_t {
+    None,
+    Dsp1,
+    Dsp2,
+    Dsp3,
+    Dsp4,
+    St010,
+    St011,
+    St018,
+    SuperFx,
+    Sa1,
+    Sdd1,
+    Obc1,
+    Cx4,
+    Spc7110,
+    SuperGameBoy,
+};
+
 // What the cartridge's header (at 7FC0, FFC0 or 40FFC0 of the ROM) says.
 struct CartInfo {
     std::string title;
+    std::string rawTitle;  // the 21 bytes as they are (some titles are in katakana)
     Mapping mapping = Mapping::LoRom;
     bool fastRom = false;
     bool battery = false;
     bool pal = false;
     uint32_t ramSize = 0;
     uint8_t chipset = 0;  // FFD6: the extra chips (0-2 none, else a coprocessor)
-    // The coprocessor the game needs, which plumnin does not emulate ("" if none).
+    Chip chip = Chip::None;
+    // The chip's name ("" if none).
     std::string coprocessor;
 };
+
+const char* chipName(Chip chip);
 
 // The ROM (without a copier's header) and the battery-backed RAM, as the address bus
 // reaches them.
