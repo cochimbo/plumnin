@@ -19,6 +19,7 @@
 #include "console.h"
 #include "gb/gb.h"
 #include "nes/nes.h"
+#include "snes/snes.h"
 #include "miniz.h"
 #include "netplay.h"
 #include "render/planes.h"
@@ -260,6 +261,136 @@ std::vector<uint8_t> nesProgram(bool battery = false) {
     vector(0x3FFC, 0x8000);
     vector(0x3FFE, static_cast<uint16_t>(0x8000 + loop));
     for (int i = 0; i < 8; ++i) rom[16 + 0x4000 + 16 + i] = 0xFF;  // tile 1: solid colour 1
+    return rom;
+}
+
+// A small SNES program (LoROM, 32 KB), so that the SNES can be tested without any
+// game: mode 0 with vertical stripes on BG1 that scroll one pixel a frame, and a red
+// sprite at (0x50, 0x50) that the cross moves. Its work is done in the NMI, with the
+// pads read by the automatic read.
+std::vector<uint8_t> snesProgram(bool battery = false, uint8_t region = 0x01) {
+    struct Asm {
+        std::vector<uint8_t> code;
+        void emit(std::initializer_list<int> bytes) {
+            for (int b : bytes) code.push_back(static_cast<uint8_t>(b));
+        }
+        void abs(int op, uint16_t a) { emit({op, a & 0xFF, a >> 8}); }
+        size_t here() const { return code.size(); }
+        void branch(int op, size_t to) { emit({op, static_cast<int>(to) - static_cast<int>(code.size() + 2)}); }
+    } a;
+    a.emit({0x78, 0x18, 0xFB, 0xC2, 0x10, 0xA2, 0xFF, 0x1F, 0x9A, 0xE2, 0x30});  // sei clc xce rep #$10 ldx #$1FFF txs sep #$30
+    a.emit({0xA9, 0x80});
+    a.abs(0x8D, 0x2100);  // forced blank
+    // Palette: black backdrop, white colour 1, red for the sprites' colour 1.
+    a.abs(0x9C, 0x2121);
+    a.abs(0x9C, 0x2122);
+    a.abs(0x9C, 0x2122);
+    a.emit({0xA9, 0xFF});
+    a.abs(0x8D, 0x2122);
+    a.emit({0xA9, 0x7F});
+    a.abs(0x8D, 0x2122);
+    a.emit({0xA9, 0x81});
+    a.abs(0x8D, 0x2121);
+    a.emit({0xA9, 0x1F});
+    a.abs(0x8D, 0x2122);
+    a.abs(0x9C, 0x2122);
+    // VRAM: tile 1 solid in 2bpp (words 8-15) and in 4bpp (words 16-23), the map at 0400.
+    a.emit({0xA9, 0x80});
+    a.abs(0x8D, 0x2115);
+    a.emit({0xA9, 0x08});
+    a.abs(0x8D, 0x2116);
+    a.abs(0x9C, 0x2117);
+    a.emit({0xA2, 0x10});  // ldx #16: both tiles, one after the other
+    size_t l = a.here();
+    a.emit({0xA9, 0xFF});
+    a.abs(0x8D, 0x2118);
+    a.abs(0x9C, 0x2119);
+    a.emit({0xCA});
+    a.branch(0xD0, l);
+    a.abs(0x9C, 0x2116);
+    a.emit({0xA9, 0x04});
+    a.abs(0x8D, 0x2117);
+    a.emit({0xC2, 0x10, 0xA2, 0x00, 0x04});  // rep #$10 ldx #$0400
+    l = a.here();
+    a.emit({0x8A, 0x29, 0x01});  // txa and #1
+    a.abs(0x8D, 0x2118);
+    a.abs(0x9C, 0x2119);
+    a.emit({0xCA});
+    a.branch(0xD0, l);
+    a.emit({0xE2, 0x30});
+    a.emit({0xA9, 0x04});
+    a.abs(0x8D, 0x2107);  // BG1's map at 0400
+    a.abs(0x9C, 0x2105);  // mode 0
+    a.abs(0x9C, 0x210B);
+    a.abs(0x9C, 0x2101);
+    // OAM: the sprite, and the other 127 below the picture.
+    a.abs(0x9C, 0x2102);
+    a.abs(0x9C, 0x2103);
+    for (int v : {0x50, 0x50, 0x01, 0x30}) {
+        a.emit({0xA9, v});
+        a.abs(0x8D, 0x2104);
+    }
+    a.emit({0xA2, 0x7F});
+    l = a.here();
+    a.abs(0x9C, 0x2104);
+    a.emit({0xA9, 0xE0});
+    a.abs(0x8D, 0x2104);
+    a.abs(0x9C, 0x2104);
+    a.abs(0x9C, 0x2104);
+    a.emit({0xCA});
+    a.branch(0xD0, l);
+    a.emit({0xA9, 0x50, 0x85, 0x10, 0x64, 0x11});  // x = $50, scroll = 0
+    a.emit({0xA9, 0x11});
+    a.abs(0x8D, 0x212C);  // BG1 and sprites on the main screen
+    a.emit({0xA9, 0x81});
+    a.abs(0x8D, 0x4200);  // NMI and the automatic pad read
+    a.emit({0xA9, 0x0F});
+    a.abs(0x8D, 0x2100);
+    const size_t loop = a.here();
+    a.branch(0x80, loop);
+
+    const size_t nmi = a.here();
+    l = a.here();
+    a.abs(0xAD, 0x4212);
+    a.emit({0x29, 0x01});
+    a.branch(0xD0, l);  // until the pads are read
+    a.abs(0xAD, 0x4219);
+    a.emit({0x29, 0x01});
+    a.emit({0xF0, 0x02, 0xE6, 0x10});  // beq +2, inc $10: right
+    a.abs(0xAD, 0x4219);
+    a.emit({0x29, 0x02});
+    a.emit({0xF0, 0x02, 0xC6, 0x10});  // left
+    a.abs(0x9C, 0x2102);
+    a.abs(0x9C, 0x2103);
+    a.emit({0xA5, 0x10});
+    a.abs(0x8D, 0x2104);
+    for (int v : {0x50, 0x01, 0x30}) {
+        a.emit({0xA9, v});
+        a.abs(0x8D, 0x2104);
+    }
+    a.emit({0xE6, 0x11, 0xA5, 0x11});  // inc $11 lda $11
+    a.abs(0x8D, 0x210D);
+    a.abs(0x9C, 0x210D);
+    a.abs(0xAD, 0x4210);
+    a.emit({0x40});
+
+    std::vector<uint8_t> rom(0x8000, 0);
+    std::copy(a.code.begin(), a.code.end(), rom.begin());
+    const char* title = "PLUMNIN TEST";
+    std::fill(rom.begin() + 0x7FC0, rom.begin() + 0x7FD5, ' ');
+    std::copy(title, title + std::strlen(title), rom.begin() + 0x7FC0);
+    rom[0x7FD5] = 0x20;
+    rom[0x7FD6] = battery ? 0x02 : 0x00;
+    rom[0x7FD7] = 0x05;
+    rom[0x7FD8] = battery ? 0x01 : 0x00;
+    rom[0x7FD9] = region;
+    rom[0x7FDC] = rom[0x7FDD] = 0xFF;  // complement FFFF, checksum 0000
+    auto vector = [&](size_t v, size_t to) {
+        rom[v] = static_cast<uint8_t>(0x8000 + to);
+        rom[v + 1] = static_cast<uint8_t>((0x8000 + to) >> 8);
+    };
+    vector(0x7FEA, nmi);
+    vector(0x7FFC, 0);
     return rom;
 }
 
@@ -1390,6 +1521,130 @@ void testNes() {
     check(nes->peek(0x0200) == 0x50, "nes: and the game runs again on it");
 }
 
+void testSnes() {
+    check(emulated(ConsoleSystem::Snes), "snes: emulated");
+    auto snes = std::make_unique<Snes>();
+    std::string error;
+    check(snes->loadRomData(snesProgram(), &error) && snes->system() == ConsoleSystem::Snes && !snes->hasSaveData() &&
+              snes->title() == "PLUMNIN TEST" && snes->effectiveRegion() == Region::UsaNtsc && snes->loadNotice().empty(),
+          "snes: a LoROM cartridge");
+    check(!Snes().loadRomData(std::vector<uint8_t>(0x1000, 0), &error) && !error.empty(), "snes: a cut ROM is refused");
+    std::vector<uint8_t> copier(512, 0);
+    const std::vector<uint8_t> plain = snesProgram();
+    copier.insert(copier.end(), plain.begin(), plain.end());
+    check(Snes().loadRomData(copier, &error), "snes: a copier's header is skipped");
+    for (int i = 0; i < 10; ++i) snes->runFrame();
+    check(snes->peek(0x7E0010) == 0x50 && snes->cpuRegs().e == false, "snes: the program runs in native mode");
+    PadState right;
+    right.right = true;
+    snes->setPad(0, right);
+    for (int i = 0; i < 20; ++i) snes->runFrame();
+    const int x = snes->peek(0x10);
+    check(x >= 0x50 + 19 && x <= 0x50 + 21, "snes: the cross moves the sprite");
+    snes->setPad(0, PadState{});
+    snes->runFrame();
+    snes->runFrame();
+    const VideoFrame& f = snes->frame();
+    const int sx = snes->peek(0x10) + 3, sy = 0x50 + 3;
+    const size_t at = static_cast<size_t>(sy) * VideoFrame::kMaxWidth + static_cast<size_t>(sx);
+    check(f.width == 256 && f.height == 224 && f.pixel(sx, sy) == 0xFFFF0000u && f.info[at].layer == Layer::Sprite,
+          "snes: the sprite is drawn red, on the sprite layer");
+    int front = 0, clear = 0;
+    for (int i = 0; i < 256; ++i) {
+        const size_t p = static_cast<size_t>(100) * VideoFrame::kMaxWidth + static_cast<size_t>(i);
+        if (f.planeA[p] >> 24) ++front;
+        else ++clear;
+    }
+    check(front == 128 && clear == 128 && f.lines[100].displayEnabled && f.backdrop[100] == 0xFF000000u,
+          "snes: the stripes are on the front plane, colour 0 clear");
+    const int16_t scroll = f.lines[100].hscrollA;
+    snes->runFrame();
+    check(snes->frame().lines[100].hscrollA == scroll - 1, "snes: the scroll goes into the frame");
+
+    snes->audio().clearSamples();
+    snes->setSampleRate(48000);
+    for (int i = 0; i < 6; ++i) snes->runFrame();
+    const size_t samples = snes->audio().samples().size();
+    check(samples > 9300 && samples < 9900, "snes: sound at the asked rate");
+
+    // A state brings back the same frames and sound.
+    std::vector<uint8_t> state;
+    check(snes->saveState(state), "snes: savestate");
+    auto runSome = [&](Snes& n) {
+        uint32_t h = 2166136261u;
+        PadState p;
+        for (int i = 0; i < 40; ++i) {
+            p.left = i < 10;
+            p.right = i > 20;
+            n.setPad(0, p);
+            n.audio().clearSamples();
+            n.runFrame();
+            for (int yy = 0; yy < 224; ++yy)
+                for (int xx = 0; xx < 256; ++xx) h = (h ^ n.frame().pixel(xx, yy)) * 16777619u;
+            for (int16_t v : n.audio().samples()) h = (h ^ static_cast<uint16_t>(v)) * 16777619u;
+        }
+        return h;
+    };
+    const uint32_t first = runSome(*snes);
+    check(snes->loadState(state, &error) && runSome(*snes) == first, "snes: a savestate replays the same frames and sound");
+    Snes other;
+    other.loadRomData(snesProgram(), &error);
+    other.setSampleRate(48000);
+    check(other.loadState(state, &error) && runSome(other) == first, "snes: and in another console");
+
+    // Cheats: a Game Genie code patches what the ROM answers, a Pro Action Replay one RAM.
+    CheatPatch p;
+    const CheatDecoder decode = cheatDecoderFor(ConsoleSystem::Snes);
+    check(decode && decode("DDDD-DDDD", &p, &error) && p.address == 0 && p.value == 0 && !p.ram &&
+              decode("FDDD-DDDD", &p, &error) && p.value == 0x10,
+          "snes: a Game Genie code");
+    std::set<uint32_t> bits;
+    for (int digit = 2; digit < 8; ++digit)
+        for (int b = 0; b < 4; ++b) {
+            std::string code = "DDDD-DDDD";
+            code[static_cast<size_t>(digit < 4 ? digit : digit + 1)] = "F406"[b];  // the digits worth 1, 2, 4 and 8
+            if (decode(code, &p, &error)) bits.insert(p.address);
+        }
+    check(bits.size() == 24, "snes: each of the Game Genie's address bits lands on its own");
+    check(decode("7E0020:2A", &p, &error) && p.ram && p.address == 0x7E0020 && p.value == 0x2A &&
+              decode("7E00202A", &p, &error) && p.ram,
+          "snes: a Pro Action Replay code");
+    check(decode("009ABCEA", &p, &error) && !p.ram && p.address == 0x009ABC, "snes: a Pro Action Replay code in the ROM");
+    check(!decode("DDDD-DDDG", &p, &error) && !decode("7E002", &p, &error), "snes: wrong codes");
+    snes->setCheats({{0x7E0020, 0x2A, true, -1, true}});
+    snes->runFrame();
+    check(snes->peek(0x0020) == 0x2A, "snes: the RAM cheat is on");
+    snes->setCheats({});
+
+    check(snes->achievementsConsole() == 3 && snes->memoryMap().size() == 1 && snes->memoryMap()[0].size == 0x20000,
+          "snes: the achievements' memory map");
+
+    Snes saved;
+    check(saved.loadRomData(snesProgram(true), &error) && saved.hasSaveData() && saved.saveData().size() == 0x800,
+          "snes: a cartridge with battery");
+    std::vector<uint8_t> save = saved.saveData();
+    save[5] = 0x42;
+    saved.loadSaveData(save);
+    check(saved.saveData()[5] == 0x42 && saved.peek(0x700005) == 0x42, "snes: the save loads back at 700000");
+
+    Snes pal;
+    check(pal.loadRomData(snesProgram(false, 0x02), &error) && pal.effectiveRegion() == Region::EuropePal &&
+              pal.refreshRate() < 51,
+          "snes: a PAL cartridge runs at 50 Hz");
+    snes->setPad(0, PadState{});
+    snes->setRegion(Region::EuropePal);
+    check(snes->effectiveRegion() == Region::EuropePal && snes->refreshRate() < 51, "snes: the region can be chosen");
+    for (int i = 0; i < 5; ++i) snes->runFrame();
+    check(snes->peek(0x10) == 0x50, "snes: and the game runs again on it");
+
+    std::vector<uint8_t> chip = snesProgram();
+    chip[0x7FD6] = 0x15;  // ROM, a Super FX and battery
+    check(Snes().loadRomData(chip, &error), "snes: a game with a chip still loads");
+    Snes withChip;
+    withChip.loadRomData(chip, &error);
+    check(withChip.loadNotice().find("Super FX") != std::string::npos, "snes: and says which chip it lacks");
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -1412,6 +1667,7 @@ int main() {
     testAchievements();
     testGameBoy();
     testNes();
+    testSnes();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

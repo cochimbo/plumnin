@@ -71,6 +71,12 @@ add_library(plumnin_core STATIC
   src/core/nes/nes_ppu.cpp
   src/core/nes/nes_apu.cpp
   src/core/nes/nes_cart.cpp
+  src/core/snes/snes.cpp
+  src/core/snes/snes_apu.cpp
+  src/core/snes/snes_cart.cpp
+  src/core/snes/snes_cpu.cpp
+  src/core/snes/snes_ppu.cpp
+  src/core/snes/snes_smp.cpp
   src/core/system.cpp
   src/core/cheats.cpp
   src/core/rewind.cpp
@@ -281,6 +287,30 @@ if(PLUMNIN_BUILD_TESTS)
   set(NES_TEST_ROMS "" CACHE PATH "Folder of the nes-test-roms repository, for the nes_test_roms test")
   if(NES_TEST_ROMS)
     add_test(NAME nes_test_roms COMMAND nes-test-roms ${NES_TEST_ROMS})
+  endif()
+
+  # The SNES's test ROMs, when their folder is given: -DSNES_TEST_ROMS=path/to/SNES
+  # (a clone of https://github.com/PeterLemon/SNES).
+  add_executable(snes-test-roms tests/snes_test_roms.cpp)
+  target_include_directories(snes-test-roms PRIVATE third_party/stb)
+  target_link_libraries(snes-test-roms PRIVATE plumnin_core)
+  set(SNES_TEST_ROMS "" CACHE PATH "Folder of PeterLemon's SNES repository, for the snes_test_roms test")
+  if(SNES_TEST_ROMS)
+    add_test(NAME snes_test_roms COMMAND snes-test-roms ${SNES_TEST_ROMS})
+  endif()
+
+  # SingleStepTests' processor tests, when their folders are given:
+  # -DSNES_CPU_TESTS=path/to/65816/v1 and -DSNES_SPC_TESTS=path/to/spc700/v1
+  # (https://github.com/SingleStepTests/65816 and .../spc700; files cut short are fine).
+  add_executable(snes-single-step tests/snes_single_step.cpp)
+  target_link_libraries(snes-single-step PRIVATE plumnin_core)
+  set(SNES_CPU_TESTS "" CACHE PATH "Folder of SingleStepTests' 65816 JSON files")
+  set(SNES_SPC_TESTS "" CACHE PATH "Folder of SingleStepTests' SPC700 JSON files")
+  if(SNES_CPU_TESTS)
+    add_test(NAME snes_cpu_tests COMMAND snes-single-step 65816 ${SNES_CPU_TESTS})
+  endif()
+  if(SNES_SPC_TESTS)
+    add_test(NAME snes_spc_tests COMMAND snes-single-step spc700 ${SNES_SPC_TESTS})
   endif()
 
   # Every text in tr() has its translation in every .po (tools/i18n.py --update adds the new ones).

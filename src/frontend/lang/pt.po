@@ -782,6 +782,9 @@ msgstr "Este jogo ainda não tem conquistas."
 msgid "Este juego no tiene trucos todavía."
 msgstr "Este jogo ainda não tem truques."
 
+msgid "Este juego usa el chip %s, que plumnin todavía no emula: puede que no funcione."
+msgstr "Este jogo usa o chip %s, que o plumnin ainda não emula: pode não funcionar."
+
 msgid "Este juego: %u de %u logros"
 msgstr "Este jogo: %u de %u conquistas"
 
@@ -870,6 +873,9 @@ msgstr "GIF guardado em %s"
 
 msgid "Game Genie (ABC-DEF-GHI) o GameShark (01FF34C1)"
 msgstr "Game Genie (ABC-DEF-GHI) ou GameShark (01FF34C1)"
+
+msgid "Game Genie (DD62-3B1D) o Pro Action Replay (7E0DBF09)"
+msgstr "Game Genie (DD62-3B1D) ou Pro Action Replay (7E0DBF09)"
 
 msgid "Game Genie (SXIOPO o YEUZUGAA) o Pro Action Replay (0075:09)"
 msgstr "Game Genie (SXIOPO ou YEUZUGAA) ou Pro Action Replay (0075:09)"
@@ -1949,6 +1955,9 @@ msgstr "byte"
 msgid "desactivado"
 msgstr "desligado"
 
+msgid "el archivo es demasiado pequeño para ser un juego de Super Nintendo"
+msgstr "o arquivo é pequeno demais para ser um jogo de Super Nintendo"
+
 msgid "el archivo está vacío"
 msgstr "o arquivo está vazio"
 
@@ -2092,8 +2101,14 @@ msgstr "um código de Game Boy só tem dígitos hexadecimais"
 msgid "un código de Game Boy tiene 6 o 9 cifras (Game Genie) u 8 (GameShark)"
 msgstr "um código de Game Boy tem 6 ou 9 dígitos (Game Genie) ou 8 (GameShark)"
 
+msgid "un código de Game Genie de Super Nintendo es como DD62-3B1D"
+msgstr "um código Game Genie de Super Nintendo é como DD62-3B1D"
+
 msgid "un código de NES es un Game Genie de 6 u 8 letras o un Pro Action Replay (0075:09)"
 msgstr "um código de NES é um Game Genie de 6 ou 8 letras ou um Pro Action Replay (0075:09)"
+
+msgid "un código de Super Nintendo es un Game Genie (DD62-3B1D) o un Pro Action Replay (7E0DBF09)"
+msgstr "um código de Super Nintendo é um Game Genie (DD62-3B1D) ou um Pro Action Replay (7E0DBF09)"
 
 msgid "vacía"
 msgstr "vazio"
