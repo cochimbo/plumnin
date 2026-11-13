@@ -411,8 +411,8 @@ msgstr "Botões próprios deste jogo"
 msgid "Bucle"
 msgstr "Loop"
 
-msgid "Busca cómo pide el juego su música y graba cada canción con su bucle. Tarda menos de un minuto."
-msgstr "Descobre como o jogo pede sua música e grava cada uma com seu loop. Leva menos de um minuto."
+msgid "Busca cómo pide el juego su música y graba cada canción con su bucle. Suele tardar menos de un minuto, y en algunos juegos unos pocos."
+msgstr "Descobre como o jogo pede sua música e grava cada uma com seu loop. Costuma levar menos de um minuto, alguns em certos jogos."
 
 msgid ""
 "Busca en ScreenScraper (internet) cada juego que aún no tenga sus medios: portada completa,\n"
@@ -1832,6 +1832,9 @@ msgstr "Nota"
 
 msgid "Notas"
 msgstr "Notas"
+
+msgid "Número %d del juego"
+msgstr "Número %d do jogo"
 
 msgid "Oboe"
 msgstr "Oboé"

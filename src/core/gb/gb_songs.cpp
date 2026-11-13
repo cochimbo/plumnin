@@ -380,7 +380,8 @@ private:
         return h;
     }
 
-    bool record(GameBoy& gb, const Way& way, int number, GbSongRipper::Song* song);
+    // `label` numbers it among the songs found, for its title.
+    bool record(GameBoy& gb, const Way& way, int number, int label, GbSongRipper::Song* song);
 
     std::vector<uint8_t> rom_;
     GbSongRipper::Options options_;
@@ -412,7 +413,7 @@ bool repeats(const std::vector<uint64_t>& h, int shortest, int* from, int* perio
     return false;
 }
 
-bool Ripper::record(GameBoy& gb, const Way& way, int number, GbSongRipper::Song* song) {
+bool Ripper::record(GameBoy& gb, const Way& way, int number, int label, GbSongRipper::Song* song) {
     std::string error;
     if (!gb.loadState(way.state, &error)) return false;
     VgmWriter vgm;
@@ -475,7 +476,7 @@ bool Ripper::record(GameBoy& gb, const Way& way, int number, GbSongRipper::Song*
     }
     if (end < 0) end = static_cast<int>(marks.size()) - 1;
     if (end <= 0) return false;
-    VgmWriter::Tag tag{trf("Canción %02d", number), title_, ""};
+    VgmWriter::Tag tag{trf("Canción %02d", label), title_, trf("Número %d del juego", number)};
     const VgmWriter::Mark* loop = loopFrom >= 0 ? &marks[static_cast<size_t>(loopFrom)] : nullptr;
     song->number = number;
     song->vgz = vgm.finish(tag, &marks[static_cast<size_t>(end)], loop);
@@ -514,7 +515,10 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         const double rate = seconds > 0 ? static_cast<double>(r.calls - 1) / seconds : 0;
         if (rate < 20) continue;
         // Called at a steady pace, not twice in a row (once for each channel, say).
-        if (r.quickCalls * 50 > r.calls) continue;
+        if (std::getenv("PLUMNIN_RIP_DEBUG"))
+            std::fprintf(stderr, "candidate %s: rate %.1f, %llu quick\n", hexId(id).c_str(), rate,
+                         static_cast<unsigned long long>(r.quickCalls));
+        if (r.quickCalls * 10 > r.calls) continue;  // (a few, when the game lags)
         const double cost = static_cast<double>(r.instructions) / static_cast<double>(r.calls);
         // As much as the most, give or take a twentieth, and the least work for it.
         const bool more = r.sound * 20 > most * 21, asMuch = r.sound * 21 >= most * 20;
@@ -625,7 +629,8 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
             const bool quiet = calls >= 30 && third.lastNote > 0 &&
                                gb3.soundClock() - third.lastNote > static_cast<uint64_t>(kClock);
             if (quiet && silentState.empty()) gb3.saveState(silentState, true);
-            if (calls == driverCall) {
+            // (Now and then as well: saving a state can shift the run by a few calls.)
+            if (calls == driverCall || (calls <= driverCall && calls % 64 == 0)) {
                 gb3.saveState(lateState, true);
                 driver_.banks = gb3.banks();
             }
@@ -732,7 +737,7 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
     for (const Found& f : found) {
         if (cancelled()) return false;
         GbSongRipper::Song song;
-        if (record(probe, *f.way, f.number, &song)) {
+        if (record(probe, *f.way, f.number, static_cast<int>(songs->size()) + 1, &song)) {
             if (std::getenv("PLUMNIN_RIP_DEBUG"))
                 std::fprintf(stderr, "song %d: %.1f s, loop %.1f s\n", f.number, song.seconds, song.loopSeconds);
             songs->push_back(std::move(song));

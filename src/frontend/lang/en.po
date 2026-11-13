@@ -411,8 +411,8 @@ msgstr "This game's own buttons"
 msgid "Bucle"
 msgstr "Loop"
 
-msgid "Busca cómo pide el juego su música y graba cada canción con su bucle. Tarda menos de un minuto."
-msgstr "Finds how the game asks for its music and records each song with its loop. Takes less than a minute."
+msgid "Busca cómo pide el juego su música y graba cada canción con su bucle. Suele tardar menos de un minuto, y en algunos juegos unos pocos."
+msgstr "Finds how the game asks for its music and records each song with its loop. It usually takes less than a minute, a few in some games."
 
 msgid ""
 "Busca en ScreenScraper (internet) cada juego que aún no tenga sus medios: portada completa,\n"
@@ -1832,6 +1832,9 @@ msgstr "Rating"
 
 msgid "Notas"
 msgstr "Notes"
+
+msgid "Número %d del juego"
+msgstr "The game's number %d"
 
 msgid "Oboe"
 msgstr "Oboe"

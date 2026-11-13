@@ -124,10 +124,11 @@ there is:
   a byte the driver reads and clears), keeps the ways that play a song with a number the
   game itself asked for, then asks for every number with only the driver running and
   records each song until the driver comes back to where it was, which is its loop.
-  Tetris gives its 17 songs in a few seconds, Link's Awakening its 94 in a minute; not
-  every game's driver is found yet (Mega Man II's, for one). `plumnin-headless game.gb
-  --rip-songs DIR` does it without a window, `--vgm FILE` records a run, and a `.vgm` or
-  `.vgz` given instead of a game is played to `--wav`.
+  Tetris gives its 17 songs in a few seconds, Link's Awakening its 94 in a minute and a
+  half; not every game's way of asking is found yet (Mega Man II's and Pokémon
+  Crystal's, for two). `plumnin-headless game.gb --rip-songs DIR` does it without a
+  window, `--vgm FILE` records a run, and a `.vgm` or `.vgz` given instead of a game is
+  played to `--wav`.
 - The 2D and pseudo-3D views, with the xBR and Anime4K upscalers and the scanline and
   CRT filters.
 - Netplay over UDP with rollback.

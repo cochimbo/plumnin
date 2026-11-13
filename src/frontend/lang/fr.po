@@ -411,8 +411,8 @@ msgstr "Boutons propres à ce jeu"
 msgid "Bucle"
 msgstr "Boucle"
 
-msgid "Busca cómo pide el juego su música y graba cada canción con su bucle. Tarda menos de un minuto."
-msgstr "Cherche comment le jeu demande sa musique et enregistre chaque morceau avec sa boucle. Prend moins d'une minute."
+msgid "Busca cómo pide el juego su música y graba cada canción con su bucle. Suele tardar menos de un minuto, y en algunos juegos unos pocos."
+msgstr "Cherche comment le jeu demande sa musique et enregistre chaque morceau avec sa boucle. Cela prend en général moins d'une minute, quelques-unes pour certains jeux."
 
 msgid ""
 "Busca en ScreenScraper (internet) cada juego que aún no tenga sus medios: portada completa,\n"
@@ -1832,6 +1832,9 @@ msgstr "Note"
 
 msgid "Notas"
 msgstr "Notes"
+
+msgid "Número %d del juego"
+msgstr "Numéro %d du jeu"
 
 msgid "Oboe"
 msgstr "Hautbois"

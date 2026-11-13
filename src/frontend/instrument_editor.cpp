@@ -458,7 +458,7 @@ void InstrumentEditor::drawSongs(SynthMusic& synth, bool on, Console* console, i
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             ImGui::SetTooltip("%s", gameBoy ? tr("Busca cómo pide el juego su música y graba cada canción con su bucle. "
-                                                 "Tarda menos de un minuto.")
+                                                 "Suele tardar menos de un minuto, y en algunos juegos unos pocos.")
                                             : tr("Por ahora, solo en los juegos de Game Boy y Game Boy Color."));
     }
     ImGui::SameLine();
