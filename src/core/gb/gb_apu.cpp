@@ -169,6 +169,12 @@ bool Apu::waveJustRead() const {
     return ago >= 0 && ago < 2;
 }
 
+void Apu::registers(uint8_t out[0x30]) const {
+    for (int i = 0; i < 0x30; ++i) out[i] = regs_[i];
+    for (int i = 0; i < 16; ++i) out[0x20 + i] = waveRam_[i];
+    out[0x16] = power_ ? 0x80 : 0x00;
+}
+
 uint8_t Apu::read(uint16_t address) const {
     if (address >= 0xFF30) {
         if (!wave_.on) return waveRam_[address - 0xFF30];

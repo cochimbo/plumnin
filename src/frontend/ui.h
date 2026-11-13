@@ -78,6 +78,7 @@ struct UiState {
     bool romLoaded = false;
     std::string romPath;
     bool synthOn = false;  // the game's music goes through the synthesizer
+    Console* console = nullptr;  // the game's, for the instrument editor
     bool paused = false;
     bool slowMotion = false;
     std::string speed;     // badge in the corner while not at normal speed ("<< REBOBINANDO", "x4"...)
@@ -123,6 +124,9 @@ public:
     void setSoundfonts(std::string included, std::string folder);
     // The synthesizer, for the instrument editor, and the folder of the games' choices.
     void openInstrumentEditor() { editor_.open(); }
+    // A song of the instrument editor is playing: the game waits, and this is its sound.
+    bool songPlaying() const { return editor_.playing(); }
+    void playSong(double seconds, double rate, std::vector<int16_t>& out) { editor_.play(seconds, rate, out); }
     void setSynth(SynthMusic* synth, std::string soundFolder) {
         synth_ = synth;
         editor_.setFolder(std::move(soundFolder));

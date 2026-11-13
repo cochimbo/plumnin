@@ -790,10 +790,16 @@ void SynthMusic::render(int16_t* out, int frames) {
     tsf_render_float(synth_->font, buf.data(), frames, 0);
     synth_->effects.process(buf.data(), frames);
     synth_->equalizer.process(buf.data(), frames);
-    const float gain = 9000.0f * static_cast<float>(volume_) / 100.0f;
-    for (int i = 0; i < frames * 2; ++i)
-        out[i] = static_cast<int16_t>(
-            std::clamp(static_cast<int>(out[i]) + static_cast<int>(buf[static_cast<size_t>(i)] * gain), -32768, 32767));
+    // As loud as the chip's own sound of the same music, more or less; the peaks above
+    // three quarters of full scale are rounded off rather than clipped.
+    const float gain = 20000.0f * static_cast<float>(volume_) / 100.0f;
+    constexpr float kKnee = 24000.0f, kRoom = 32767.0f - kKnee;
+    for (int i = 0; i < frames * 2; ++i) {
+        float v = static_cast<float>(out[i]) + buf[static_cast<size_t>(i)] * gain;
+        const float m = std::fabs(v);
+        if (m > kKnee) v = std::copysign(kKnee + kRoom * std::tanh((m - kKnee) / kRoom), v);
+        out[i] = static_cast<int16_t>(std::clamp(static_cast<int>(v), -32768, 32767));
+    }
 }
 
 void SynthMusic::endFrame(uint64_t clock, std::vector<int16_t>& out, size_t from, double rate) {

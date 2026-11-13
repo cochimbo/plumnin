@@ -18,6 +18,12 @@ msgstr " (hardcore)"
 msgid "%d / %d px"
 msgstr "%d / %d px"
 
+msgid "%d canciones encontradas"
+msgstr "%d morceaux trouvés"
+
+msgid "%d canciones guardadas en %s"
+msgstr "%d morceaux enregistrés dans %s"
+
 msgid "%d carpetas"
 msgstr "%d dossiers"
 
@@ -402,6 +408,12 @@ msgstr "Bouteille soufflée"
 msgid "Botones propios de este juego"
 msgstr "Boutons propres à ce jeu"
 
+msgid "Bucle"
+msgstr "Boucle"
+
+msgid "Busca cómo pide el juego su música y graba cada canción con su bucle. Tarda menos de un minuto."
+msgstr "Cherche comment le jeu demande sa musique et enregistre chaque morceau avec sa boucle. Prend moins d'une minute."
+
 msgid ""
 "Busca en ScreenScraper (internet) cada juego que aún no tenga sus medios: portada completa,\n"
 "etiqueta del cartucho, capturas, logo... Las carátulas que ya hay se quedan, salvo\n"
@@ -474,8 +486,20 @@ msgstr "Clochette"
 msgid "Canales"
 msgstr "Canaux"
 
+msgid "Cancelado."
+msgstr "Annulé."
+
 msgid "Cancelar"
 msgstr "Annuler"
+
+msgid "Canciones"
+msgstr "Morceaux"
+
+msgid "Canción"
+msgstr "Morceau"
+
+msgid "Canción %02d"
+msgstr "Morceau %02d"
 
 msgid "Capas"
 msgstr "Couches"
@@ -821,6 +845,9 @@ msgstr "Deux joueurs, chacun sur son ordinateur avec le même jeu ouvert (la mê
 msgid "Dulcémele"
 msgstr "Tympanon"
 
+msgid "Dura"
+msgstr "Durée"
+
 msgid "EE. UU. (NTSC)"
 msgstr "États-Unis (NTSC)"
 
@@ -872,6 +899,12 @@ msgstr "La 3D est désormais gardée rien que pour %s"
 msgid "El SoundFont del sintetizador"
 msgstr "La SoundFont du synthétiseur"
 
+msgid "El VGM está cortado."
+msgstr "Le VGM est tronqué."
+
+msgid "El VGM no es de una Game Boy: no tiene su chip de sonido."
+msgstr "Ce VGM n'est pas celui d'une Game Boy : il n'a pas sa puce sonore."
+
 msgid "El anfitrión está jugando a otro juego: abrid los dos el mismo (la misma ROM)."
 msgstr "L'hôte joue à un autre jeu : ouvrez tous les deux le même (la même ROM)."
 
@@ -886,6 +919,9 @@ msgstr "L'hôte utilise une autre version de plumnin : vous devez utiliser la m�
 
 msgid "El juego abierto tiene sus propios botones (en Opciones de este juego); aquí cambias los generales."
 msgstr "Le jeu ouvert a ses propres boutons (dans Options de ce jeu) ; ici vous changez les généraux."
+
+msgid "El juego no ha tocado música en el tiempo que se ha mirado."
+msgstr "Le jeu n'a joué aucune musique pendant le temps observé."
 
 msgid "El juego vuelve a empezar: así se juega en hardcore."
 msgstr "Le jeu recommence : c'est ainsi qu'on joue en hardcore."
@@ -995,6 +1031,9 @@ msgstr "Saisissez l'adresse de l'hôte."
 
 msgid "Escribe un código."
 msgstr "Saisissez un code."
+
+msgid "Escuchar"
+msgstr "Écouter"
 
 msgid "Espacio"
 msgstr "Espace"
@@ -1207,6 +1246,15 @@ msgstr ""
 "Enregistre la partie, sans son, dans un GIF animé à partager.\n"
 "Choisissez-le à nouveau pour arrêter."
 
+msgid "Grabación %02d"
+msgstr "Enregistrement %02d"
+
+msgid "Grabado jugando con plumnin"
+msgstr "Enregistré en jouant avec plumnin"
+
+msgid "Grabando %.0f s"
+msgstr "Enregistrement %.0f s"
+
 msgid "Grabando un GIF (Ctrl+G para pararlo)"
 msgstr "Enregistrement d'un GIF (Ctrl+G pour l'arrêter)"
 
@@ -1219,11 +1267,17 @@ msgstr "Enregistrer"
 msgid "Grabar GIF"
 msgstr "Enregistrer un GIF"
 
+msgid "Grabar la música del juego"
+msgstr "Enregistrer la musique du jeu"
+
 msgid "Grabar vídeo"
 msgstr "Enregistrer une vidéo"
 
 msgid "Grosor"
 msgstr "Épaisseur"
+
+msgid "Guardada como %s"
+msgstr "Enregistré sous %s"
 
 msgid "Guardar el 3D solo para este juego"
 msgstr "Garder la 3D rien que pour ce jeu"
@@ -1326,6 +1380,9 @@ msgstr "Se connecter"
 msgid "Instrumento"
 msgstr "Instrument"
 
+msgid "Instrumentos"
+msgstr "Instruments"
+
 msgid "Intensidad del filtro"
 msgstr "Intensité du filtre"
 
@@ -1337,6 +1394,9 @@ msgstr "Gauche"
 
 msgid "Japón (NTSC)"
 msgstr "Japon (NTSC)"
+
+msgid "Juega: se graba lo que suene hasta que la pares."
+msgstr "Jouez : tout ce qui sonne est enregistré jusqu'à ce que vous l'arrêtiez."
 
 msgid "Juego"
 msgstr "Jeu"
@@ -1408,6 +1468,9 @@ msgstr ""
 "La caméra oscille de quelques degrés en suivant l'action,\n"
 "ainsi les couches bougent entre elles même vues de face."
 
+msgid "La grabación se ha perdido: el juego se cerró antes de pararla."
+msgstr "L'enregistrement est perdu : le jeu a été fermé avant de l'arrêter."
+
 msgid ""
 "La música suena con instrumentos General MIDI del SoundFont elegido, como en un\n"
 "módulo SC-55. En la Game Boy y la NES, los pulsos como oboes, trompetas o clarinetes,\n"
@@ -1434,6 +1497,9 @@ msgstr "L'emplacement %d est vide"
 
 msgid "La sesión ha caducado: vuelve a escribir la contraseña."
 msgstr "La session a expiré : saisissez à nouveau le mot de passe."
+
+msgid "Las canciones del juego, para oírlas sin jugar: el juego espera mientras suena una. Con el sintetizador puesto suenan con él, y en Instrumentos puedes cambiar los suyos mientras suenan."
+msgstr "Les morceaux du jeu, à écouter sans jouer : le jeu attend pendant qu'un morceau joue. Avec le synthétiseur activé ils passent par lui, et vous pouvez changer leurs instruments dans Instruments pendant qu'ils jouent."
 
 msgid "Las dos consolas se han descompasado (fotograma %d): lo que veis ya no es lo mismo. Salid y volved a empezar."
 msgstr "Les deux consoles se sont désynchronisées (image %d) : vous ne voyez plus la même chose. Quittez et recommencez."
@@ -1639,6 +1705,9 @@ msgstr "Aucun code n'a ce nom."
 msgid "No"
 msgstr "Non"
 
+msgid "No es un archivo VGM."
+msgstr "Ce n'est pas un fichier VGM."
+
 msgid "No hay ROMs en esta carpeta."
 msgstr "Il n'y a pas de ROM dans ce dossier."
 
@@ -1662,6 +1731,9 @@ msgstr "Non officiels"
 
 msgid "No se encuentra \"%s\"."
 msgstr "\"%s\" est introuvable."
+
+msgid "No se ha encontrado el controlador de sonido del juego."
+msgstr "Le pilote son du jeu est introuvable."
 
 msgid "No se pudieron cargar los logros: %s"
 msgstr "Impossible de charger les succès : %s"
@@ -1854,6 +1926,9 @@ msgstr ""
 "(Steam Deck, ROG Ally, Legion Go, MSI Claw...) : texte\n"
 "plus grand et la manette dans toutes les fenêtres."
 
+msgid "Parar"
+msgstr "Arrêter"
+
 msgid "Parar ScreenScraper"
 msgstr "Arrêter ScreenScraper"
 
@@ -1862,6 +1937,9 @@ msgstr "Arrêter l'émulation"
 
 msgid "Parar la descarga"
 msgstr "Arrêter le téléchargement"
+
+msgid "Parar y guardar la grabación"
+msgstr "Arrêter et enregistrer"
 
 msgid "Pausa"
 msgstr "Pause"
@@ -1922,6 +2000,9 @@ msgstr "Cymbale ride 2"
 
 msgid "Platillo splash"
 msgstr "Cymbale splash"
+
+msgid "Por ahora, solo en los juegos de Game Boy y Game Boy Color."
+msgstr "Pour l'instant, seulement dans les jeux Game Boy et Game Boy Color."
 
 msgid "Por año"
 msgstr "Par année"
@@ -2136,6 +2217,9 @@ msgstr "Run-ahead (moins de latence)"
 msgid "Run-ahead desactivado: no se pudo volver al fotograma actual."
 msgstr "Run-ahead désactivé : impossible de revenir à l'image actuelle."
 
+msgid "Sacar canciones de la ROM"
+msgstr "Extraire les morceaux de la ROM"
+
 msgid "Salir"
 msgstr "Quitter"
 
@@ -2213,6 +2297,9 @@ msgstr "ScreenScraper : %d jeux téléchargés"
 
 msgid "Se buscan también en sus subcarpetas, y luego puedes añadir más carpetas."
 msgstr "Ses sous-dossiers sont aussi parcourus, et vous pourrez ajouter d'autres dossiers ensuite."
+
+msgid "Se ha encontrado el controlador de sonido, pero no cómo pide el juego las canciones."
+msgstr "Le pilote son a été trouvé, mais pas la façon dont le jeu demande ses morceaux."
 
 msgid "Se ha perdido la conexión con el otro jugador."
 msgstr "La connexion avec l'autre joueur a été perdue."
@@ -2418,6 +2505,12 @@ msgstr "Timbales"
 
 msgid "Todavía no ha sonado nada."
 msgstr "Rien n'a encore sonné."
+
+msgid "Todavía no hay canciones."
+msgstr "Pas encore de morceaux."
+
+msgid "Todavía no hay canciones: sácalas de la ROM o graba la música jugando."
+msgstr "Pas encore de morceaux : extrayez-les de la ROM ou enregistrez la musique en jouant."
 
 msgid "Todo a las sugerencias"
 msgstr "Tout revenir aux suggestions"
@@ -2701,6 +2794,9 @@ msgstr "la ROM NES n’a pas de PRG"
 msgid "la ROM es demasiado pequeña para ser de Game Boy"
 msgstr "la ROM est trop petite pour être une ROM Game Boy"
 
+msgid "no"
+msgstr "non"
+
 msgid "no es una ROM de NES (le falta la cabecera iNES)"
 msgstr "ce n’est pas une ROM NES (il manque l’en-tête iNES)"
 
@@ -2741,7 +2837,34 @@ msgid ""
 "  --screenshot f.png     guardar una captura tras --frames N fotogramas y salir\n"
 "\n"
 "La pantalla completa y la región dadas aquí valen solo para esta vez."
-msgstr "plumnin [jeu] [options]\n\n  jeu                    cartouche (.gb .gbc .nes .sfc .smc .zip)\n  --fullscreen           ouvrir en plein écran\n  --windowed             ouvrir dans une fenêtre\n  --console-mode         pour jouer à la manette (Steam Deck, ROG Ally...) : plein écran,\n                         bibliothèque et grand texte (--desktop-mode pour le désactiver)\n  --3d / --2d            avec ou sans la vue pseudo-3D\n  --filter f             none (aucun), scanlines ou crt\n  --upscaling u          none (aucune), xbr ou anime4k (expérimental)\n  --fps                  afficher le compteur d'IPS avec son graphique\n  --region r             auto, jp, us ou eu\n  --load-state N         charger l'état sauvegardé N (0-9) du jeu\n  --host                 héberger une partie en réseau avec le jeu (port du menu Réseau)\n  --join adresse         rejoindre la partie en réseau de cet hôte (IP:port)\n  --library dossier      ouvrir la bibliothèque de ce dossier (peut être répété)\n  --list                 avec --library : l'afficher en liste au lieu d'une grille\n  --cheats               ouvrir les codes du jeu, avec leurs listes d'internet\n  --instruments          ouvrir l'éditeur d'instruments\n  --achievements         ouvrir la fenêtre de RetroAchievements\n  --game-options         ouvrir les options propres au jeu\n  --game-options controls   ...sur l'onglet de ses commandes\n  --test-pattern [gb|gbc|nes|snes]   ouvrir la mire de test au lieu d'un jeu\n  --record f.avi         enregistrer la partie dès le début, en vidéo (.avi) ou GIF (.gif)\n  --screenshot f.png     enregistrer une capture après --frames N images et quitter\n\nLe plein écran et la région donnés ici ne valent que pour cette fois."
+msgstr ""
+"plumnin [jeu] [options]\n"
+"\n"
+"  jeu                    cartouche (.gb .gbc .nes .sfc .smc .zip)\n"
+"  --fullscreen           ouvrir en plein écran\n"
+"  --windowed             ouvrir dans une fenêtre\n"
+"  --console-mode         pour jouer à la manette (Steam Deck, ROG Ally...) : plein écran,\n"
+"                         bibliothèque et grand texte (--desktop-mode pour le désactiver)\n"
+"  --3d / --2d            avec ou sans la vue pseudo-3D\n"
+"  --filter f             none (aucun), scanlines ou crt\n"
+"  --upscaling u          none (aucune), xbr ou anime4k (expérimental)\n"
+"  --fps                  afficher le compteur d'IPS avec son graphique\n"
+"  --region r             auto, jp, us ou eu\n"
+"  --load-state N         charger l'état sauvegardé N (0-9) du jeu\n"
+"  --host                 héberger une partie en réseau avec le jeu (port du menu Réseau)\n"
+"  --join adresse         rejoindre la partie en réseau de cet hôte (IP:port)\n"
+"  --library dossier      ouvrir la bibliothèque de ce dossier (peut être répété)\n"
+"  --list                 avec --library : l'afficher en liste au lieu d'une grille\n"
+"  --cheats               ouvrir les codes du jeu, avec leurs listes d'internet\n"
+"  --instruments          ouvrir l'éditeur d'instruments\n"
+"  --achievements         ouvrir la fenêtre de RetroAchievements\n"
+"  --game-options         ouvrir les options propres au jeu\n"
+"  --game-options controls   ...sur l'onglet de ses commandes\n"
+"  --test-pattern [gb|gbc|nes|snes]   ouvrir la mire de test au lieu d'un jeu\n"
+"  --record f.avi         enregistrer la partie dès le début, en vidéo (.avi) ou GIF (.gif)\n"
+"  --screenshot f.png     enregistrer une capture après --frames N images et quitter\n"
+"\n"
+"Le plein écran et la région donnés ici ne valent que pour cette fois."
 
 msgid "plumnin necesita una tarjeta gráfica con OpenGL 3.3 y sus drivers actualizados."
 msgstr "plumnin a besoin d'une carte graphique avec OpenGL 3.3 et des pilotes à jour."

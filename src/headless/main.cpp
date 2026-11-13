@@ -25,6 +25,7 @@
 
 #include "cheats.h"
 #include "console.h"
+#include "gb/gb_songs.h"
 #include "miniz.h"
 #include "net/udp.h"
 #include "netplay.h"
@@ -83,6 +84,10 @@ Output
   --wav FILE            the whole run's sound (44100 Hz stereo)
   --synth SF2           the music through the synthesizer, on this SoundFont
   --synth-chip PERCENT  how loud the chip's own sound stays under it (default 0)
+  --rip-songs DIR       Sacar canciones: every song of the game (Game Boy and Color),
+                        each to DIR as a .vgz with its loop, then exit
+  --vgm FILE            the run's music as a VGM (gzip-compressed, .vgz), as the
+                        instrument editor records it (Game Boy and Color only)
   --gif FILE            the run as an animated GIF, as plumnin's Grabar GIF makes it
   --avi FILE            the run as a video with its sound (Motion JPEG and PCM)
                         (both at the console's own size, and not with netplay)
@@ -362,7 +367,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> cheats, scripts, lines;
     ConsoleSystem testSystem = ConsoleSystem::Nes;
     long frames = 600, overclock = 100, pngEvery = 0, netPort = 0, inputDelay = 2, netLag = 0, netLoss = 0, synthChip = 0;
-    std::string synthFont;
+    std::string synthFont, vgmOut, ripDir;
     bool netHost = false;
     std::string netJoin;
     int wideLeft = 0, wideRight = 0;
@@ -434,6 +439,8 @@ int main(int argc, char** argv) {
         else if (a == "--wav") wav = next();
         else if (a == "--synth") synthFont = next();
         else if (a == "--synth-chip") number(&synthChip);
+        else if (a == "--vgm") vgmOut = next();
+        else if (a == "--rip-songs") ripDir = next();
         else if (a == "--gif") gifOut = next();
         else if (a == "--avi") aviOut = next();
         else if (a == "--save-state") stateOut = next();
@@ -505,6 +512,70 @@ int main(int argc, char** argv) {
     if (!expectLog.empty() && !readLog(expectLog, expected)) {
         std::fprintf(stderr, "cannot read %s\n", expectLog.c_str());
         return 1;
+    }
+
+    // A VGM instead of a game: it plays for as long as --frames at 60 a second, to --wav.
+    auto endsWith = [](const std::string& s, const char* end) {
+        const size_t n = std::strlen(end);
+        return s.size() >= n && std::equal(s.end() - static_cast<long>(n), s.end(), end,
+                                           [](char a, char b) { return std::tolower(a) == b; });
+    };
+    if (endsWith(game, ".vgm") || endsWith(game, ".vgz")) {
+        std::vector<uint8_t> data;
+        VgmFile file;
+        std::string error;
+        if (!readFile(game, data) || !file.parse(std::move(data), &error)) {
+            std::fprintf(stderr, "cannot load %s: %s\n", game.c_str(), error.empty() ? "cannot read it" : error.c_str());
+            return 1;
+        }
+        VgmPlayer player;
+        player.load(std::move(file));
+        SynthMusic synth;
+        if (!synthFont.empty()) {
+            if (!readFile(synthFont, data) || !synth.loadSoundfont(data)) {
+                std::fprintf(stderr, "cannot load SoundFont %s\n", synthFont.c_str());
+                return 1;
+            }
+            player.setSynth(&synth, static_cast<int>(synthChip));
+        }
+        std::vector<int16_t> out;
+        for (long i = 0; i < frames && !player.finished(); ++i) player.play(1.0 / 60.0, 44100, out);
+        if (!wav.empty() && !writeWav(wav, out, 44100)) return 1;
+        if (!quiet)
+            std::printf("%s: %.1f s of %.1f (loop %.1f s), \"%s\" from \"%s\"\n", game.c_str(), player.position(),
+                        player.file().seconds(), player.file().loopSamples / 44100.0, player.file().title.c_str(),
+                        player.file().game.c_str());
+        return 0;
+    }
+
+    if (!ripDir.empty()) {
+        std::vector<uint8_t> rom;
+        std::string name, error, report;
+        if (!readRomFile(game, rom, &name, &error)) {
+            std::fprintf(stderr, "cannot load %s: %s\n", game.c_str(), error.c_str());
+            return 1;
+        }
+        GbSongRipper::Options options;
+        GbSongRipper::Progress progress;
+        std::vector<GbSongRipper::Song> songs;
+        const auto t0 = std::chrono::steady_clock::now();
+        const bool ok = GbSongRipper::run(rom, options, &progress, &songs, &error, &report);
+        const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+        std::fputs(report.c_str(), stdout);
+        if (!ok) {
+            std::fprintf(stderr, "%s\n", error.c_str());
+            return 1;
+        }
+        std::filesystem::create_directories(ripDir);
+        for (const GbSongRipper::Song& s : songs) {
+            char file[64];
+            std::snprintf(file, sizeof file, "/song %03d.vgz", s.number);
+            if (!writeFile(ripDir + file, s.vgz.data(), s.vgz.size())) return 1;
+            std::printf("%d: %.1f s%s\n", s.number, s.seconds,
+                        s.loopSeconds > 0 ? (", loop " + std::to_string(s.loopSeconds) + " s").c_str() : ", ends");
+        }
+        std::printf("%zu songs in %.1f s\n", songs.size(), took);
+        return 0;
     }
 
     // The console.
@@ -596,6 +667,11 @@ int main(int argc, char** argv) {
         md.setSynth(&synth, static_cast<int>(synthChip));
     }
     md.audio().clearSamples();
+    VgmWriter vgm;
+    if (!vgmOut.empty() && !md.recordMusic(&vgm)) {
+        std::fprintf(stderr, "--vgm: this console's music cannot be recorded\n");
+        return 2;
+    }
     std::vector<int16_t> sound;
     uint32_t audioHash = 2166136261u;
     long divergence = -1;
@@ -770,6 +846,11 @@ int main(int argc, char** argv) {
             if (!writePng(layers + name, layer, f.width, f.height, VideoFrame::kMaxWidth)) ioError = true;
     }
     if (!wav.empty() && !writeWav(wav, sound, kRate)) ioError = true;
+    if (!vgmOut.empty()) {
+        md.recordMusic(nullptr);
+        const std::vector<uint8_t> file = vgm.finish({});
+        if (!writeFile(vgmOut, file.data(), file.size())) ioError = true;
+    }
     for (GameRecording* r : {&gifRecording, &aviRecording}) {
         std::string error;
         if (!r->finish(&error)) {

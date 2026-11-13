@@ -662,7 +662,8 @@ UiActions Ui::frame(const UiState& state) {
     if (showAbout_) drawAbout();
     if (showCheats_) drawCheats(state, out);
     if (showGameOptions_) drawGameOptions(state, out);
-    if (synth_) editor_.draw(*synth_, state.romLoaded ? state.romPath : std::string(), state.synthOn);
+    if (synth_) editor_.draw(*synth_, state.romLoaded ? state.romPath : std::string(), state.synthOn,
+                               state.romLoaded ? state.console : nullptr, settings_.chipMix);
     // With no game running, the covers can take more of each frame.
     library_.update(state.romLoaded && !state.paused ? 3 : 10);
     gameInfo_.update();

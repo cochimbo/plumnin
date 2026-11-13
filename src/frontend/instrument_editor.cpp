@@ -1,6 +1,7 @@
 #include "instrument_editor.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -8,7 +9,10 @@
 #include <vector>
 
 #include "imgui.h"
+#include "file_dialog.h"
+#include "../core/console.h"
 #include "../core/i18n.h"
+#include "../core/system.h"
 
 namespace plumnin {
 
@@ -102,16 +106,26 @@ void InstrumentEditor::solo(SynthMusic& synth, uint32_t fingerprint) {
     synth.setListening(0, std::move(silenced));
 }
 
-void InstrumentEditor::draw(SynthMusic& synth, const std::string& game, bool on) {
+void InstrumentEditor::draw(SynthMusic& synth, const std::string& game, bool on, Console* console, int chipPercent) {
+    if (ripDone_) finishRip();
+    if (recording_ && recording_ != console) {
+        // The game was closed while recording: its console is gone, and so is the recording.
+        recording_ = nullptr;
+        message_ = tr("La grabación se ha perdido: el juego se cerró antes de pararla.");
+    }
     if (game != game_) {
         game_ = game;
         error_.clear();
         if (solo_) solo(synth, 0);
+        stopSong();
+        scanned_ = false;
     }
     if (!open_) {
         if (solo_) solo(synth, 0);
+        stopSong();
         return;
     }
+    if (!scanned_) scanSongs();
     ImGui::SetNextWindowSize(ImVec2(900, 460), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin(tr("Editor de instrumentos"), &open_)) {
         ImGui::End();
@@ -122,10 +136,24 @@ void InstrumentEditor::draw(SynthMusic& synth, const std::string& game, bool on)
         ImGui::End();
         return;
     }
+    if (ImGui::BeginTabBar("pestañas")) {
+        if (ImGui::BeginTabItem(tr("Instrumentos"))) {
+            drawInstruments(synth, on);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem(tr("Canciones"))) {
+            drawSongs(synth, on, console, chipPercent);
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+    ImGui::End();
+}
+
+void InstrumentEditor::drawInstruments(SynthMusic& synth, bool on) {
     if (!on) {
         ImGui::TextWrapped("%s", tr("Elige Sonido > Sintetizador para que la música suene con el SoundFont; entonces sus "
                                     "instrumentos aparecen aquí a medida que suenan."));
-        ImGui::End();
         return;
     }
     ImGui::TextWrapped("%s", tr("Los instrumentos que el juego ha tocado hasta ahora, en el orden en que sonaron. Lo que "
@@ -272,7 +300,236 @@ void InstrumentEditor::draw(SynthMusic& synth, const std::string& game, bool on)
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::TextDisabled("%s", fileFor(folder_, game_).c_str());
-    ImGui::End();
+}
+
+// ---------------------------------------------------------------------------------
+// Canciones
+
+InstrumentEditor::~InstrumentEditor() {
+    if (ripThread_.joinable()) {
+        ripProgress_->cancel = true;
+        ripThread_.join();
+    }
+}
+
+std::string InstrumentEditor::tracksFor(const std::string& folder, const std::string& game) {
+    if (game.empty()) return {};
+    return folder + "tracks/" + std::filesystem::u8path(game).stem().u8string() + "/";
+}
+
+void InstrumentEditor::scanSongs() {
+    scanned_ = true;
+    songs_.clear();
+    const std::string dir = tracksFor(folder_, game_);
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(std::filesystem::u8path(dir), ec)) {
+        std::string ext = entry.path().extension().u8string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (ext != ".vgm" && ext != ".vgz") continue;
+        Track t;
+        t.path = entry.path().u8string();
+        t.name = entry.path().stem().u8string();
+        const std::string bytes = readText(t.path);
+        VgmFile f;
+        if (f.parse(std::vector<uint8_t>(bytes.begin(), bytes.end()), nullptr)) {
+            t.seconds = f.seconds();
+            t.loopSeconds = f.loopSamples / 44100.0;
+            if (!f.title.empty()) t.name = f.title;
+        }
+        songs_.push_back(std::move(t));
+    }
+    std::sort(songs_.begin(), songs_.end(), [](const Track& a, const Track& b) { return a.path < b.path; });
+}
+
+void InstrumentEditor::startSong(size_t index, SynthMusic& synth, bool on, int chipPercent) {
+    stopSong();
+    if (index >= songs_.size()) return;
+    const std::string bytes = readText(songs_[index].path);
+    VgmFile f;
+    std::string error;
+    if (!f.parse(std::vector<uint8_t>(bytes.begin(), bytes.end()), &error)) {
+        message_ = songs_[index].name + ": " + error;
+        return;
+    }
+    playSynth_ = on ? &synth : nullptr;
+    player_.load(std::move(f));
+    player_.setSynth(playSynth_, chipPercent);
+    current_ = index;
+    playing_ = true;
+}
+
+void InstrumentEditor::stopSong() {
+    if (!playing_) return;
+    playing_ = false;
+    player_.setSynth(nullptr, 100);
+    if (playSynth_) playSynth_->allNotesOff();
+    playSynth_ = nullptr;
+}
+
+void InstrumentEditor::play(double seconds, double rate, std::vector<int16_t>& out) {
+    if (!playing_) return;
+    player_.play(seconds, rate, out);
+    if (player_.finished()) stopSong();
+}
+
+void InstrumentEditor::stopRecording(Console* console, bool keep) {
+    if (!recording_) return;
+    if (console == recording_) console->recordMusic(nullptr);
+    recording_ = nullptr;
+    if (!keep) return;
+    const std::string dir = tracksFor(folder_, game_);
+    std::error_code ec;
+    std::filesystem::create_directories(std::filesystem::u8path(dir), ec);
+    std::string path, name;
+    for (int n = 1; n < 1000; ++n) {
+        name = trf("Grabación %02d", n);
+        path = dir + name + ".vgz";
+        if (!std::filesystem::exists(std::filesystem::u8path(path), ec)) break;
+    }
+    const std::vector<uint8_t> file =
+        writer_.finish({name, console ? console->title() : std::string(), tr("Grabado jugando con plumnin")});
+    std::ofstream out(std::filesystem::u8path(path), std::ios::binary | std::ios::trunc);
+    out.write(reinterpret_cast<const char*>(file.data()), static_cast<std::streamsize>(file.size()));
+    message_ = out ? trf("Guardada como %s", path.c_str()) : trf("No se pudo guardar %s", path.c_str());
+    scanned_ = false;
+}
+
+void InstrumentEditor::finishRip() {
+    ripThread_.join();
+    ripDone_ = false;
+    if (!ripOk_) {
+        message_ = ripError_;
+    } else {
+        const std::string dir = tracksFor(folder_, ripGame_);
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::u8path(dir), ec);
+        int saved = 0;
+        for (size_t i = 0; i < ripSongs_.size(); ++i) {
+            const std::string path = dir + trf("Canción %02d", static_cast<int>(i + 1)) + ".vgz";
+            std::ofstream out(std::filesystem::u8path(path), std::ios::binary | std::ios::trunc);
+            const auto& v = ripSongs_[i].vgz;
+            out.write(reinterpret_cast<const char*>(v.data()), static_cast<std::streamsize>(v.size()));
+            if (out) ++saved;
+        }
+        message_ = trf("%d canciones guardadas en %s", saved, dir.c_str());
+    }
+    ripSongs_.clear();
+    ripProgress_.reset();
+    scanned_ = false;
+}
+
+void InstrumentEditor::drawSongs(SynthMusic& synth, bool on, Console* console, int chipPercent) {
+    ImGui::TextWrapped("%s", tr("Las canciones del juego, para oírlas sin jugar: el juego espera mientras suena una. Con el "
+                                "sintetizador puesto suenan con él, y en Instrumentos puedes cambiar los suyos mientras suenan."));
+    const bool gameBoy = console && (console->system() == ConsoleSystem::GameBoy ||
+                                     console->system() == ConsoleSystem::GameBoyColor);
+    const bool ripping = ripThread_.joinable();
+
+    // Sacar canciones.
+    if (ripping) {
+        const GbSongRipper::Progress& p = *ripProgress_;
+        const float fraction = static_cast<float>(p.step.load()) / static_cast<float>(std::max(1, p.steps.load()));
+        const std::string label = trf("%d canciones encontradas", p.found.load());
+        ImGui::ProgressBar(fraction, ImVec2(300, 0), label.c_str());
+        ImGui::SameLine();
+        if (ImGui::Button(tr("Cancelar"))) ripProgress_->cancel = true;
+    } else {
+        ImGui::BeginDisabled(!gameBoy || recording_);
+        if (ImGui::Button(tr("Sacar canciones de la ROM"))) {
+            std::vector<uint8_t> rom;
+            std::string name, error;
+            if (!readRomFile(game_, rom, &name, &error)) {
+                message_ = error;
+            } else {
+                stopSong();
+                message_.clear();
+                ripProgress_ = std::make_unique<GbSongRipper::Progress>();
+                ripGame_ = game_;
+                ripDone_ = false;
+                GbSongRipper::Progress* progress = ripProgress_.get();
+                ripThread_ = std::thread([this, rom = std::move(rom), progress] {
+                    std::string e;
+                    ripOk_ = GbSongRipper::run(rom, {}, progress, &ripSongs_, &e);
+                    ripError_ = e;
+                    ripDone_ = true;
+                });
+            }
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("%s", gameBoy ? tr("Busca cómo pide el juego su música y graba cada canción con su bucle. "
+                                                 "Tarda menos de un minuto.")
+                                            : tr("Por ahora, solo en los juegos de Game Boy y Game Boy Color."));
+    }
+    ImGui::SameLine();
+    if (recording_) {
+        if (ImGui::Button(tr("Parar y guardar la grabación"))) stopRecording(console, true);
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "%s", trf("Grabando %.0f s", writer_.seconds()).c_str());
+    } else {
+        ImGui::BeginDisabled(!console || !console->musicRecordable() || ripping);
+        if (ImGui::Button(tr("Grabar la música del juego"))) {
+            stopSong();
+            if (console->recordMusic(&writer_)) {
+                recording_ = console;
+                message_ = tr("Juega: se graba lo que suene hasta que la pares.");
+            }
+        }
+        ImGui::EndDisabled();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(tr("Abrir la carpeta"))) {
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::u8path(tracksFor(folder_, game_)), ec);
+        openInSystem(tracksFor(folder_, game_));
+        scanned_ = false;
+    }
+    if (!message_.empty()) ImGui::TextWrapped("%s", message_.c_str());
+
+    const ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY;
+    if (ImGui::BeginTable("canciones", 4, flags, ImVec2(0, 0))) {
+        ImGui::TableSetupScrollFreeze(0, 1);
+        ImGui::TableSetupColumn(tr("Canción"));
+        ImGui::TableSetupColumn(tr("Dura"), ImGuiTableColumnFlags_WidthFixed, 90);
+        ImGui::TableSetupColumn(tr("Bucle"), ImGuiTableColumnFlags_WidthFixed, 90);
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 160);
+        ImGui::TableHeadersRow();
+        auto time = [](double s) {
+            const int t = static_cast<int>(s + 0.5);
+            char b[16];
+            std::snprintf(b, sizeof b, "%d:%02d", t / 60, t % 60);
+            return std::string(b);
+        };
+        for (size_t i = 0; i < songs_.size(); ++i) {
+            const Track& t = songs_[i];
+            ImGui::PushID(static_cast<int>(i));
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            const bool now = playing_ && current_ == i;
+            if (now) ImGui::TextColored(ImVec4(0.4f, 1, 0.4f, 1), "%s", t.name.c_str());
+            else ImGui::TextUnformatted(t.name.c_str());
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", t.path.c_str());
+            ImGui::TableNextColumn();
+            if (now) ImGui::Text("%s / %s", time(player_.position()).c_str(), time(t.seconds).c_str());
+            else ImGui::TextUnformatted(time(t.seconds).c_str());
+            ImGui::TableNextColumn();
+            if (t.loopSeconds > 0) ImGui::TextUnformatted(time(t.loopSeconds).c_str());
+            else ImGui::TextDisabled("%s", tr("no"));
+            ImGui::TableNextColumn();
+            ImGui::BeginDisabled(recording_ != nullptr);
+            if (now) {
+                if (ImGui::SmallButton(tr("Parar"))) stopSong();
+            } else if (ImGui::SmallButton(tr("Escuchar"))) {
+                startSong(i, synth, on, chipPercent);
+            }
+            ImGui::EndDisabled();
+            ImGui::PopID();
+        }
+        ImGui::EndTable();
+    }
+    if (songs_.empty())
+        ImGui::TextDisabled("%s", gameBoy ? tr("Todavía no hay canciones: sácalas de la ROM o graba la música jugando.")
+                                          : tr("Todavía no hay canciones."));
 }
 
 }  // namespace plumnin

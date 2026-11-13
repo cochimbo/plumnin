@@ -147,6 +147,7 @@ void GameBoy::tick() {
     const int dots = doubleSpeed_ ? 2 : 4;
     ppu_.run(dots, if_);
     apu_.run(dots);
+    soundClock_ += static_cast<uint64_t>(dots);
     cart_.tickClock(dots);
 }
 
@@ -253,6 +254,7 @@ void GameBoy::hdmaBlock() {
 void GameBoy::writeIo(uint16_t a, uint8_t v) {
     if (a >= 0xFF10 && a < 0xFF40) {
         apu_.write(a, v);
+        if (recorder_) recorder_->gbWrite(a - 0xFF10, v, soundClock_);
         return;
     }
     switch (a) {
@@ -346,21 +348,27 @@ void GameBoy::runFrame() {
     const uint64_t limit = cycles_ + static_cast<uint64_t>(gb::kDotsPerFrame);
     const size_t before = audio_.output().size() / 2;
     if (synth_) {
-        synth_->setClock(1048576.0);
-        synth_->beginFrame(cycles_);
+        synth_->setClock(4194304.0);
+        synth_->beginFrame(soundClock_);
     }
     while (!ppu_.takeFrameDone() && cycles_ < limit) step();
     apu_.takeSamples(audio_.output());
-    if (synth_) synth_->endFrame(cycles_, audio_.output(), before, outputRate_);
+    if (synth_) synth_->endFrame(soundClock_, audio_.output(), before, outputRate_);
     ++frames_;
     frame_->frameNumber = frames_;
+}
+
+void GameBoy::beginMusicRecording(VgmWriter& recorder) {
+    uint8_t regs[0x30];
+    apu_.registers(regs);
+    recorder.begin(regs, soundClock_, 4194304.0);
 }
 
 void GameBoy::pollMusic() {
     for (int ch = 0; ch < 4; ++ch) {
         SynthMusic::VoiceState s;
         apu_.musicVoice(ch, s);
-        synth_->update(ch, s, cycles_);
+        synth_->update(ch, s, soundClock_);
     }
     updateChipVoices();
 }

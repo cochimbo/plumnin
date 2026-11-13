@@ -43,6 +43,21 @@ public:
     void clearRamChanged() { changed_ = false; }
 
     Mapper mapper() const { return mapper_; }
+    // The bank registers, to put back the banks some code ran with.
+    struct Banks {
+        bool ramEnabled = false;
+        uint8_t bank1 = 1, bank2 = 0, mode = 0;
+        uint16_t romBank = 1;
+        uint8_t ramBank = 0;
+    };
+    Banks banks() const { return {ramEnabled_, bank1_, bank2_, mode_, romBank_, ramBank_}; }
+    void setBanks(const Banks& b) {
+        ramEnabled_ = b.ramEnabled, bank1_ = b.bank1, bank2_ = b.bank2, mode_ = b.mode, romBank_ = b.romBank,
+        ramBank_ = b.ramBank;
+    }
+    // The ROM bank mapped at 4000-7FFF.
+    size_t romBankNumber() const { return romOffsetN() / 0x4000; }
+    size_t romSize() const { return rom_.size(); }
     // The banks mapped now, for the achievements' map.
     const uint8_t* romBank0() const { return &rom_[romOffset0()]; }
     const uint8_t* romBankN() const { return &rom_[romOffsetN()]; }

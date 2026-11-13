@@ -29,6 +29,8 @@
 #include "rewind.h"
 #include "system.h"
 #include "test_console.h"
+#include "vgm.h"
+#include "gb/gb_songs.h"
 #include "frontend/achievements.h"
 #include "frontend/game_info_data.h"
 #include "frontend/library_names.h"
@@ -2235,6 +2237,122 @@ double soundLevel(const std::vector<int16_t>& s) {
     return s.empty() ? 0 : sum / static_cast<double>(s.size() / 2);
 }
 
+// A Game Boy program with a sound driver of its own, as games have: called on every
+// vertical blank, it plays the song whose number is written to C000 (1-3, each a
+// little loop of notes on the two squares), and clears it.
+std::vector<uint8_t> gameBoySongs() {
+    std::vector<uint8_t> rom = gameBoyRom(false);
+    auto put = [&](size_t at, std::initializer_list<uint8_t> bytes) { std::copy(bytes.begin(), bytes.end(), rom.begin() + static_cast<long>(at)); };
+    put(0x40, {0xF5, 0xC5, 0xD5, 0xE5, 0xCD, 0x00, 0x02, 0xE1, 0xD1, 0xC1, 0xF1, 0xD9});  // the vertical blank calls it
+    put(0x100, {0x00, 0xC3, 0x50, 0x01});
+    put(0x150, {0xF3, 0x31, 0xFE, 0xFF,                    // DI, LD SP,FFFE
+                0x3E, 0x80, 0xE0, 0x26, 0x3E, 0x77, 0xE0, 0x24, 0x3E, 0xFF, 0xE0, 0x25,
+                0x3E, 0x80, 0xE0, 0x11, 0x3E, 0xF0, 0xE0, 0x12, 0x3E, 0x80, 0xE0, 0x16, 0x3E, 0xF0, 0xE0, 0x17,
+                0x3E, 0x01, 0xEA, 0x00, 0xC0,              // the game asks for song 1
+                0x3E, 0x01, 0xEA, 0x04, 0xC0,
+                0x3E, 0x01, 0xE0, 0xFF, 0xFB,              // vertical blank on, EI
+                0x76, 0x00, 0x18, 0xFC});                  // HALT, NOP, JR back
+    put(0x200, {0xFA, 0x00, 0xC0, 0xA7, 0x28, 0x19,      // a request?
+                0x6F, 0x26, 0x00, 0x29, 0x11, 0xFE, 0x02, 0x19, 0x2A, 0xEA, 0x01, 0xC0, 0x7E, 0xEA, 0x02, 0xC0,
+                0xAF, 0xEA, 0x00, 0xC0, 0x3E, 0x01, 0xEA, 0x04, 0xC0,
+                0xFA, 0x04, 0xC0, 0x3D, 0xEA, 0x04, 0xC0, 0xC0,  // wait for the next step
+                0xFA, 0x01, 0xC0, 0x6F, 0xFA, 0x02, 0xC0, 0x67, 0x2A, 0xFE, 0xFF, 0x20, 0x04, 0x2A, 0x66, 0x6F, 0x2A,
+                0xE0, 0x13, 0x2A, 0xF6, 0x80, 0xE0, 0x14, 0x2A, 0xE0, 0x18, 0x2A, 0xF6, 0x80, 0xE0, 0x19,
+                0x2A, 0xEA, 0x04, 0xC0, 0x7D, 0xEA, 0x01, 0xC0, 0x7C, 0xEA, 0x02, 0xC0, 0xC9});
+    put(0x300, {0x20, 0x03, 0x40, 0x03, 0x60, 0x03});  // the songs
+    put(0x320, {0x0A, 6, 0x83, 5, 32, 0x42, 6, 0xC1, 5, 32, 0x72, 6, 0x0A, 6, 32, 0x89, 6, 0x42, 6, 32, 0xFF, 0x20, 0x03});
+    put(0x340, {0x83, 5, 0x16, 4, 36, 0x0A, 6, 0x83, 5, 36, 0x16, 4, 0x0A, 6, 36, 0x42, 6, 0x16, 4, 36, 0xFF, 0x40, 0x03});
+    put(0x360, {0xC1, 5, 0x0A, 6, 30, 0x9D, 6, 0x72, 6, 30, 0x0A, 6, 0xC1, 5, 30, 0x72, 6, 0x89, 6, 30, 0xB2, 6, 0x9D,
+                6, 30, 0xFF, 0x60, 0x03});
+    uint8_t sum = 0;
+    for (int i = 0x134; i < 0x14D; ++i) sum = static_cast<uint8_t>(sum - rom[static_cast<size_t>(i)] - 1);
+    rom[0x14D] = sum;
+    return rom;
+}
+
+void testSongRipper() {
+    GbSongRipper::Options options;
+    options.traceSeconds = 6;
+    GbSongRipper::Progress progress;
+    std::vector<GbSongRipper::Song> songs;
+    std::string error, report;
+    const bool ok = GbSongRipper::run(gameBoySongs(), options, &progress, &songs, &error, &report);
+    check(ok && songs.size() == 3, "songs: the three songs of the driver, from the ROM alone");
+    if (!ok) std::printf("     %s\n%s", error.c_str(), report.c_str());
+    check(report.find("byte C000") != std::string::npos, "songs: asked for with the byte the game writes");
+    const double loops[3] = {128 / 59.73, 144 / 59.73, 150 / 59.73};
+    for (size_t i = 0; i < songs.size() && i < 3; ++i) {
+        check(songs[i].number == static_cast<int>(i + 1) && std::fabs(songs[i].loopSeconds - loops[i]) < 0.05,
+              "songs: each with its loop");
+        VgmFile f;
+        check(f.parse(songs[i].vgz, &error) && f.loop > 0, "songs: as a VGM that loops");
+    }
+    // Played back, the first is its notes, over and over.
+    if (!songs.empty()) {
+        VgmFile f;
+        f.parse(songs[0].vgz, &error);
+        VgmPlayer player;
+        player.load(f);
+        SynthMusic synth;
+        std::vector<std::string> log;
+        synth.setLog(&log);
+        player.setSynth(&synth, 0);
+        std::vector<int16_t> out;
+        for (int i = 0; i < 400; ++i) player.play(1.0 / 60.0, 44100, out);
+        check(!player.finished() && std::count(log.begin(), log.end(), "0 on 60") >= 2,
+              "songs: played back, the first song's notes come round again");
+    }
+    GbSongRipper::Progress none;
+    songs.clear();
+    check(!GbSongRipper::run(gameBoyScale(), options, &none, &songs, &error) && !error.empty(),
+          "songs: a program without a driver has none");
+}
+
+// The Game Boy's music recorded to a VGM and played back without the game.
+void testVgm() {
+    GameBoy gb;
+    std::string error;
+    check(gb.loadRomData(gameBoyScale(), &error), "vgm: the scale loads");
+    gb.setSampleRate(44100);
+    for (int i = 0; i < 10; ++i) gb.runFrame();
+    VgmWriter writer;
+    check(gb.recordMusic(&writer) && writer.recording(), "vgm: the Game Boy's music can be recorded");
+    VgmWriter::Mark loop;
+    for (int i = 0; i < 200; ++i) {
+        if (i == 100) loop = writer.mark(0);
+        gb.runFrame();
+    }
+    gb.recordMusic(nullptr);
+    const double seconds = writer.seconds();
+    check(seconds > 3.2 && seconds < 3.5, "vgm: as long as the frames recorded");
+    const std::vector<uint8_t> bytes = writer.finish({"Escala", "Prueba", ""}, nullptr, &loop);
+    check(bytes.size() > 18 && bytes[0] == 0x1F && bytes[1] == 0x8B, "vgm: written gzip-compressed");
+    VgmFile file;
+    check(file.parse(bytes, &error) && file.gbClock == 4194304 && file.title == "Escala" && file.game == "Prueba",
+          "vgm: it reads back, with its tag");
+    check(file.loop > 0 && file.loopSamples > 0 && file.loopSamples < file.samples, "vgm: with its loop");
+
+    VgmPlayer player;
+    player.load(file);
+    SynthMusic synth;
+    std::vector<std::string> log;
+    synth.setLog(&log);
+    player.setSynth(&synth, 0);
+    std::vector<int16_t> out;
+    for (int i = 0; i < 200; ++i) player.play(1.0 / 60.0, 44100, out);
+    check(out.size() > 2 * 44100 * 3, "vgm: it plays");
+    bool scale = true;
+    for (int n : {72, 74, 76, 77, 79, 81, 83, 84}) scale = scale && logHas(log, "0 on " + std::to_string(n));
+    check(scale, "vgm: the scale, through the synthesizer as from the game");
+    for (int i = 0; i < 200; ++i) player.play(1.0 / 60.0, 44100, out);
+    check(!player.finished() && player.position() > seconds, "vgm: it loops past its end");
+
+    VgmFile bad;
+    check(!bad.parse({1, 2, 3}, &error) && !error.empty(), "vgm: anything else is not one");
+    Nes nes;
+    check(!nes.recordMusic(&writer), "vgm: the NES's music is not recorded (yet)");
+}
+
 void testSynth() {
     using Kind = SynthMusic::Kind;
     {
@@ -2480,6 +2598,8 @@ int main() {
     testSnesInterlace();
     testSynth();
     testSnesSynth();
+    testVgm();
+    testSongRipper();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }
