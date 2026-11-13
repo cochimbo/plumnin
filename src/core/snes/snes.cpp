@@ -10,6 +10,7 @@
 #include "snes_obc1.h"
 #include "snes_sa1.h"
 #include "snes_sdd1.h"
+#include "snes_spc7110.h"
 #include "snes_superfx.h"
 
 namespace plumnin {
@@ -72,6 +73,7 @@ void Snes::setupCoprocessor() {
         case Chip::Sa1: copro_ = std::make_unique<snes::Sa1>(cart_.rom(), cart_.ram()); return;
         case Chip::Obc1: copro_ = std::make_unique<snes::Obc1>(cart_.ram()); return;
         case Chip::Sdd1: copro_ = std::make_unique<snes::Sdd1>(cart_.rom(), cart_.ram()); return;
+        case Chip::Spc7110: copro_ = std::make_unique<snes::Spc7110>(cart_.rom(), cart_.ram()); return;
         case Chip::Cx4: {
             auto cx4 = std::make_unique<snes::Cx4>(cart_.rom(), cart_.ram());
             if (cx4->setFirmware(findFirmware("cx4.rom"))) {

@@ -68,7 +68,10 @@ there is:
   table in the cartridge's RAM. The Cx4 (Mega Man X2 and X3): Hitachi's HG51B169 runs
   the game's program from its two caches, with its multiplier, data RAM, DMA and
   interrupt; its table of constants is a firmware file (`cx4.rom`), looked for like the
-  DSPs'. Games with the other chips (SPC7110...) load with a warning
+  DSPs'. The SPC7110 (Far East of Eden Zero, Momotarou Dentetsu Happy, Super Power
+  League 4): its banks of the data ROM, the data port, the multiplier and divider, and
+  the decompressor of 1, 2 and 4 bpp tiles (not Far East of Eden Zero's clock). Games
+  with the other chips (the ST018, the Super Game Boy) load with a warning
   that they may not work: those are not emulated yet, nor the interlaced picture
   (drawn as one field).
 
@@ -94,7 +97,7 @@ The plan, in order:
 1. The base. (done)
 2. Game Boy and Game Boy Color. (done)
 3. NES. (done)
-4. Super Nintendo. (done; of the cartridges' chips, the NEC DSPs, the Super FX, the SA-1, the S-DD1, the OBC1 and the Cx4)
+4. Super Nintendo. (done; of the cartridges' chips, the NEC DSPs, the Super FX, the SA-1, the S-DD1, the OBC1, the Cx4 and the SPC7110)
 
 What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIOS, the
 32X, the light guns, the Roland synthesizer with its instrument editor and score, and the
@@ -131,7 +134,8 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
   one for the Super FX (its program, its registers and its interrupt) and one for the
   SA-1 (started by the game, its multiplier, I-RAM, and its interrupt through SIV); the
   S-DD1's decompression through a DMA, against a separate transcription of the
-  algorithm, the OBC1's sprite table, and a small Cx4 program run from the ROM.
+  algorithm, the OBC1's sprite table, a small Cx4 program run from the ROM, and the SPC7110's units, its decompressor
+  against a separate transcription too.
 - `frontend_tests`: the settings files, each game's own options and the crash reports.
 - `headless`: `plumnin-headless` end to end: hashes, savestates, input scripts, recordings
   and netplay between two processes.
