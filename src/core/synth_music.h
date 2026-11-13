@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -113,6 +114,8 @@ public:
         uint32_t voices = 0;  // the voices that played it, as a mask
         int notes = 0;
         int low = 127, high = 0;
+        int order = 0;  // when it was first heard: 0 the first instrument, 1 the next...
+        Traits traits;  // what the rules saw of it
         Assignment rules;
     };
 
@@ -140,6 +143,13 @@ public:
     // The voices whose chip sound should be heard: those playing an instrument left
     // original.
     uint32_t chipVoices() const { return chipVoices_; }
+    // The voices that should not be heard at all, from the chip either: those muted, or
+    // playing an instrument silenced, for listening in the editor.
+    uint32_t silentVoices() const { return silentVoices_; }
+    void setListening(uint32_t mutedVoices, std::set<uint32_t> silenced);
+    // The voices sounding a note now, and the instrument each one plays (0 for none yet).
+    uint32_t activeVoices() const;
+    uint32_t voiceInstrument(int voice) const { return voices_[static_cast<size_t>(voice & 7)].fingerprint; }
     const std::map<uint32_t, Seen>& seen() const { return seen_; }
     void clearSeen() { seen_.clear(); }
 
@@ -222,7 +232,9 @@ private:
     std::map<uint32_t, Rule> rules_;
     Assignments assigned_;
     std::map<uint32_t, Seen> seen_;
-    uint32_t chipVoices_ = 0;
+    uint32_t chipVoices_ = 0, silentVoices_ = 0;
+    uint32_t mutedVoices_ = 0;
+    std::set<uint32_t> silenced_;
     std::vector<Event> events_;
     uint64_t frameStart_ = 0;
     int volume_ = 100;

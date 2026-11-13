@@ -400,10 +400,33 @@ void SynthMusic::setAssignments(Assignments assigned) {
 
 void SynthMusic::updateChipVoices() {
     chipVoices_ = 0;
+    silentVoices_ = mutedVoices_;
     for (int i = 0; i < kVoices; ++i) {
         const Voice& v = voices_[static_cast<size_t>(i)];
         if (v.fingerprint && assignmentFor(v.fingerprint).original) chipVoices_ |= 1u << i;
+        if (v.fingerprint && silenced_.count(v.fingerprint)) silentVoices_ |= 1u << i;
     }
+}
+
+void SynthMusic::setListening(uint32_t mutedVoices, std::set<uint32_t> silenced) {
+    mutedVoices_ = mutedVoices;
+    silenced_ = std::move(silenced);
+    // What sounds and should not stops now.
+    for (int i = 0; i < kVoices; ++i) {
+        Voice& v = voices_[static_cast<size_t>(i)];
+        if (v.midi && ((mutedVoices_ >> i) & 1 || silenced_.count(v.fingerprint))) {
+            if (!v.drum) emit(frameStart_, Ev::NoteOff, i, v.note);
+            v.midi = false;
+        }
+    }
+    updateChipVoices();
+}
+
+uint32_t SynthMusic::activeVoices() const {
+    uint32_t mask = 0;
+    for (int i = 0; i < kVoices; ++i)
+        if (voices_[static_cast<size_t>(i)].on) mask |= 1u << i;
+    return mask;
 }
 
 SynthMusic::Assignments SynthMusic::parseAssignments(const std::string& text) {
@@ -517,8 +540,10 @@ void SynthMusic::noteOn(int voice, const VoiceState& s, uint64_t clock) {
     if (rule.traits.kind != Kind::Noise) rule.heard.add(pitch);
     else ++rule.heard.notes;
     const Assignment a = assignmentFor(fp);
+    if (!seen_.count(fp)) seen_[fp].order = static_cast<int>(seen_.size()) - 1;
     Seen& seen = seen_[fp];
     seen.kind = rule.traits.kind;
+    seen.traits = rule.traits;
     seen.voices |= 1u << voice;
     ++seen.notes;
     seen.low = std::min(seen.low, pitch);
@@ -534,8 +559,9 @@ void SynthMusic::noteOn(int voice, const VoiceState& s, uint64_t clock) {
         updateChipVoices();
     }
     v.drum = a.drum >= 0;
+    const bool quiet = a.original || ((mutedVoices_ >> voice) & 1) || silenced_.count(fp);
     // The noise only plays drums.
-    v.midi = !a.original && (v.drum || (a.program >= 0 && rule.traits.kind != Kind::Noise));
+    v.midi = !quiet && (v.drum || (a.program >= 0 && rule.traits.kind != Kind::Noise));
     if (!v.midi) return;
     v.volume = a.volume;
     if (v.drum) {

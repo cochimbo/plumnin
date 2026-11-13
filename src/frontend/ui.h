@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "instrument_editor.h"
 #include "../core/cheats.h"
 #include "../core/system.h"
 #include "achievements_ui.h"
@@ -76,6 +77,7 @@ struct GameOptionsView {
 struct UiState {
     bool romLoaded = false;
     std::string romPath;
+    bool synthOn = false;  // the game's music goes through the synthesizer
     bool paused = false;
     bool slowMotion = false;
     std::string speed;     // badge in the corner while not at normal speed ("<< REBOBINANDO", "x4"...)
@@ -119,6 +121,12 @@ public:
 
     // The SoundFont that comes with plumnin, and the folder whose .sf2 files are listed.
     void setSoundfonts(std::string included, std::string folder);
+    // The synthesizer, for the instrument editor, and the folder of the games' choices.
+    void openInstrumentEditor() { editor_.open(); }
+    void setSynth(SynthMusic* synth, std::string soundFolder) {
+        synth_ = synth;
+        editor_.setFolder(std::move(soundFolder));
+    }
 
     // Builds this frame's interface. Call once per frame before drawing the game.
     UiActions frame(const UiState& state);
@@ -295,6 +303,8 @@ private:
     // What the file browser (or the system dialog) is choosing a file or folder for.
     enum class BrowseFor { Game, LibraryFolder, CoverImage, Soundfont };
     std::string includedSoundfont_, soundfontFolder_;
+    SynthMusic* synth_ = nullptr;
+    InstrumentEditor editor_;
     BrowseFor browseFor_ = BrowseFor::Game;
     std::string coverImageFor_;  // the game (its path) whose cover image is being chosen
     bool openRequested_ = false;

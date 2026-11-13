@@ -163,6 +163,7 @@ add_executable(plumnin WIN32
   src/frontend/game_options.cpp
   src/frontend/file_dialog.cpp
   src/frontend/ui.cpp
+  src/frontend/instrument_editor.cpp
   src/frontend/handheld.cpp
   src/frontend/osk.cpp
   src/frontend/theme.cpp

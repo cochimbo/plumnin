@@ -365,6 +365,7 @@ struct CommandLine {
     bool libraryList = false;     // --list: with --library, show it as a list
     int media = 0;                // --media [search|all]: with --library, the first game's ScreenScraper media (1 downloaded, 2 searched for, 3 every game's)
     bool cheats = false;          // --cheats: start with the game's Cheats window open
+    bool instruments = false;     // --instruments: start with the instrument editor open
     bool achievements = false;    // --achievements: start with the RetroAchievements window open
     int gameOptions = 0;          // --game-options [controls]: start with its Options for this game window open (2 on Controls)
     int testPattern = -1;         // --test-pattern [gb|gbc|nes|snes]: the test pattern instead of a game (a ConsoleSystem)
@@ -399,6 +400,7 @@ const char* const kHelp = N_(
     "  --library carpeta      abrir la biblioteca de esa carpeta (se puede repetir)\n"
     "  --list                 con --library: verla como lista en vez de cuadrícula\n"
     "  --cheats               abrir los trucos del juego, con sus listas de internet\n"
+    "  --instruments          abrir el editor de instrumentos\n"
     "  --achievements         abrir la ventana de RetroAchievements\n"
     "  --game-options         abrir las opciones propias del juego\n"
     "  --game-options controls   ...en la pestaña de sus controles\n"
@@ -443,6 +445,7 @@ CommandLine parse(int argc, char** argv) {
             else if (mode == "all") c.media = 3, ++i;
         }
         else if (a == "--cheats") c.cheats = true;
+        else if (a == "--instruments") c.instruments = true;
         else if (a == "--achievements") c.achievements = true;
         else if (a == "--game-options") {
             c.gameOptions = 1;
@@ -663,9 +666,12 @@ int main(int argc, char** argv) {
     // The synthesizer, when chosen and its SoundFont opens; else the chip's own sound.
     auto synth = std::make_unique<SynthMusic>();
     ui->setSoundfonts(paths.soundfont, paths.soundfonts);
+    const std::string soundDir = paths.soundfonts.substr(0, paths.soundfonts.size() - std::string("soundfonts/").size());
+    ui->setSynth(synth.get(), soundDir);
     std::string synthFont;  // the SoundFont loaded (or tried)
     bool synthFontOk = false;
     const Console* synthConsole = nullptr;
+    std::string synthGame;
     auto applySynth = [&] {
         if (!app->console) return;
         bool on = settings.synth && app->console->synthSupported();
@@ -681,9 +687,11 @@ int main(int argc, char** argv) {
             on = synthFontOk;
         }
         // Another game: what was learnt of the last one's instruments does not apply.
-        if (app->console.get() != synthConsole) {
+        if (app->console.get() != synthConsole || app->romPath != synthGame) {
             synthConsole = app->console.get();
+            synthGame = app->romPath;
             synth->forget();
+            synth->setAssignments(InstrumentEditor::load(soundDir, app->romPath));
         }
         synth->setEffects(settings.reverb, settings.chorus);
         app->console->setSynth(on ? synth.get() : nullptr, settings.chipMix);
@@ -927,6 +935,7 @@ int main(int argc, char** argv) {
         cheatsSystem = app->romLoaded && path == app->romPath ? app->console->system() : detectSystem(path);
         if (path != app->romPath || !app->romLoaded) otherCheats = app->readCheats(path);
     };
+    if (cmd.instruments) ui->openInstrumentEditor();
     if (cmd.cheats && app->romLoaded) {
         openCheats(app->romPath);
         ui->openCheats();
@@ -1140,6 +1149,7 @@ int main(int argc, char** argv) {
         }
         uiState.romLoaded = app->romLoaded;
         uiState.romPath = app->romPath;
+        uiState.synthOn = app->console && app->console->synth();
         uiState.paused = paused;
         uiState.slowMotion = slowMotion;
         uiState.fps = &fpsCounter;

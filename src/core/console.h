@@ -180,14 +180,16 @@ protected:
     std::array<PadType, 2> padTypes_{PadType::Pad, PadType::Pad};
     // The chip's channels heard at full volume (a bit per synthesizer voice); the rest at
     // `percent`.
-    virtual void setChipVoices(uint32_t /*full*/, int /*percent*/) {}
+    // The chip's channels heard at full volume (a bit per synthesizer voice), those not
+    // heard at all, and the rest at `percent`.
+    virtual void setChipVoices(uint32_t /*full*/, uint32_t /*silent*/, int /*percent*/) {}
     // Tells the chip which channels the synthesizer leaves to it, when that changes.
     void updateChipVoices();
 
     AudioOut audio_;
     SynthMusic* synth_ = nullptr;
     int synthPercent_ = 100;
-    uint32_t chipFull_ = 0;
+    uint32_t chipFull_ = 0, chipSilent_ = 0;
     bool chipSet_ = false;
     double outputRate_ = 44100;  // what setSampleRate() last asked for
     uint64_t frames_ = 0;

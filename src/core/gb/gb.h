@@ -116,7 +116,7 @@ private:
     uint8_t dec(uint8_t v);
     uint8_t cb(int op, uint8_t v);
     bool condition(int cc) const;
-    void setChipVoices(uint32_t full, int percent) override { apu_.setChannelGains(full, percent); }
+    void setChipVoices(uint32_t full, uint32_t silent, int percent) override { apu_.setChannelGains(full, silent, percent); }
     // Hands the synthesizer what each sound channel is doing.
     void pollMusic();
 
