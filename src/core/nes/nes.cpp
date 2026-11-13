@@ -120,6 +120,7 @@ void Nes::startCycle(bool forRead) {
     runPpu(master_ - 1);
     cart_->cpuClock();
     apu_.clock(static_cast<uint64_t>(cycle_));
+    if (synth_ && (cycle_ - lastPoll_ >= 3728 || cycle_ < lastPoll_)) pollMusic();
     if (apu_.takeDmcRequest()) dmcRunning_ = needDummyRead_ = needHalt_ = true;
     if (apu_.takeDmcAbort()) stopDmc();
 }
@@ -354,10 +355,26 @@ void Nes::runFrame() {
     ppu_.setDrawing(drawing_);
     // A frame is about 29781 cycles; give up after two in case one never ends.
     const int64_t limit = cycle_ + 60000;
+    const size_t before = audio_.output().size() / 2;
+    if (synth_) {
+        synth_->setClock(cpuHz());
+        synth_->beginFrame(static_cast<uint64_t>(cycle_));
+    }
     while (!ppu_.takeFrameDone() && cycle_ < limit) step();
     apu_.takeSamples(audio_.output());
+    if (synth_) synth_->endFrame(static_cast<uint64_t>(cycle_), audio_.output(), before, outputRate_);
     ++frames_;
     frame_->frameNumber = frames_;
+}
+
+void Nes::pollMusic() {
+    lastPoll_ = cycle_;
+    for (int ch = 0; ch < 4; ++ch) {
+        SynthMusic::VoiceState s;
+        apu_.musicVoice(ch, cpuHz(), s);
+        synth_->update(ch, s, static_cast<uint64_t>(cycle_));
+    }
+    updateChipVoices();
 }
 
 std::vector<uint8_t> Nes::saveData() const {

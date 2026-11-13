@@ -50,6 +50,12 @@ struct Settings {
     bool showMenu = true;
     int volume = 80;  // 0-100
     bool mute = false;
+    // The music through the synthesizer, as General MIDI instruments on a SoundFont
+    // (empty: the included GeneralUser GS), instead of the chip's own sound.
+    bool synth = false;
+    std::string soundfont;
+    int chipMix = 0;  // how loud the chip's own music stays under it, 0-100
+    int reverb = 40, chorus = 20;  // 0-100
     Region region = Region::Auto;
     // What is in the second port (the first always has a pad).
     std::array<PadType, 2> padType{PadType::Pad, PadType::Pad};

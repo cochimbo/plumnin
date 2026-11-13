@@ -81,6 +81,22 @@ there is:
   RetroArch's lists from internet), each game's own options and controls, RetroAchievements,
   GIF and video recording, console mode for playing from the sofa (Steam Deck, ROG
   Ally...), and the interface in Spanish, English, French and Portuguese.
+- **Sound > Synthesizer**: the Game Boy's, the Color's and the NES's music played on
+  General MIDI instruments from a SoundFont, as a module like the Roland SC-55 would
+  (plumsg's Roland sound, for the Nintendo chips). Each channel's notes, pitch slides and
+  loudness are followed as the game plays them, and each of the game's instruments gets
+  a General MIDI one from some rules: the noise is the drums (bass drum, snare, hi-hat or
+  cymbal by its pitch and length); a pulse in the bass register is a synth bass, one
+  whose notes die away a guitar or a harp, and otherwise it goes by its width (12.5% an
+  oboe, 25% a trumpet, a square a clarinet); the NES triangle is the bass (a flute up
+  high); the Game Boy's wave goes by its harmonics (a sine a flute, odd harmonics a
+  clarinet, a saw strings). The NES's samples (the DMC) keep sounding as on the console.
+  **Original sound** lets you hear the chip underneath too, and **Reverb** and
+  **Chorus** add ambience. plumnin comes with **GeneralUser GS** in `soundfonts/` next to
+  the executable; any General MIDI `.sf2` left in `sound/soundfonts/` (**Open the
+  SoundFonts folder**) shows up in the list, and **Choose another (.sf2)...** opens one
+  from anywhere. The Super Nintendo is next, then an instrument editor to choose them by
+  hand. `plumnin-headless --synth file.sf2 --wav out.wav` records it without a window.
 - The 2D and pseudo-3D views, with the xBR and Anime4K upscalers and the scanline and
   CRT filters.
 - Netplay over UDP with rollback.
@@ -100,8 +116,7 @@ The plan, in order:
 4. Super Nintendo. (done; of the cartridges' chips, the NEC DSPs, the Super FX, the SA-1, the S-DD1, the OBC1, the Cx4 and the SPC7110)
 
 What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIOS, the
-32X, the light guns, the Roland synthesizer with its instrument editor and score, and the
-library's 3D shelf with the consoles' models) is not here.
+32X, the light guns, and the library's 3D shelf with the consoles' models) is not here.
 
 ## Building
 
@@ -167,5 +182,8 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
 
 ## License
 
-MIT (see [LICENSE](LICENSE)). plumnin does not include any game or BIOS. See
+MIT (see [LICENSE](LICENSE)). plumnin does not include any game or BIOS. The
+synthesizer uses TinySoundFont (MIT, `third_party/tsf`), and the SoundFont that comes
+with it is GeneralUser GS by S. Christian Collins, with its own free license
+(`soundfonts/GeneralUser-GS-LICENSE.txt` in the installation). See
 [PRIVACY.md](PRIVACY.md) for what it connects to.

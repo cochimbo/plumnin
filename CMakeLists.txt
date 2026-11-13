@@ -85,6 +85,7 @@ add_library(plumnin_core STATIC
   src/core/snes/snes_ppu.cpp
   src/core/snes/snes_smp.cpp
   src/core/system.cpp
+  src/core/synth_music.cpp
   src/core/cheats.cpp
   src/core/rewind.cpp
   src/core/netplay.cpp
@@ -94,7 +95,7 @@ add_library(plumnin_core STATIC
   src/render/profile3d.cpp
 )
 # stb_image_write (public domain / MIT, vendored) encodes the JPEG frames of the AVI recordings.
-target_include_directories(plumnin_core PUBLIC src src/core PRIVATE third_party/stb)
+target_include_directories(plumnin_core PUBLIC src src/core PRIVATE third_party/stb third_party/tsf)
 target_link_libraries(plumnin_core PUBLIC plumnin_miniz Threads::Threads)
 
 # UDP sockets for netplay (the session itself is in the core).

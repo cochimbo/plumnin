@@ -238,10 +238,12 @@ void Apu::mix() {
     int p = 0;
     for (int i = 0; i < 2; ++i) {
         const Pulse& s = pulse_[i];
-        if (s.length && !s.muted(i == 0) && kDuty[s.duty][s.step]) p += s.env.output();
+        if (s.length && !s.muted(i == 0) && kDuty[s.duty][s.step]) p += s.env.output() * gains_[i] / 100;
     }
-    const int t = tri_.step < 16 ? 15 - tri_.step : tri_.step - 16;
-    const int n = noise_.length && !(noise_.lfsr & 1) ? noise_.env.output() : 0;
+    int t = tri_.step < 16 ? 15 - tri_.step : tri_.step - 16;
+    int n = noise_.length && !(noise_.lfsr & 1) ? noise_.env.output() : 0;
+    if (gains_[2] != 100) t = t * gains_[2] / 100;
+    if (gains_[3] != 100) n = n * gains_[3] / 100;
     acc_ += pulseTable_[p] + tndTable_[3 * t + 2 * n + dmc_.output];
     ++accCycles_;
     sampleClock_ += 1;
@@ -254,6 +256,35 @@ void Apu::mix() {
     const int s = std::clamp(static_cast<int>((v - dc_) * 40000.0), -32768, 32767);
     samples_.push_back(static_cast<int16_t>(s));
     samples_.push_back(static_cast<int16_t>(s));
+}
+
+void Apu::musicVoice(int ch, double cpuHz, SynthMusic::VoiceState& out) const {
+    using Kind = SynthMusic::Kind;
+    out = {};
+    out.triggers = triggers_[ch];
+    if (ch < 2) {
+        const Pulse& p = pulse_[ch];
+        out.sounding = p.length && !p.muted(ch == 0);
+        out.note = SynthMusic::noteOf(cpuHz / (16.0 * (p.period + 1)));
+        out.amplitude = p.env.output() / 15.0;
+        out.duty = p.duty;
+        out.pan = ch ? 80 : 48;  // a little apart, as the two pulses often play together
+        // The instrument: its duty and its envelope (or a volume set by the game).
+        const uint8_t key[3] = {p.duty, static_cast<uint8_t>(p.env.constant), p.env.constant ? uint8_t{0} : p.env.volume};
+        out.fingerprint = SynthMusic::fingerprint(Kind::Pulse, SynthMusic::hash(key, 3));
+    } else if (ch == 2) {
+        // Games silence it with the counters, or with a period too high to hear.
+        out.sounding = tri_.length && tri_.linear && tri_.period >= 2;
+        out.note = SynthMusic::noteOf(cpuHz / (32.0 * (tri_.period + 1)));
+        out.amplitude = 1;
+        out.fingerprint = SynthMusic::fingerprint(Kind::Triangle, 1);
+    } else {
+        out.sounding = noise_.length != 0;
+        out.amplitude = noise_.env.output() / 15.0;
+        out.noise = 15 - noiseIndex_;
+        const uint8_t key[2] = {noiseIndex_, static_cast<uint8_t>(noise_.mode)};
+        out.fingerprint = SynthMusic::fingerprint(Kind::Noise, SynthMusic::hash(key, 2));
+    }
 }
 
 uint8_t Apu::peekStatus() const {
@@ -306,6 +337,7 @@ void Apu::write(uint16_t address, uint8_t v, uint64_t cycle) {
             Pulse& p = pulse_[(address >> 2) & 1];
             p.period = static_cast<uint16_t>((p.period & 0xFF) | (v & 7) << 8);
             p.load(v >> 3);
+            ++triggers_[(address >> 2) & 1];
             p.step = 0;
             p.env.start = true;
             break;
@@ -319,6 +351,7 @@ void Apu::write(uint16_t address, uint8_t v, uint64_t cycle) {
             tri_.period = static_cast<uint16_t>((tri_.period & 0xFF) | (v & 7) << 8);
             tri_.load(v >> 3);
             tri_.linearReload = true;
+            ++triggers_[2];
             break;
         case 0x400C:
             noise_.newHalt = v & 0x20;
@@ -327,11 +360,13 @@ void Apu::write(uint16_t address, uint8_t v, uint64_t cycle) {
             break;
         case 0x400E:
             noise_.mode = v & 0x80;
+            noiseIndex_ = v & 0x0F;
             noise_.period = static_cast<uint16_t>(kNoise[pal_][v & 0x0F] - 1);
             break;
         case 0x400F:
             noise_.load(v >> 3);
             noise_.env.start = true;
+            ++triggers_[3];
             break;
         case 0x4010:
             dmc_.irqOn = v & 0x80;

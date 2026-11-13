@@ -2185,6 +2185,153 @@ void testSnesInterlace() {
     }
 }
 
+// The synthesizer. Two small programs play a C major scale from C5, a quarter of a
+// second a note: the Game Boy's on its first square with a noise hit on each, the NES's
+// on its first pulse with the triangle two octaves down and a noise hit. Without a
+// SoundFont the synthesizer still sends its events, which the log shows.
+std::vector<uint8_t> gameBoyScale() {
+    std::vector<uint8_t> rom = gameBoyRom(false);
+    static const uint8_t code[] = {
+        0x3E, 0x80, 0xE0, 0x26, 0x3E, 0x77, 0xE0, 0x24, 0x3E, 0xFF, 0xE0, 0x25, 0x21, 0x96, 0x01, 0x2A, 0x5F, 0x2A,
+        0x57, 0xFE, 0xFF, 0x28, 0xF5, 0x3E, 0x80, 0xE0, 0x11, 0x3E, 0xF3, 0xE0, 0x12, 0x7B, 0xE0, 0x13, 0x7A, 0xF6,
+        0x80, 0xE0, 0x14, 0x3E, 0xF1, 0xE0, 0x21, 0x3E, 0x45, 0xE0, 0x22, 0x3E, 0x80, 0xE0, 0x23, 0x06, 0x0F, 0xF0,
+        0x44, 0xFE, 0x90, 0x20, 0xFA, 0xF0, 0x44, 0xFE, 0x90, 0x28, 0xFA, 0x05, 0x20, 0xF1, 0x18, 0xC9, 0x06, 0x07,
+        0x21, 0x07, 0x39, 0x07, 0x44, 0x07, 0x59, 0x07, 0x6B, 0x07, 0x7B, 0x07, 0x83, 0x07, 0xFF, 0xFF};
+    const uint8_t start[] = {0x00, 0xC3, 0x50, 0x01};  // NOP; JP 0150
+    std::copy(std::begin(start), std::end(start), rom.begin() + 0x100);
+    std::copy(std::begin(code), std::end(code), rom.begin() + 0x150);
+    uint8_t sum = 0;
+    for (int i = 0x134; i < 0x14D; ++i) sum = static_cast<uint8_t>(sum - rom[static_cast<size_t>(i)] - 1);
+    rom[0x14D] = sum;
+    return rom;
+}
+
+std::vector<uint8_t> nesScale() {
+    static const uint8_t code[] = {
+        0x78, 0xD8, 0xA2, 0x40, 0x8E, 0x17, 0x40, 0xA2, 0xFF, 0x9A, 0xA9, 0x0F, 0x8D, 0x15, 0x40, 0xA0, 0x00, 0xA9,
+        0x84, 0x8D, 0x00, 0x40, 0xA9, 0x00, 0x8D, 0x01, 0x40, 0xB9, 0x5D, 0xC0, 0x8D, 0x02, 0x40, 0xB9, 0x65, 0xC0,
+        0x09, 0x08, 0x8D, 0x03, 0x40, 0xA9, 0xA0, 0x8D, 0x08, 0x40, 0xB9, 0x6D, 0xC0, 0x8D, 0x0A, 0x40, 0xB9, 0x75,
+        0xC0, 0x09, 0x08, 0x8D, 0x0B, 0x40, 0xA9, 0x02, 0x8D, 0x0C, 0x40, 0xA9, 0x03, 0x8D, 0x0E, 0x40, 0xA9, 0x08,
+        0x8D, 0x0F, 0x40, 0xA2, 0x0F, 0x2C, 0x02, 0x20, 0x10, 0xFB, 0xCA, 0xD0, 0xF8, 0xC8, 0xC0, 0x08, 0xD0, 0xB7,
+        0x4C, 0x0F, 0xC0, 0xD5, 0xBD, 0xA9, 0x9F, 0x8E, 0x7E, 0x70, 0x6A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0xAB, 0x7C, 0x52, 0x3F, 0x1C, 0xFD, 0xE1, 0xD5, 0x01, 0x01, 0x01, 0x01, 0x01};
+    std::vector<uint8_t> rom = {'N', 'E', 'S', 0x1A, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    std::vector<uint8_t> prg(0x4000, 0);
+    std::copy(std::begin(code), std::end(code), prg.begin());
+    for (size_t v = 0x3FFA; v < 0x4000; v += 2) prg[v] = 0x00, prg[v + 1] = 0xC0;
+    rom.insert(rom.end(), prg.begin(), prg.end());
+    rom.resize(rom.size() + 0x2000, 0);
+    return rom;
+}
+
+bool logHas(const std::vector<std::string>& log, const std::string& line) {
+    return std::find(log.begin(), log.end(), line) != log.end();
+}
+
+double soundLevel(const std::vector<int16_t>& s) {
+    double sum = 0;
+    for (size_t i = 0; i + 1 < s.size(); i += 2) sum += std::fabs(static_cast<double>(s[i]) - s[i > 2 ? i - 2 : 0]);
+    return s.empty() ? 0 : sum / static_cast<double>(s.size() / 2);
+}
+
+void testSynth() {
+    using Kind = SynthMusic::Kind;
+    {
+        SynthMusic::Traits t;
+        SynthMusic::Heard heard;
+        t.kind = Kind::Noise;
+        t.noise = 14;
+        check(SynthMusic::suggest(t, heard).drum == 42, "synth: a high, short noise is a closed hi-hat");
+        t.noise = 2;
+        check(SynthMusic::suggest(t, heard).drum == 36, "synth: a low noise, a bass drum");
+        t.kind = Kind::Pulse;
+        for (int i = 0; i < 10; ++i) heard.add(40);
+        check(SynthMusic::suggest(t, heard).program == 38, "synth: a pulse in the bass register is a synth bass");
+        t.kind = Kind::Triangle;
+        check(SynthMusic::suggest(t, heard).program == 33, "synth: the triangle down there, a bass");
+        SynthMusic::Heard high;
+        for (int i = 0; i < 10; ++i) high.add(76);
+        t.kind = Kind::Pulse;
+        t.duty = 0;
+        check(SynthMusic::suggest(t, high).program == 68, "synth: a 12.5% pulse is an oboe");
+        t.duty = 2;
+        check(SynthMusic::suggest(t, high).program == 71, "synth: a square, a clarinet");
+        t.kind = Kind::Wave;
+        for (int i = 0; i < 32; ++i)
+            t.wave[static_cast<size_t>(i)] = static_cast<uint8_t>(std::lround(7.5 + 7.5 * std::sin(i * 3.14159265 / 16)));
+        check(SynthMusic::suggest(t, high).program == 73, "synth: a sine wave is a flute");
+        for (int i = 0; i < 32; ++i) t.wave[static_cast<size_t>(i)] = static_cast<uint8_t>(i / 2);
+        check(SynthMusic::suggest(t, high).program == 48, "synth: a saw wave, strings");
+    }
+    {
+        SynthMusic::Assignments a;
+        a[0x12345678].program = 40;
+        a[0x12345678].octave = -1;
+        a[0x12345678].volume = 80;
+        a[0x2ABCDEF0].drum = 38;
+        a[0x30000001].original = true;
+        check(SynthMusic::parseAssignments(SynthMusic::formatAssignments(a)) == a,
+              "synth: the assignments read back as they were written");
+    }
+
+    // The Game Boy.
+    {
+        GameBoy gb;
+        std::string error;
+        check(gb.loadRomData(gameBoyScale(), &error), "synth: the Game Boy's scale loads");
+        gb.setSampleRate(44100);
+        for (int i = 0; i < 40; ++i) gb.runFrame();
+        const double chip = soundLevel(gb.audio().samples());
+        gb.audio().clearSamples();
+        SynthMusic synth;
+        std::vector<std::string> log;
+        synth.setLog(&log);
+        gb.setSynth(&synth, 0);
+        for (int i = 0; i < 160; ++i) gb.runFrame();
+        bool scale = true;
+        for (int n : {72, 74, 76, 77, 79, 81, 83, 84}) scale = scale && logHas(log, "0 on " + std::to_string(n));
+        check(scale, "synth: the Game Boy's square plays the scale, note by note");
+        check(logHas(log, "0 program 71"), "synth: on a clarinet, as a square");
+        check(logHas(log, "9 on 36"), "synth: and its noise on the drum channel");
+        check(!logHas(log, "0 on 73") && !logHas(log, "0 on 75"), "synth: without notes in between");
+        check(soundLevel(gb.audio().samples()) < chip / 20, "synth: the chip's own sound of it is silenced");
+        SynthMusic::Assignments original;
+        for (const auto& [fp, seen] : synth.seen())
+            if (seen.kind == Kind::Pulse) original[fp].original = true;
+        synth.setAssignments(original);
+        gb.audio().clearSamples();
+        for (int i = 0; i < 40; ++i) gb.runFrame();
+        check((synth.chipVoices() & 1) && soundLevel(gb.audio().samples()) > chip / 3,
+              "synth: an instrument left original is heard from the chip");
+        gb.setSynth(nullptr, 0);
+        log.clear();
+        for (int i = 0; i < 30; ++i) gb.runFrame();
+        check(log.empty(), "synth: taken off, it hears nothing more");
+    }
+
+    // The NES.
+    {
+        Nes nes;
+        std::string error;
+        check(nes.loadRomData(nesScale(), &error), "synth: the NES's scale loads");
+        nes.setSampleRate(44100);
+        SynthMusic synth;
+        std::vector<std::string> log;
+        synth.setLog(&log);
+        nes.setSynth(&synth, 0);
+        for (int i = 0; i < 160; ++i) nes.runFrame();
+        bool scale = true, bass = true;
+        for (int n : {72, 74, 76, 77, 79, 81, 83, 84}) {
+            scale = scale && logHas(log, "0 on " + std::to_string(n));
+            bass = bass && logHas(log, "2 on " + std::to_string(n - 24));
+        }
+        check(scale, "synth: the NES's pulse plays the scale");
+        check(bass, "synth: and the triangle its bass line, two octaves down");
+        check(logHas(log, "2 program 33"), "synth: on a bass guitar");
+        check(logHas(log, "9 on 38") || logHas(log, "9 on 42") || logHas(log, "9 on 36"), "synth: the noise on the drums");
+    }
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -2216,6 +2363,7 @@ int main() {
     testCx4();
     testSpc7110();
     testSnesInterlace();
+    testSynth();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -84,7 +84,11 @@ struct Paths {
     std::string info;      // folder for the library's game data, descriptions and screenshots
     std::string videos;    // folder for the games' video and GIF recordings
     std::string firmware;  // folder for the firmware of cartridges' chips (dsp1b.rom...)
+    std::string soundfont;   // the SoundFont that comes with plumnin, next to the executable
+    std::string soundfonts;  // folder for the user's own SoundFonts
 };
+
+const char* const kSoundfont = "soundfonts/GeneralUser-GS.sf2";
 
 Paths findPaths() {
     std::string base;
@@ -95,17 +99,17 @@ Paths findPaths() {
         if (SDL_RWops* f = SDL_RWFromFile(portable.c_str(), "rb")) {
             SDL_RWclose(f);
             return {portable, base + "states/", base + "profiles/", base + "cheats/", base + "covers/", base + "game-info/",
-                    base + "recordings/", base + "firmware/"};
+                    base + "recordings/", base + "firmware/", base + kSoundfont, base + "sound/soundfonts/"};
         }
     }
     if (char* pref = SDL_GetPrefPath("plumnin", "plumnin")) {
         const std::string dir = pref;
         SDL_free(pref);
         return {dir + "plumnin.ini", dir + "states/", dir + "profiles/", dir + "cheats/", dir + "covers/", dir + "game-info/",
-                dir + "recordings/", dir + "firmware/"};
+                dir + "recordings/", dir + "firmware/", base + kSoundfont, dir + "sound/soundfonts/"};
     }
     return {base + "plumnin.ini", base + "states/", base + "profiles/", base + "cheats/", base + "covers/", base + "game-info/",
-            base + "recordings/", base + "firmware/"};
+            base + "recordings/", base + "firmware/", base + kSoundfont, base + "sound/soundfonts/"};
 }
 
 struct App {
@@ -309,6 +313,7 @@ struct App {
         std::string error;
         if (!console->loadState(data, &error))
             return trf("No se pudo cargar el estado: %s. La partida sigue como estaba.", error.c_str());
+        if (console->synth()) console->synth()->allNotesOff();  // what was playing is not what the state plays
         if (loaded) *loaded = true;
         return trf("Estado cargado de la ranura %d", slot);
     }
@@ -655,6 +660,34 @@ int main(int argc, char** argv) {
     };
     applyAchievements();
 
+    // The synthesizer, when chosen and its SoundFont opens; else the chip's own sound.
+    auto synth = std::make_unique<SynthMusic>();
+    ui->setSoundfonts(paths.soundfont, paths.soundfonts);
+    std::string synthFont;  // the SoundFont loaded (or tried)
+    bool synthFontOk = false;
+    const Console* synthConsole = nullptr;
+    auto applySynth = [&] {
+        if (!app->console) return;
+        bool on = settings.synth && app->console->synthSupported();
+        if (on) {
+            const std::string path = settings.soundfont.empty() ? paths.soundfont : settings.soundfont;
+            if (path != synthFont) {
+                synthFont = path;
+                std::vector<uint8_t> data;
+                synthFontOk = readFile(path, data) && synth->loadSoundfont(data);
+                if (!synthFontOk)
+                    ui->notify(trf("No se pudo abrir el SoundFont %s: la música suena original.", path.c_str()));
+            }
+            on = synthFontOk;
+        }
+        // Another game: what was learnt of the last one's instruments does not apply.
+        if (app->console.get() != synthConsole) {
+            synthConsole = app->console.get();
+            synth->forget();
+        }
+        synth->setEffects(settings.reverb, settings.chorus);
+        app->console->setSynth(on ? synth.get() : nullptr, settings.chipMix);
+    };
     auto applyConsole = [&] {
         if (!app->console) return;
         app->console->setRegion(settings.region);
@@ -984,6 +1017,7 @@ int main(int argc, char** argv) {
             // The overclock does change the game: in a netplay game the speed is the host's,
             // which came in the state both started from, and hardcore mode keeps the real one.
             if (!netPlaying()) app->console->setOverclock(hardcore() ? 100 : settings.overclock);
+            applySynth();
         }
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
@@ -1298,6 +1332,7 @@ int main(int argc, char** argv) {
                 std::vector<uint8_t> snapshot;
                 std::string error;
                 if (rewind.pop(snapshot) && app->console->loadState(snapshot, &error)) {
+                    if (app->console->synth()) app->console->synth()->allNotesOff();
                     app->console->setPads(PadState{}, PadState{});
                     app->console->runFrame();
                     app->console->audio().clearSamples();

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "../state_io.h"
+#include "../synth_music.h"
 
 namespace plumnin::nes {
 
@@ -43,6 +44,14 @@ public:
     void takeSamples(std::vector<int16_t>& out) {
         out.insert(out.end(), samples_.begin(), samples_.end());
         samples_.clear();
+    }
+
+    // What channel `ch` (0-3: the pulses, the triangle, the noise) is playing, for the
+    // synthesizer, with the processor's clock at `cpuHz`. The DMC's samples stay the console's.
+    void musicVoice(int ch, double cpuHz, SynthMusic::VoiceState& out) const;
+    // The channels (a bit each, as musicVoice's) heard at full volume; the rest at `percent`.
+    void setChannelGains(uint32_t full, int percent) {
+        for (int i = 0; i < 4; ++i) gains_[i] = (full >> i) & 1 ? 100 : percent;
     }
 
     template <class Ar>
@@ -155,6 +164,9 @@ private:
     uint32_t accCycles_ = 0;
     std::vector<int16_t> samples_;
     float pulseTable_[31] = {}, tndTable_[203] = {};
+    uint32_t triggers_[4] = {};  // writes that start a note, for the synthesizer
+    uint8_t noiseIndex_ = 0;     // 400E's period, 0-15
+    int gains_[4] = {100, 100, 100, 100};
 };
 
 }  // namespace plumnin::nes

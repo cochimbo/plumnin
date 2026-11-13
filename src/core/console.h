@@ -9,6 +9,7 @@
 #include "cheats.h"
 #include "pad.h"
 #include "state_io.h"
+#include "synth_music.h"
 #include "system.h"
 #include "video_frame.h"
 
@@ -103,6 +104,14 @@ public:
     AudioOut& audio() { return audio_; }
     const AudioOut& audio() const { return audio_; }
 
+    // The synthesizer (not owned; null for the chip's own sound): it plays the music as
+    // General MIDI notes on a SoundFont, added to this console's sound. `chipPercent` is
+    // how loud the chip's own sound of what it plays stays (0-100). A console that cannot
+    // be heard through it (synthSupported() false) ignores it.
+    void setSynth(SynthMusic* synth, int chipPercent);
+    SynthMusic* synth() const { return synth_; }
+    virtual bool synthSupported() const { return false; }
+
     // The cartridge's battery-backed memory, if it has any.
     virtual bool hasSaveData() const { return false; }
     virtual std::vector<uint8_t> saveData() const { return {}; }
@@ -169,7 +178,18 @@ protected:
 
     std::array<PadState, 2> pads_{};
     std::array<PadType, 2> padTypes_{PadType::Pad, PadType::Pad};
+    // The chip's channels heard at full volume (a bit per synthesizer voice); the rest at
+    // `percent`.
+    virtual void setChipVoices(uint32_t /*full*/, int /*percent*/) {}
+    // Tells the chip which channels the synthesizer leaves to it, when that changes.
+    void updateChipVoices();
+
     AudioOut audio_;
+    SynthMusic* synth_ = nullptr;
+    int synthPercent_ = 100;
+    uint32_t chipFull_ = 0;
+    bool chipSet_ = false;
+    double outputRate_ = 44100;  // what setSampleRate() last asked for
     uint64_t frames_ = 0;
     bool drawing_ = true;
     std::string loadNotice_;
