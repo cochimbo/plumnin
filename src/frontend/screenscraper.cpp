@@ -570,7 +570,6 @@ bool ScreenScraper::fetchGame(const Task& task, std::string* error, bool batch) 
     ForLibrary lib;
     lib.path = rom.path;
     lib.replace = !batch;
-    std::vector<uint8_t> front;
     int got = 0;
     for (const std::string& id : kinds) {
         const SsKind* k = ssKind(id);
@@ -593,12 +592,11 @@ bool ScreenScraper::fetchGame(const Task& task, std::string* error, bool batch) 
         for (const char* e : {".png", ".jpg", ".mp4", ".pdf"}) fs::remove(fs::u8path(dir + k->id + e), ec);
         if (!writeAll(fs::u8path(dir + k->id + ext), body.data(), body.size())) continue;
         ++got;
-        if (id == "portada-completa") lib.cover = body;
-        else if (id == "portada") front = body;
+        // The library shows the front alone: the whole sleeve (back, spine and front)
+        // stays among the game's media.
+        if (id == "portada") lib.cover = std::move(body);
         else if (id == "etiqueta") lib.label = std::move(body);
     }
-    // The whole sleeve is the cover the 3D boxes want; the front alone otherwise.
-    if (lib.cover.empty()) lib.cover = std::move(front);
     if (!lib.cover.empty() || !lib.label.empty()) {
         std::lock_guard<std::mutex> lock(mutex_);
         forLibrary_.push_back(std::move(lib));

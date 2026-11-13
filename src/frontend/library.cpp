@@ -255,12 +255,13 @@ void Library::useDownloaded(const std::string& path, const std::vector<uint8_t>&
         if (g.path != path) continue;
         std::string error;
         int w = 0, h = 0, n = 0;
-        const bool sleeve = !cover.empty() && stbi_info_from_memory(cover.data(), static_cast<int>(cover.size()), &w, &h, &n) &&
-                            w >= h * 6 / 5;
-        const bool hasSleeve = g.cover == Cover::Ready && g.width >= g.height * 6 / 5;
+        // A cover much wider than the new one is a whole sleeve that an older version saved:
+        // the front takes its place.
+        const bool wider = !cover.empty() && stbi_info_from_memory(cover.data(), static_cast<int>(cover.size()), &w, &h, &n) &&
+                           h > 0 && g.cover == Cover::Ready && g.height > 0 &&
+                           static_cast<long>(g.width) * h * 2 >= static_cast<long>(w) * g.height * 3;
         const bool hasLabel = g.label != 0;
-        if (!cover.empty() && isImage(cover) &&
-            (replace || g.cover == Cover::Missing || g.cover == Cover::Unknown || (sleeve && !hasSleeve)))
+        if (!cover.empty() && isImage(cover) && (replace || g.cover == Cover::Missing || g.cover == Cover::Unknown || wider))
             saveCover(i, cover, &error);
         if (!label.empty() && isImage(label) && (replace || !hasLabel)) saveCover(i, label, &error, true);
         return;
@@ -342,6 +343,16 @@ void Library::clearTextures() {
     }
 }
 
+// Whether the files at `a` and `b` hold the same bytes.
+static bool sameFile(const std::string& a, const std::string& b) {
+    std::error_code ec, ec2;
+    const auto size = fs::file_size(fs::u8path(a), ec);
+    if (ec || size != fs::file_size(fs::u8path(b), ec2) || ec2) return false;
+    std::ifstream fa(fs::u8path(a), std::ios::binary), fb(fs::u8path(b), std::ios::binary);
+    return std::equal(std::istreambuf_iterator<char>(fa), std::istreambuf_iterator<char>(),
+                      std::istreambuf_iterator<char>(fb));
+}
+
 bool Library::findLocal(const Job& job, std::string* coverPath) const {
     std::error_code ec;
     const fs::path rom = fs::u8path(job.path);
@@ -356,12 +367,18 @@ bool Library::findLocal(const Job& job, std::string* coverPath) const {
             p += ext;
             if (fs::is_regular_file(p, ec)) {
                 *coverPath = p.u8string();
+                // An older version saved ScreenScraper's whole sleeve as the cover: its front
+                // instead, if it was downloaded too.
+                std::string sleeve, front;
+                if (findMedia(job, {"portada-completa"}, &sleeve) && sameFile(*coverPath, sleeve) &&
+                    findMedia(job, {"portada"}, &front))
+                    *coverPath = front;
                 return true;
             }
         }
     }
-    // What ScreenScraper downloaded of it: the whole sleeve (for the 3D boxes), or the front.
-    return findMedia(job, {"portada-completa", "portada"}, coverPath);
+    // What ScreenScraper downloaded of it: the front.
+    return findMedia(job, {"portada"}, coverPath);
 }
 
 bool Library::findMedia(const Job& job, std::initializer_list<const char*> kinds, std::string* path) const {
