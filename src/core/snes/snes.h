@@ -8,6 +8,7 @@
 #include "../console.h"
 #include "snes_apu.h"
 #include "snes_cart.h"
+#include "snes_copro.h"
 #include "snes_cpu.h"
 #include "snes_ppu.h"
 
@@ -35,11 +36,14 @@ public:
     void setSampleRate(double hz) override { apu_.setSampleRate(hz); }
     void setUnlimitedSprites(bool on) override { ppu_.setUnlimitedSprites(on); }
 
-    bool hasSaveData() const override { return cart_.info().battery && !cart_.ram().empty(); }
+    bool hasSaveData() const override;
     std::vector<uint8_t> saveData() const override;
     void loadSaveData(const std::vector<uint8_t>& data) override;
-    bool saveDataChanged() const override { return cart_.ramChanged(); }
-    void clearSaveDataChanged() override { cart_.clearRamChanged(); }
+    bool saveDataChanged() const override { return cart_.ramChanged() || (copro_ && copro_->batteryChanged()); }
+    void clearSaveDataChanged() override {
+        cart_.clearRamChanged();
+        if (copro_) copro_->clearBatteryChanged();
+    }
 
     CheatDecoder cheatDecoder() const override { return decoder(); }
     void setCheats(const std::vector<CheatPatch>& patches) override;
@@ -54,6 +58,8 @@ public:
     int scanline() const { return line_; }
     uint64_t masterClock() const { return master_; }
     const snes::CartInfo& cartInfo() const { return cart_.info(); }
+    // The cartridge's chip, if plumnin runs it (null if none, or without its firmware).
+    snes::Coprocessor* coprocessor() { return copro_.get(); }
     uint8_t vramByte(uint32_t address) const { return ppu_.peekVram(address); }
     std::array<uint8_t, 0x10000>& apuRam() { return apu_.ram(); }
     // The first background's map as text, a line per row, its tiles taken as ASCII
@@ -82,6 +88,7 @@ private:
     void idle() override { advance(6); }
 
     void setupRegion();
+    void setupCoprocessor();
     int speed(uint32_t address) const;
     void advance(int clocks);
     int nextEvent() const;
@@ -110,6 +117,7 @@ private:
     snes::Cpu cpu_;
     snes::Ppu ppu_;
     snes::Apu apu_;
+    std::unique_ptr<snes::Coprocessor> copro_;
     bool pal_ = false;
     bool loaded_ = false;
 

@@ -54,7 +54,56 @@ int headerScore(const std::vector<uint8_t>& rom, size_t base, Mapping mapping) {
     return score;
 }
 
+// Which chip: the header's chipset byte, its subtype (FFBF) for the custom ones, and the
+// title where one kind of chip had several programs.
+Chip chipOf(const CartInfo& info, uint8_t subtype) {
+    const std::string& t = info.title;
+    switch (info.chipset >> 4) {
+        case 0x0:
+            if (t.find("DUNGEON MASTER") != std::string::npos) return Chip::Dsp2;
+            if (t.find("TOP GEAR 3000") != std::string::npos || t.find("PLANETS CHAMP") != std::string::npos)
+                return Chip::Dsp4;
+            if (info.rawTitle.compare(0, 2, "SD") == 0 && info.rawTitle.find("GX") != std::string::npos) return Chip::Dsp3;
+            return Chip::Dsp1;
+        case 0x1: return Chip::SuperFx;
+        case 0x2: return Chip::Obc1;
+        case 0x3: return Chip::Sa1;
+        case 0x4: return Chip::Sdd1;
+        case 0x5: return Chip::None;  // S-RTC: only a clock, the game runs without it
+        case 0xE: return Chip::SuperGameBoy;
+        case 0xF:
+            switch (subtype) {
+                case 0x01: return t.find("SHOUGI") != std::string::npos ? Chip::St011 : Chip::St010;
+                case 0x02: return Chip::St018;
+                case 0x10: return Chip::Cx4;
+                default: return Chip::Spc7110;
+            }
+        default: return Chip::None;
+    }
+}
+
 }  // namespace
+
+const char* chipName(Chip chip) {
+    switch (chip) {
+        case Chip::None: return "";
+        case Chip::Dsp1: return "DSP-1";
+        case Chip::Dsp2: return "DSP-2";
+        case Chip::Dsp3: return "DSP-3";
+        case Chip::Dsp4: return "DSP-4";
+        case Chip::St010: return "ST010";
+        case Chip::St011: return "ST011";
+        case Chip::St018: return "ST018";
+        case Chip::SuperFx: return "Super FX";
+        case Chip::Sa1: return "SA-1";
+        case Chip::Sdd1: return "S-DD1";
+        case Chip::Obc1: return "OBC1";
+        case Chip::Cx4: return "Cx4";
+        case Chip::Spc7110: return "SPC7110";
+        case Chip::SuperGameBoy: return "Super Game Boy";
+    }
+    return "";
+}
 
 uint32_t Cart::mirror(uint32_t offset, uint32_t size) const {
     // A size that is not a power of two repeats its last part, as the chips are wired.
@@ -96,6 +145,7 @@ bool Cart::load(const std::vector<uint8_t>& file, std::string* error) {
     info.mapping = chosen.mapping;
     for (size_t i = 0; i < 21; ++i) {
         const char c = static_cast<char>(rom[h + i]);
+        info.rawTitle += c;
         info.title += c >= 0x20 && c < 0x7F ? c : ' ';
     }
     while (!info.title.empty() && info.title.back() == ' ') info.title.pop_back();
@@ -107,19 +157,8 @@ bool Cart::load(const std::vector<uint8_t>& file, std::string* error) {
     info.pal = (region >= 0x02 && region <= 0x0C) || region == 0x11;
     const int parts = info.chipset & 0x0F;
     info.battery = parts == 0x02 || parts == 0x05 || parts == 0x06 || parts == 0x09 || parts == 0x0A;
-    if (parts >= 0x03) {
-        switch (info.chipset >> 4) {
-            case 0x0: info.coprocessor = "DSP"; break;
-            case 0x1: info.coprocessor = "Super FX"; break;
-            case 0x2: info.coprocessor = "OBC1"; break;
-            case 0x3: info.coprocessor = "SA-1"; break;
-            case 0x4: info.coprocessor = "S-DD1"; break;
-            case 0x5: break;  // S-RTC: only a clock, the game runs without it
-            case 0xE: info.coprocessor = "Super Game Boy"; break;
-            case 0xF: info.coprocessor = info.chipset == 0xF3 ? "Cx4" : info.chipset == 0xF6 ? "ST010" : "SPC7110"; break;
-            default: break;
-        }
-    }
+    if (parts >= 0x03) info.chip = chipOf(info, rom[h - 1]);
+    info.coprocessor = chipName(info.chip);
     // Super FX games give the size of their RAM elsewhere; without the chip it is moot.
     if (!info.ramSize && info.battery) info.ramSize = 0x2000;
     info_ = info;

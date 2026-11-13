@@ -776,6 +776,9 @@ msgstr "État sauvegardé dans l'emplacement %d"
 msgid "Estados"
 msgstr "États"
 
+msgid "Este juego necesita el programa del chip %s (el archivo %s), que no viene con plumnin: ponlo junto al juego o en la carpeta «firmware» de plumnin."
+msgstr "Ce jeu a besoin du programme de la puce %s (le fichier %s), qui n'est pas fourni avec plumnin : placez-le à côté du jeu ou dans le dossier « firmware » de plumnin."
+
 msgid "Este juego no tiene logros todavía."
 msgstr "Ce jeu n'a pas encore de succès."
 

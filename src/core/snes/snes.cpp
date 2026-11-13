@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "../i18n.h"
+#include "snes_necdsp.h"
 
 namespace plumnin {
 
@@ -46,12 +47,62 @@ bool Snes::insert(const std::vector<uint8_t>& rom, std::string* error) {
     romCheats_.clear();
     ramCheats_.clear();
     loadNotice_.clear();
-    if (!cart_.info().coprocessor.empty())
-        loadNotice_ = trf("Este juego usa el chip %s, que plumnin todavía no emula: puede que no funcione.",
-                          cart_.info().coprocessor.c_str());
+    setupCoprocessor();
     setupRegion();
     powerCycle();
     return true;
+}
+
+void Snes::setupCoprocessor() {
+    using snes::Chip;
+    using snes::NecDsp;
+    copro_.reset();
+    const snes::CartInfo& info = cart_.info();
+    std::vector<const char*> files;
+    NecDsp::Model model = NecDsp::Model::Upd7725;
+    double hz = 7600000;
+    switch (info.chip) {
+        case Chip::None: return;
+        case Chip::Dsp1:
+            // Most games have the DSP-1B; Pilotwings' demo needs the first DSP-1.
+            files = info.title.find("PILOTWINGS") != std::string::npos ? std::vector<const char*>{"dsp1.rom", "dsp1b.rom"}
+                                                                       : std::vector<const char*>{"dsp1b.rom", "dsp1.rom"};
+            break;
+        case Chip::Dsp2: files = {"dsp2.rom"}; break;
+        case Chip::Dsp3: files = {"dsp3.rom"}; break;
+        case Chip::Dsp4: files = {"dsp4.rom"}; break;
+        case Chip::St010:
+            files = {"st010.rom"};
+            model = NecDsp::Model::Upd96050;
+            hz = 11000000;
+            break;
+        case Chip::St011:
+            files = {"st011.rom"};
+            model = NecDsp::Model::Upd96050;
+            hz = 15000000;
+            break;
+        default:
+            loadNotice_ = trf("Este juego usa el chip %s, que plumnin todavía no emula: puede que no funcione.",
+                              info.coprocessor.c_str());
+            return;
+    }
+    NecDsp::Map map = NecDsp::Map::LoRom;
+    if (model == NecDsp::Model::Upd96050) map = NecDsp::Map::St01x;
+    else if (info.mapping != snes::Mapping::LoRom) map = NecDsp::Map::HiRom;
+    else if (cart_.rom().size() > 0x100000) map = NecDsp::Map::LoRomHigh;
+    else if (info.ramSize) map = NecDsp::Map::LoRomRam;
+    for (const char* name : files) {
+        const std::vector<uint8_t> firmware = findFirmware(name);
+        if (firmware.empty()) continue;
+        auto dsp = std::make_unique<NecDsp>();
+        if (!dsp->setFirmware(model, map, firmware, hz)) continue;
+        copro_ = std::move(dsp);
+        return;
+    }
+    loadNotice_ = trf(
+        "Este juego necesita el programa del chip %s (el archivo %s), que no viene con plumnin: ponlo junto al juego o "
+        "en la carpeta «firmware» de plumnin.",
+        info.coprocessor.c_str(), files.front());
 }
 
 Region Snes::effectiveRegion() const {
@@ -62,6 +113,7 @@ Region Snes::effectiveRegion() const {
 void Snes::setupRegion() {
     pal_ = effectiveRegion() == Region::EuropePal;
     apu_.setMasterRate(pal_ ? 21281370.0 : 21477272.0);
+    if (copro_) copro_->setMasterRate(pal_ ? 21281370.0 : 21477272.0);
 }
 
 void Snes::regionChanged() {
@@ -76,6 +128,7 @@ void Snes::powerCycle() {
     wram_.fill(0);
     ppu_.power();
     apu_.power();
+    if (copro_) copro_->power();
     reset();
 }
 
@@ -99,6 +152,7 @@ void Snes::reset() {
     for (Channel& c : dma_) c = Channel{};
     ppu_.reset();
     apu_.reset();
+    if (copro_) copro_->reset();
     master_ = 0;
     hc_ = 0;
     line_ = 0;
@@ -138,6 +192,7 @@ int Snes::nextEvent() const {
 void Snes::advance(int clocks) {
     master_ += static_cast<uint64_t>(clocks);
     apu_.addTime(static_cast<uint32_t>(clocks));
+    if (copro_) copro_->addTime(static_cast<uint32_t>(clocks));
     int target = hc_ + clocks;
     for (;;) {
         const int at = nextEvent();
@@ -240,6 +295,7 @@ uint8_t Snes::busRead(uint32_t address) {
         }
     }
     uint8_t v;
+    if (copro_ && copro_->read(address, v)) return v;
     if (!cart_.read(address, v)) return mdr_;
     if (!romCheats_.empty()) {
         const int64_t offset = cart_.romOffset(address);
@@ -269,6 +325,7 @@ void Snes::busWrite(uint32_t address, uint8_t value) {
             return;
         }
     }
+    if (copro_ && copro_->write(address, value)) return;
     cart_.write(address, value);
 }
 
@@ -593,19 +650,37 @@ void Snes::runFrame() {
     const uint64_t limit = master_ + 800000;
     while (!frameDone_ && master_ < limit) cpu_.step();
     apu_.catchUp();
+    if (copro_) copro_->catchUp();
     apu_.takeSamples(audio_.output());
     ++frames_;
     frame_->frameNumber = frames_;
 }
 
+bool Snes::hasSaveData() const {
+    return (cart_.info().battery && !cart_.ram().empty()) || (copro_ && !copro_->batteryData().empty());
+}
+
+// The cartridge's RAM, then the chip's own memory if it keeps one.
 std::vector<uint8_t> Snes::saveData() const {
     if (!hasSaveData()) return {};
-    return cart_.ram();
+    std::vector<uint8_t> out;
+    if (cart_.info().battery) out = cart_.ram();
+    if (copro_) {
+        const std::vector<uint8_t> chip = copro_->batteryData();
+        out.insert(out.end(), chip.begin(), chip.end());
+    }
+    return out;
 }
 
 void Snes::loadSaveData(const std::vector<uint8_t>& data) {
-    std::vector<uint8_t>& ram = cart_.ram();
-    std::copy_n(data.begin(), std::min(data.size(), ram.size()), ram.begin());
+    size_t used = 0;
+    if (cart_.info().battery) {
+        std::vector<uint8_t>& ram = cart_.ram();
+        used = std::min(data.size(), ram.size());
+        std::copy_n(data.begin(), used, ram.begin());
+    }
+    if (copro_ && used < data.size())
+        copro_->loadBatteryData(std::vector<uint8_t>(data.begin() + static_cast<std::ptrdiff_t>(used), data.end()));
 }
 
 const char* Snes::cheatFormats() { return N_("Game Genie (DD62-3B1D) o Pro Action Replay (7E0DBF09)"); }
@@ -687,6 +762,7 @@ void Snes::saveBlocks(StateBlocks& blocks) {
     blocks.add("SNPP", [&](StateWriter& w) { ppu_.state(w); });
     blocks.add("SNAP", [&](StateWriter& w) { apu_.state(w); });
     blocks.add("SNCT", [&](StateWriter& w) { w(cart_.ram()); });
+    if (copro_) blocks.add("SNCO", [&](StateWriter& w) { copro_->save(w); });
 }
 
 bool Snes::loadBlock(uint32_t id, StateReader& r) {
@@ -708,6 +784,8 @@ bool Snes::loadBlock(uint32_t id, StateReader& r) {
         std::vector<uint8_t> ram;
         r(ram);
         if (ram.size() == cart_.ram().size()) cart_.ram() = ram;
+    } else if (id == fourcc("SNCO")) {
+        if (copro_) copro_->load(r);
     }
     return r.ok();
 }

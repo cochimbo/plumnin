@@ -46,10 +46,17 @@ there is:
   ExHiROM cartridges (with or without a copier's header), NTSC and PAL. Battery saves,
   cheats in Game Genie and Pro Action Replay codes, and RetroAchievements. The processors
   pass all of SingleStepTests' tests (147 100 of the 65C816 and 256 000 of the SPC700,
-  with every bus cycle), and krom's processor and bank test ROMs (see Tests). Games
-  with a chip in the cartridge (Super FX, SA-1, the DSPs, Cx4, S-DD1, SPC7110...) load
-  with a warning that they may not work: those chips are not emulated yet, nor the
-  interlaced picture (it is drawn as one field).
+  with every bus cycle), and krom's processor and bank test ROMs (see Tests).
+
+  Of the chips in the cartridges, NEC's signal processors: the DSP-1 (Super Mario Kart,
+  Pilotwings...), DSP-2, DSP-3 and DSP-4, and the ST010 and ST011, run their own
+  program, instruction by instruction. That program is in the chip and does not come
+  with plumnin: its file (`dsp1b.rom`, `dsp1.rom`, `dsp2.rom`, `dsp3.rom`, `dsp4.rom`,
+  `st010.rom` or `st011.rom`, as other emulators name them, in either byte order) goes
+  next to the game, in a `firmware` folder next to it, or in the `firmware` folder beside
+  `plumnin.ini`; without it the game says which file it needs. Games with the other
+  chips (Super FX, SA-1, Cx4, S-DD1, SPC7110...) load with a warning that they may not
+  work: those are not emulated yet, nor the interlaced picture (drawn as one field).
 
 - The frontend from plumsg: the menus, the game library (covers, details and media from
   ScreenScraper and libretro-database, console tabs for the four consoles), savestates
@@ -73,7 +80,7 @@ The plan, in order:
 1. The base. (done)
 2. Game Boy and Game Boy Color. (done)
 3. NES. (done)
-4. Super Nintendo. (done, without the cartridges' chips)
+4. Super Nintendo. (done; of the cartridges' chips, the NEC DSPs)
 
 What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIOS, the
 32X, the light guns, the Roland synthesizer with its instrument editor and score, and the
@@ -105,7 +112,8 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
   the 3D planes, cheats, the library's names, ScreenScraper's and libretro-database's
   answers, on the test pattern; and the Game Boy and the NES on small programs the test
   writes itself (their picture and layers, the pads, the sound, savestates, cheats, the
-  battery saves, and PAL on the NES), and the same on a small SNES program.
+  battery saves, and PAL on the NES), and the same on a small SNES program; and a
+  small program of its own for the NEC DSP, which a SNES program talks to on the bus.
 - `frontend_tests`: the settings files, each game's own options and the crash reports.
 - `headless`: `plumnin-headless` end to end: hashes, savestates, input scripts, recordings
   and netplay between two processes.
