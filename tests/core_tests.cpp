@@ -1639,11 +1639,11 @@ void testSnes() {
     check(snes->peek(0x10) == 0x50, "snes: and the game runs again on it");
 
     std::vector<uint8_t> chip = snesProgram();
-    chip[0x7FD6] = 0x15;  // ROM, a Super FX and battery
+    chip[0x7FD6] = 0x35;  // ROM, an SA-1 and battery
     check(Snes().loadRomData(chip, &error), "snes: a game with a chip still loads");
     Snes withChip;
     withChip.loadRomData(chip, &error);
-    check(withChip.loadNotice().find("Super FX") != std::string::npos, "snes: and says which chip it lacks");
+    check(withChip.loadNotice().find("SA-1") != std::string::npos, "snes: and says which chip it lacks");
 }
 
 // A small uPD7725 program, as the DSP-1's would talk: it asks for two words (K and L),
@@ -1781,6 +1781,59 @@ void testNecDsp() {
     fs::remove_all(dir, ec);
 }
 
+// The Super FX: a game starts its program, which stops with an interrupt.
+void testSuperFx() {
+    std::vector<uint8_t> rom(0x8000, 0);
+    // The GSU's program goes in its RAM (70:0000), so the processor keeps the ROM it
+    // runs from: while the GSU has the ROM, the processor reads only vectors there.
+    const std::vector<int> gsu = {0xF0, 0x34, 0x12, 0x00, 0x01};  // iwt r0, #$1234; stop; nop
+    std::vector<int> cpu = {0x78, 0x18, 0xFB, 0xE2, 0x20, 0xC2, 0x10};  // sei clc xce sep #$20 rep #$10
+    for (size_t i = 0; i < gsu.size(); ++i) {
+        cpu.insert(cpu.end(), {0xA9, gsu[i], 0x8F, static_cast<int>(i), 0x00, 0x70});  // lda #b sta $7000ii
+    }
+    const std::vector<int> rest = {
+        0xA9, 0x08, 0x8D, 0x3A, 0x30,        // lda #$08 sta $303A: the RAM to the GSU
+        0xA9, 0x70, 0x8D, 0x34, 0x30,        // lda #$70 sta $3034: its program's bank
+        0x9C, 0x37, 0x30,                    // stz $3037: its interrupt on
+        0xA2, 0x00, 0x00, 0x8E, 0x1E, 0x30,  // ldx #$0000 stx $301E: go
+        0x58,                                // cli
+        0xA5, 0x10, 0xF0, 0xFC,              // wait: lda $10 beq wait
+        0xAD, 0x00, 0x30, 0x85, 0x11,        // lda $3000 sta $11: R0
+        0xAD, 0x01, 0x30, 0x85, 0x12,        // lda $3001 sta $12
+        0x80, 0xFE,                          // bra *
+    };
+    cpu.insert(cpu.end(), rest.begin(), rest.end());
+    const std::vector<int> irq = {0xAD, 0x31, 0x30, 0x85, 0x13, 0xA9, 0x01, 0x85, 0x10, 0x40};  // ack, flag, rti
+    std::copy(cpu.begin(), cpu.end(), rom.begin());
+    std::copy(irq.begin(), irq.end(), rom.begin() + 0x0800);
+    std::fill(rom.begin() + 0x7FC0, rom.begin() + 0x7FD5, ' ');
+    const char* title = "PLUMNIN GSU TEST";
+    std::copy(title, title + std::strlen(title), rom.begin() + 0x7FC0);
+    rom[0x7FD5] = 0x20;
+    rom[0x7FD6] = 0x15;  // ROM, Super FX, RAM and battery
+    rom[0x7FD7] = 0x05;
+    rom[0x7FD9] = 0x01;
+    rom[0x7FDA] = 0x33;
+    rom[0x7FBD] = 0x05;  // 32 KB of RAM
+    rom[0x7FDC] = rom[0x7FDD] = 0xFF;
+    rom[0x7FEE] = 0x00;  // native IRQ: 8800
+    rom[0x7FEF] = 0x88;
+    rom[0x7FFC] = 0x00;
+    rom[0x7FFD] = 0x80;
+    Snes snes;
+    std::string error;
+    check(snes.loadRomData(rom, &error) && snes.loadNotice().empty() && snes.coprocessor() &&
+              snes.cartInfo().chip == snes::Chip::SuperFx && snes.saveData().size() == 0x8000,
+          "super fx: a game with it loads, with its RAM kept by the battery");
+    snes.runFrame();
+    check(snes.peek(0x10) == 1 && snes.peek(0x11) == 0x34 && snes.peek(0x12) == 0x12,
+          "super fx: runs its program, and the processor reads its registers");
+    check(snes.peek(0x13) & 0x80, "super fx: STOP interrupts the processor");
+    // Savestates carry it.
+    std::vector<uint8_t> state;
+    check(snes.saveState(state, true) && snes.loadState(state, &error), "super fx: savestate");
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -1805,6 +1858,7 @@ int main() {
     testNes();
     testSnes();
     testNecDsp();
+    testSuperFx();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

@@ -6,6 +6,7 @@
 
 #include "../i18n.h"
 #include "snes_necdsp.h"
+#include "snes_superfx.h"
 
 namespace plumnin {
 
@@ -63,6 +64,7 @@ void Snes::setupCoprocessor() {
     double hz = 7600000;
     switch (info.chip) {
         case Chip::None: return;
+        case Chip::SuperFx: copro_ = std::make_unique<snes::SuperFx>(cart_.rom(), cart_.ram()); return;
         case Chip::Dsp1:
             // Most games have the DSP-1B; Pilotwings' demo needs the first DSP-1.
             files = info.title.find("PILOTWINGS") != std::string::npos ? std::vector<const char*>{"dsp1.rom", "dsp1b.rom"}
@@ -192,7 +194,12 @@ int Snes::nextEvent() const {
 void Snes::advance(int clocks) {
     master_ += static_cast<uint64_t>(clocks);
     apu_.addTime(static_cast<uint32_t>(clocks));
-    if (copro_) copro_->addTime(static_cast<uint32_t>(clocks));
+    if (copro_) {
+        // In step with the processor, so that its interrupt comes when it should.
+        copro_->addTime(static_cast<uint32_t>(clocks));
+        copro_->catchUp();
+        if (copro_->irq() != coproIrq_) updateIrq();
+    }
     int target = hc_ + clocks;
     for (;;) {
         const int at = nextEvent();
@@ -251,7 +258,10 @@ void Snes::startLine() {
     }
 }
 
-void Snes::updateIrq() { cpu_.setIrq(timeup_); }
+void Snes::updateIrq() {
+    coproIrq_ = copro_ && copro_->irq();
+    cpu_.setIrq(timeup_ || coproIrq_);
+}
 
 uint16_t Snes::padBits(int port) const {
     if (padTypes_[static_cast<size_t>(port)] == PadType::None) return 0;
@@ -292,11 +302,14 @@ uint8_t Snes::busRead(uint32_t address) {
             if (a == 0x4017) return static_cast<uint8_t>((mdr_ & 0xE0) | 0x1C | ioRead(a));
             if (a >= 0x4200 && a < 0x4220) return ioRead(a);
             if (a >= 0x4300 && a < 0x4380) return dmaRegRead(a);
-            return mdr_;
+            // Else the cartridge's chip may have registers here (the Super FX's at 3000).
         }
     }
     uint8_t v;
-    if (copro_ && copro_->read(address, v)) return v;
+    if (copro_ && copro_->read(address, v)) {
+        if (copro_->irq() != coproIrq_) updateIrq();
+        return v;
+    }
     if (!cart_.read(address, v)) return mdr_;
     if (!romCheats_.empty()) {
         const int64_t offset = cart_.romOffset(address);
@@ -323,6 +336,7 @@ void Snes::busWrite(uint32_t address, uint8_t value) {
             if ((a & 0xFF00) == 0x2100) bWrite(static_cast<uint8_t>(a), value);
             else if (a == 0x4016 || (a >= 0x4200 && a < 0x4220)) ioWrite(a, value);
             else if (a >= 0x4300 && a < 0x4380) dmaRegWrite(a, value);
+            else if (copro_) copro_->write(address, value);
             return;
         }
     }
@@ -515,9 +529,10 @@ constexpr int kUnitLength[8] = {1, 2, 2, 4, 4, 4, 2, 4};
 
 void Snes::runDma(uint8_t channels) {
     if (!channels) return;
+    dmaActive_ = channels;
     advance(8);
     for (int ch = 0; ch < 8; ++ch) {
-        if (!(channels & (1 << ch))) continue;
+        if (!(dmaActive_ & (1 << ch))) continue;
         Channel& c = dma_[static_cast<size_t>(ch)];
         advance(8);
         const int mode = c.dmap & 7;
@@ -540,8 +555,10 @@ void Snes::runDma(uint8_t channels) {
             c.a1t = static_cast<uint16_t>(c.a1t + step);
             --c.das;
             ++i;
-        } while (c.das != 0);
+            // HDMA on the same channel stops the transfer where it is.
+        } while (c.das != 0 && (dmaActive_ & (1 << ch)));
     }
+    dmaActive_ = 0;
 }
 
 void Snes::hdmaReload(Channel& c, int& cost) {
@@ -567,6 +584,7 @@ void Snes::hdmaSetup() {
         c.hdmaDone = false;
         c.hdmaDo = false;
         if (!(hdmaen_ & (1 << ch))) continue;
+        dmaActive_ = static_cast<uint8_t>(dmaActive_ & ~(1 << ch));
         c.a2a = c.a1t;
         c.ntrl = 0;
         hdmaReload(c, cost);
@@ -578,6 +596,7 @@ void Snes::hdmaRun() {
     for (int ch = 0; ch < 8; ++ch) {
         Channel& c = dma_[static_cast<size_t>(ch)];
         if (!(hdmaen_ & (1 << ch)) || c.hdmaDone) continue;
+        dmaActive_ = static_cast<uint8_t>(dmaActive_ & ~(1 << ch));
         cost += 8;
         if (!c.hdmaDo) continue;
         const int mode = c.dmap & 7;

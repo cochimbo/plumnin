@@ -23,6 +23,8 @@ public:
     virtual void addTime(uint32_t clocks) = 0;
     virtual void setMasterRate(double hz) = 0;
     virtual void catchUp() = 0;
+    // Its interrupt request to the processor.
+    virtual bool irq() const { return false; }
 
     virtual void save(StateWriter& w) = 0;
     virtual void load(StateReader& r) = 0;

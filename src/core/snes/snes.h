@@ -136,11 +136,13 @@ private:
     uint8_t nmitimen_ = 0, wrio_ = 0xFF, wrmpya_ = 0xFF, wrmpyb_ = 0, memsel_ = 0, hdmaen_ = 0;
     uint16_t wrdiv_ = 0xFFFF, rddiv_ = 0, rdmpy_ = 0, htime_ = 0x1FF, vtime_ = 0x1FF;
     bool rdnmi_ = false, timeup_ = false;
+    bool coproIrq_ = false;  // the cartridge's chip asks for an interrupt
     int autoJoyBusyUntil_ = -1;
     std::array<uint16_t, 4> joy_{};
     bool joyStrobe_ = false;
     std::array<uint16_t, 2> joyShift_{};
     std::array<Channel, 8> dma_{};
+    uint8_t dmaActive_ = 0;  // the channels of the DMA under way
 
     std::vector<CheatPatch> romCheats_, ramCheats_;
 };

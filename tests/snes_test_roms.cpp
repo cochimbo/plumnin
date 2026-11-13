@@ -4,11 +4,14 @@
 //
 //   snes-test-roms ROOT                 the suite below; exit code 1 if one fails
 //   snes-test-roms --run ROM [--frames N] [--png OUT]   one ROM, to look at it
+//   snes-test-roms --list               the files the suite needs, one a line (for CI)
 //
 // A test passes in one of two ways, depending on what it does:
 //   screen   it prints its results: every line says PASS (or PASSED), none FAIL, at
 //            any moment while it runs (the processor tests go through several screens)
 //   notes    a tune: the main note of the sound at given times, in Hz (within 3%)
+//   picture  a demo: its picture is the screenshot next to it (the same name, .png),
+//            pixel for pixel
 
 #include <cmath>
 #include <complex>
@@ -28,6 +31,9 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_STATIC
 #include "stb_image_write.h"
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_STATIC
+#include "stb_image.h"
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
@@ -38,7 +44,7 @@ using plumnin::Snes;
 
 namespace {
 
-enum class Kind { Screen, Notes };
+enum class Kind { Screen, Notes, Picture };
 
 struct Test {
     const char* path;
@@ -78,6 +84,66 @@ const std::vector<Test> kTests = {
     {"BANK/HiROMSlowROM/BANKHiROMSlowROM.sfc", Kind::Screen, 30},
     {"BANK/HiROMFastROM/BANKHiROMFastROM.sfc", Kind::Screen, 30},
     {"BANK/WRAM/BANKWRAM.sfc", Kind::Screen, 30},
+    // The Super FX: each GSU instruction, with its flags.
+    {"CHIP/GSU/GSUTest/ADC/GSUADC.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/ADD/GSUADD.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/AND/GSUAND.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/ASR/GSUASR.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/BIC/GSUBIC.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/CACHEINJECT/GSUCACHEINJECT.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/CMP/GSUCMP.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/DEC/GSUDEC.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/DIV2/GSUDIV2.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/FMULT/GSUFMULT.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/HIB/GSUHIB.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/IBT/GSUIBT.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/INC/GSUINC.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/IWT/GSUIWT.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/LMULT/GSULMULT.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/LOB/GSULOB.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/LSR/GSULSR.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/MERGE/GSUMERGE.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/MOVE/GSUMOVE.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/MOVES/GSUMOVES.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/MULT/GSUMULT.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/NOT/GSUNOT.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/OR/GSUOR.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/ROL/GSUROL.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/ROR/GSUROR.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/SBC/GSUSBC.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/SEX/GSUSEX.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/SUB/GSUSUB.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/SWAP/GSUSWAP.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/UMULT/GSUUMULT.sfc", Kind::Screen, 120},
+    {"CHIP/GSU/GSUTest/XOR/GSUXOR.sfc", Kind::Screen, 120},
+    // And its PLOT in 2, 4 and 8 bits per pixel, at the three heights of the screen
+    // (the GSU draws, the processor sends it to VRAM). The 256x192 PlotPixel demos are
+    // left out: their screenshots show two more lines, which depend on where the HDMA
+    // cuts short a DMA on its channel.
+    {"CHIP/GSU/2BPP/FillPoly/256x128/GSU2BPP256x128FillPoly.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/2BPP/FillPoly/256x160/GSU2BPP256x160FillPoly.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/2BPP/FillPoly/256x192/GSU2BPP256x192FillPoly.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/2BPP/PlotLine/256x128/GSU2BPP256x128PlotLine.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/2BPP/PlotLine/256x160/GSU2BPP256x160PlotLine.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/2BPP/PlotLine/256x192/GSU2BPP256x192PlotLine.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/2BPP/PlotPixel/256x128/GSU2BPP256x128PlotPixel.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/2BPP/PlotPixel/256x160/GSU2BPP256x160PlotPixel.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/4BPP/FillPoly/256x128/GSU4BPP256x128FillPoly.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/4BPP/FillPoly/256x160/GSU4BPP256x160FillPoly.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/4BPP/FillPoly/256x192/GSU4BPP256x192FillPoly.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/4BPP/PlotLine/256x128/GSU4BPP256x128PlotLine.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/4BPP/PlotLine/256x160/GSU4BPP256x160PlotLine.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/4BPP/PlotLine/256x192/GSU4BPP256x192PlotLine.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/4BPP/PlotPixel/256x128/GSU4BPP256x128PlotPixel.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/4BPP/PlotPixel/256x160/GSU4BPP256x160PlotPixel.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/8BPP/FillPoly/256x128/GSU8BPP256x128FillPoly.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/8BPP/FillPoly/256x160/GSU8BPP256x160FillPoly.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/8BPP/FillPoly/256x192/GSU8BPP256x192FillPoly.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/8BPP/PlotLine/256x128/GSU8BPP256x128PlotLine.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/8BPP/PlotLine/256x160/GSU8BPP256x160PlotLine.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/8BPP/PlotLine/256x192/GSU8BPP256x192PlotLine.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/8BPP/PlotPixel/256x128/GSU8BPP256x128PlotPixel.sfc", Kind::Picture, 120},
+    {"CHIP/GSU/8BPP/PlotPixel/256x160/GSU8BPP256x160PlotPixel.sfc", Kind::Picture, 120},
     // The sound module: Twinkle Twinkle Little Star's first notes (C C G G A A G F F E E D)
     // played from a BRR sample, which checks the IPL upload, the DSP's pitch and envelopes.
     {"SPC700/Twinkle/Twinkle.sfc",
@@ -133,7 +199,7 @@ double mainFrequency(const std::vector<int16_t>& stereo, double rate, double sec
     return static_cast<double>(best) * rate / static_cast<double>(n);
 }
 
-Result runTest(Snes& snes, const Test& t) {
+Result runTest(Snes& snes, const Test& t, const std::filesystem::path& root) {
     Result r;
     if (t.kind == Kind::Screen) {
         std::string text, failure;
@@ -146,6 +212,31 @@ Result runTest(Snes& snes, const Test& t) {
         for (size_t p = 0; (p = text.find("PASS", p)) != std::string::npos; p += 4) ++passes;
         r.pass = failure.empty() && passes > 0;
         r.detail = oneLine(failure.empty() ? text : failure);
+        return r;
+    }
+    if (t.kind == Kind::Picture) {
+        std::string png = t.path;
+        png.replace(png.size() - 4, 4, ".png");
+        for (int f = 0; f < t.frames; ++f) snes.runFrame();
+        int w = 0, h = 0, n = 0;
+        unsigned char* want = stbi_load((root / png).string().c_str(), &w, &h, &n, 3);
+        if (!want) {
+            r.detail = "no screenshot " + png;
+            return r;
+        }
+        const auto& f = snes.frame();
+        int diff = 0;
+        if (w != f.width || h != f.height) diff = w * h;
+        else
+            for (int y = 0; y < h; ++y)
+                for (int x = 0; x < w; ++x) {
+                    const uint32_t c = f.pixel(x, y);
+                    const unsigned char* p = want + (y * w + x) * 3;
+                    if (p[0] != ((c >> 16) & 0xFF) || p[1] != ((c >> 8) & 0xFF) || p[2] != (c & 0xFF)) ++diff;
+                }
+        stbi_image_free(want);
+        r.pass = diff == 0;
+        r.detail = std::to_string(diff) + " pixels differ";
         return r;
     }
     const double rate = 44100;
@@ -206,8 +297,18 @@ int runOne(int argc, char** argv) {
 
 int main(int argc, char** argv) {
     if (argc >= 3 && std::strcmp(argv[1], "--run") == 0) return runOne(argc, argv);
+    if (argc == 2 && std::strcmp(argv[1], "--list") == 0) {
+        for (const Test& t : kTests) {
+            std::printf("%s\n", t.path);
+            if (t.kind == Kind::Picture) {
+                std::string png = t.path;
+                std::printf("%s.png\n", png.substr(0, png.size() - 4).c_str());
+            }
+        }
+        return 0;
+    }
     if (argc < 2) {
-        std::fprintf(stderr, "usage: snes-test-roms ROOT | --run ROM [--frames N] [--png OUT]\n");
+        std::fprintf(stderr, "usage: snes-test-roms ROOT | --run ROM [--frames N] [--png OUT] | --list\n");
         return 2;
     }
     const std::filesystem::path root = argv[1];
@@ -217,7 +318,7 @@ int main(int argc, char** argv) {
         std::string error;
         Result r;
         if (!snes.loadRom((root / t.path).string(), &error)) r.detail = error;
-        else r = runTest(snes, t);
+        else r = runTest(snes, t, root);
         std::printf("%s %s%s%s\n", r.pass ? "pass" : "FAIL", t.path, r.pass ? "" : "  ", r.pass ? "" : r.detail.c_str());
         ++(r.pass ? passed : failed);
     }
