@@ -2350,7 +2350,7 @@ void Ui::drawLibraryGrid(const std::vector<size_t>& visible) {
     libraryView_.columns = cols;
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const ImRect inner = ImGui::GetCurrentWindow()->InnerRect;
-    theme::boxGrid(inner.Min, inner.Max);
+    theme::libraryBackground(inner.Min, inner.Max);
     for (int n = 0; n < static_cast<int>(visible.size()); ++n) {
         const Library::Game& g = games[visible[static_cast<size_t>(n)]];
         if (n % cols) ImGui::SameLine();
@@ -2398,8 +2398,8 @@ void Ui::drawLibraryGrid(const std::vector<size_t>& visible) {
         if (selected)
             draw->AddRect(ImVec2(pos.x + 1, pos.y + 1), ImVec2(pos.x + card.x - 1, pos.y + card.y - 1),
                           ImGui::GetColorU32(ImGuiCol_NavCursor), 0.0f, 0, 3.0f);
-        // Two lines of title, cut to the card's width, on a plate so the grid behind
-        // does not cross them; the tags in grey after it.
+        // Two lines of title, cut to the card's width, on a plate so they stand out
+        // from the background; the tags in grey after it.
         const ImVec4 clip(pos.x + 4, pos.y, pos.x + card.x - 4, pos.y + card.y);
         if (!selected && !ImGui::IsItemHovered())
             draw->AddRectFilled(ImVec2(box.x - 2, box.y + coverH + 2), ImVec2(box.x + coverW + 2, pos.y + card.y - 4),

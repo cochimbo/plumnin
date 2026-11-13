@@ -37,9 +37,9 @@ bool primaryButton(const char* label, float width = -1.0f);
 // `offLabel`. Clicking it flips `*on` and returns true.
 bool switchButton(const char* id, bool* on, const char* onLabel, const char* offLabel);
 
-// A white grid on black, as on some 80s game boxes, over `min`-`max` of the current
-// window, moving with its scroll. Before the items drawn on it.
-void boxGrid(ImVec2 min, ImVec2 max);
+// The library's background over `min`-`max` of the current window: a plain dark colour
+// for now. Before the items drawn on it.
+void libraryBackground(ImVec2 min, ImVec2 max);
 
 // A line of controls help ("A / Intro: jugar   B / Esc: cerrar"), dim, with the pad's
 // buttons drawn as buttons. Several lines with '\n'.
