@@ -6,6 +6,11 @@
 
 #include "../i18n.h"
 #include "snes_necdsp.h"
+#include "snes_cx4.h"
+#include "snes_obc1.h"
+#include "snes_sa1.h"
+#include "snes_sdd1.h"
+#include "snes_spc7110.h"
 #include "snes_superfx.h"
 
 namespace plumnin {
@@ -65,6 +70,19 @@ void Snes::setupCoprocessor() {
     switch (info.chip) {
         case Chip::None: return;
         case Chip::SuperFx: copro_ = std::make_unique<snes::SuperFx>(cart_.rom(), cart_.ram()); return;
+        case Chip::Sa1: copro_ = std::make_unique<snes::Sa1>(cart_.rom(), cart_.ram()); return;
+        case Chip::Obc1: copro_ = std::make_unique<snes::Obc1>(cart_.ram()); return;
+        case Chip::Sdd1: copro_ = std::make_unique<snes::Sdd1>(cart_.rom(), cart_.ram()); return;
+        case Chip::Spc7110: copro_ = std::make_unique<snes::Spc7110>(cart_.rom(), cart_.ram()); return;
+        case Chip::Cx4: {
+            auto cx4 = std::make_unique<snes::Cx4>(cart_.rom(), cart_.ram());
+            if (cx4->setFirmware(findFirmware("cx4.rom"))) {
+                copro_ = std::move(cx4);
+                return;
+            }
+            files = {"cx4.rom"};
+            break;
+        }
         case Chip::Dsp1:
             // Most games have the DSP-1B; Pilotwings' demo needs the first DSP-1.
             files = info.title.find("PILOTWINGS") != std::string::npos ? std::vector<const char*>{"dsp1.rom", "dsp1b.rom"}
@@ -88,6 +106,13 @@ void Snes::setupCoprocessor() {
                               info.coprocessor.c_str());
             return;
     }
+    auto missingFirmware = [&] {
+        loadNotice_ = trf(
+            "Este juego necesita el programa del chip %s (el archivo %s), que no viene con plumnin: ponlo junto al juego o "
+            "en la carpeta «firmware» de plumnin.",
+            info.coprocessor.c_str(), files.front());
+    };
+    if (info.chip == Chip::Cx4) return missingFirmware();
     NecDsp::Map map = NecDsp::Map::LoRom;
     if (model == NecDsp::Model::Upd96050) map = NecDsp::Map::St01x;
     else if (info.mapping != snes::Mapping::LoRom) map = NecDsp::Map::HiRom;
@@ -101,10 +126,7 @@ void Snes::setupCoprocessor() {
         copro_ = std::move(dsp);
         return;
     }
-    loadNotice_ = trf(
-        "Este juego necesita el programa del chip %s (el archivo %s), que no viene con plumnin: ponlo junto al juego o "
-        "en la carpeta «firmware» de plumnin.",
-        info.coprocessor.c_str(), files.front());
+    missingFirmware();
 }
 
 Region Snes::effectiveRegion() const {
@@ -279,12 +301,14 @@ void Snes::autoJoypad() {
 }
 
 uint8_t Snes::read(uint32_t address) {
+    if (copro_) copro_->cpuAccess(address);
     advance(speed(address));
     mdr_ = busRead(address);
     return mdr_;
 }
 
 void Snes::write(uint32_t address, uint8_t value) {
+    if (copro_) copro_->cpuAccess(address);
     advance(speed(address));
     mdr_ = value;
     busWrite(address, value);
@@ -335,8 +359,10 @@ void Snes::busWrite(uint32_t address, uint8_t value) {
         if (a < 0x6000) {
             if ((a & 0xFF00) == 0x2100) bWrite(static_cast<uint8_t>(a), value);
             else if (a == 0x4016 || (a >= 0x4200 && a < 0x4220)) ioWrite(a, value);
-            else if (a >= 0x4300 && a < 0x4380) dmaRegWrite(a, value);
-            else if (copro_) copro_->write(address, value);
+            else if (a >= 0x4300 && a < 0x4380) {
+                dmaRegWrite(a, value);
+                if (copro_) copro_->write(address, value);  // the S-DD1 watches them
+            } else if (copro_) copro_->write(address, value);
             return;
         }
     }

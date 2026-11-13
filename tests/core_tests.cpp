@@ -1639,11 +1639,12 @@ void testSnes() {
     check(snes->peek(0x10) == 0x50, "snes: and the game runs again on it");
 
     std::vector<uint8_t> chip = snesProgram();
-    chip[0x7FD6] = 0x35;  // ROM, an SA-1 and battery
+    chip[0x7FD6] = 0xF3;  // ROM and an ST018 (its subtype at FFBF)
+    chip[0x7FBF] = 0x02;
     check(Snes().loadRomData(chip, &error), "snes: a game with a chip still loads");
     Snes withChip;
     withChip.loadRomData(chip, &error);
-    check(withChip.loadNotice().find("SA-1") != std::string::npos, "snes: and says which chip it lacks");
+    check(withChip.loadNotice().find("ST018") != std::string::npos, "snes: and says which chip it lacks");
 }
 
 // A small uPD7725 program, as the DSP-1's would talk: it asks for two words (K and L),
@@ -1834,6 +1835,320 @@ void testSuperFx() {
     check(snes.saveState(state, true) && snes.loadState(state, &error), "super fx: savestate");
 }
 
+// The SA-1: the game starts it, it computes and writes into I-RAM, and interrupts the
+// console's processor through the vector it gives.
+void testSa1() {
+    std::vector<uint8_t> rom(0x8000, 0);
+    const std::vector<int> cpu = {
+        0x78, 0x18, 0xFB, 0xE2, 0x30,  // sei clc xce sep #$30
+        0xA9, 0x00, 0x8D, 0x03, 0x22,  // CRV = 9000
+        0xA9, 0x90, 0x8D, 0x04, 0x22,  //
+        0xA9, 0x80, 0x8D, 0x01, 0x22,  // SIE: its interrupt on
+        0x9C, 0x00, 0x22,              // CCNT = 0: out of reset
+        0x58,                          // cli
+        0xA5, 0x10, 0xF0, 0xFC,        // wait: lda $10 beq wait
+        0x80, 0xFE,                    // bra *
+    };
+    const std::vector<int> irq = {
+        0xAD, 0x00, 0x23, 0x85, 0x11,  // lda $2300 sta $11: SFR
+        0xA9, 0x80, 0x8D, 0x02, 0x22,  // SIC: clear it
+        0xAD, 0x00, 0x30, 0x85, 0x12,  // I-RAM, as the console sees it
+        0xAD, 0x01, 0x30, 0x85, 0x13,  //
+        0xA9, 0x01, 0x85, 0x10, 0x40,  // done, rti
+    };
+    const std::vector<int> sa1 = {
+        0xA9, 0xFF, 0x8D, 0x2A, 0x22,  // CIWP: I-RAM writable
+        0xA9, 0x12, 0x8D, 0x00, 0x30,  // I-RAM[0] = 12
+        0x9C, 0x50, 0x22,              // MCNT: multiply
+        0xA9, 0xFD, 0x8D, 0x51, 0x22,  // MA = -3
+        0xA9, 0xFF, 0x8D, 0x52, 0x22,  //
+        0xA9, 0x07, 0x8D, 0x53, 0x22,  // MB = 7
+        0x9C, 0x54, 0x22,              //
+        0xAD, 0x06, 0x23, 0x8D, 0x01, 0x30,  // I-RAM[1] = low byte of -21
+        0xA9, 0x00, 0x8D, 0x0E, 0x22,  // SIV = 8800
+        0xA9, 0x88, 0x8D, 0x0F, 0x22,  //
+        0xA9, 0xC0, 0x8D, 0x09, 0x22,  // SCNT: interrupt the console, through SIV
+        0x80, 0xFE,                    // bra *
+    };
+    std::copy(cpu.begin(), cpu.end(), rom.begin());
+    std::copy(irq.begin(), irq.end(), rom.begin() + 0x0800);
+    std::copy(sa1.begin(), sa1.end(), rom.begin() + 0x1000);
+    std::fill(rom.begin() + 0x7FC0, rom.begin() + 0x7FD5, ' ');
+    const char* title = "PLUMNIN SA1 TEST";
+    std::copy(title, title + std::strlen(title), rom.begin() + 0x7FC0);
+    rom[0x7FD5] = 0x23;
+    rom[0x7FD6] = 0x35;  // ROM, SA-1, RAM and battery
+    rom[0x7FD7] = 0x05;
+    rom[0x7FD8] = 0x03;  // 8 KB of BW-RAM
+    rom[0x7FD9] = 0x01;
+    rom[0x7FDC] = rom[0x7FDD] = 0xFF;
+    rom[0x7FEE] = 0x00;  // the IRQ vector in ROM points to the reset code: SIV must win
+    rom[0x7FEF] = 0x80;
+    rom[0x7FFC] = 0x00;
+    rom[0x7FFD] = 0x80;
+    Snes snes;
+    std::string error;
+    check(snes.loadRomData(rom, &error) && snes.loadNotice().empty() && snes.coprocessor() &&
+              snes.cartInfo().chip == snes::Chip::Sa1 && snes.saveData().size() == 0x2000,
+          "sa-1: a game with it loads, with its BW-RAM");
+    snes.runFrame();
+    check(snes.peek(0x10) == 1, "sa-1: it runs and interrupts the console through SIV");
+    check(snes.peek(0x11) & 0x80, "sa-1: SFR says it asked");
+    check(snes.peek(0x12) == 0x12 && snes.peek(0x13) == 0xEB, "sa-1: I-RAM and the multiplier (-3 x 7)");
+    std::vector<uint8_t> state;
+    check(snes.saveState(state, true) && snes.loadState(state, &error), "sa-1: savestate");
+}
+
+// A LoROM cartridge for the chip tests: the code at 8000, the header, the reset vector.
+std::vector<uint8_t> chipCart(size_t size, const std::vector<int>& code, const char* title, uint8_t chipset,
+                              uint8_t ramSize) {
+    std::vector<uint8_t> rom(size, 0);
+    std::copy(code.begin(), code.end(), rom.begin());
+    std::fill(rom.begin() + 0x7FC0, rom.begin() + 0x7FD5, ' ');
+    std::copy(title, title + std::strlen(title), rom.begin() + 0x7FC0);
+    rom[0x7FD5] = 0x20;
+    rom[0x7FD6] = chipset;
+    rom[0x7FD7] = static_cast<uint8_t>(size >= 0x200000 ? 0x0B : 0x08);
+    rom[0x7FD8] = ramSize;
+    rom[0x7FD9] = 0x01;
+    rom[0x7FDC] = rom[0x7FDD] = 0xFF;
+    rom[0x7FFC] = 0x00;
+    rom[0x7FFD] = 0x80;
+    return rom;
+}
+
+void testObc1() {
+    const std::vector<int> code = {
+        0x78, 0x18, 0xFB, 0xE2, 0x30,  // sei clc xce sep #$30
+        0x9C, 0xF5, 0x7F,              // the table at 1C00
+        0xA9, 0x05, 0x8D, 0xF6, 0x7F,  // entry 5
+        0xA9, 0x11, 0x8D, 0xF0, 0x7F,  // its four bytes
+        0xA9, 0x22, 0x8D, 0xF1, 0x7F,  //
+        0xA9, 0x33, 0x8D, 0xF2, 0x7F,  //
+        0xA9, 0x44, 0x8D, 0xF3, 0x7F,  //
+        0xA9, 0xFD, 0x8D, 0xF4, 0x7F,  // its two bits: only those change (the RAM starts at FF)
+        0xAD, 0xF2, 0x7F, 0x85, 0x10,  // read one back
+        0xAD, 0xF4, 0x7F, 0x85, 0x11,  //
+        0x80, 0xFE,                    // bra *
+    };
+    Snes snes;
+    std::string error;
+    check(snes.loadRomData(chipCart(0x8000, code, "METAL COMBAT TEST", 0x25, 0x03), &error) &&
+              snes.loadNotice().empty() && snes.cartInfo().chip == snes::Chip::Obc1,
+          "obc1: a game with it loads");
+    snes.runFrame();
+    check(snes.peek(0x10) == 0x33 && snes.peek(0x11) == 0xF7, "obc1: an entry's bytes and bits read back");
+    const std::vector<uint8_t> ram = snes.saveData();
+    check(ram.size() == 0x2000 && ram[0x1C14] == 0x11 && ram[0x1C17] == 0x44 && ram[0x1E01] == 0xF7 &&
+              ram[0x1FF6] == 0x05,
+          "obc1: the table is in the cartridge's RAM");
+}
+
+void testSdd1() {
+    // Two DMAs from C0:0000 (bank register 4804 = 1: the ROM's second megabyte), with
+    // the S-DD1 decompressing, into WRAM at 0100 and 0200: 16 bytes of 2 bpp tiles,
+    // then 16 of mode 7 pixels from C0:0100.
+    std::vector<int> code = {0x78, 0x18, 0xFB, 0xE2, 0x30, 0xA9, 0x01, 0x8D, 0x04, 0x48};
+    auto dma = [&](int source, int to) {
+        const std::vector<int> part = {
+            0xA9, 0x08, 0x8D, 0x00, 0x43,  // fixed A address, A to B
+            0xA9, 0x80, 0x8D, 0x01, 0x43,  // WMDATA
+            0xA9, source & 0xFF, 0x8D, 0x02, 0x43, 0xA9, source >> 8, 0x8D, 0x03, 0x43,
+            0xA9, 0xC0, 0x8D, 0x04, 0x43,  // C0:source
+            0xA9, 0x10, 0x8D, 0x05, 0x43, 0x9C, 0x06, 0x43,  // 16 bytes
+            0x9C, 0x81, 0x21, 0xA9, to >> 8, 0x8D, 0x82, 0x21, 0x9C, 0x83, 0x21,  // WMADD = to
+            0xA9, 0x01, 0x8D, 0x00, 0x48, 0x8D, 0x01, 0x48,  // channel 0 decompresses
+            0x8D, 0x0B, 0x42,  // MDMAEN
+        };
+        code.insert(code.end(), part.begin(), part.end());
+    };
+    dma(0x0000, 0x0100);
+    const std::vector<int> mid = {0xAD, 0x01, 0x48, 0x85, 0x10};  // 4801 after it: the channel is off
+    code.insert(code.end(), mid.begin(), mid.end());
+    dma(0x0100, 0x0200);
+    const std::vector<int> end = {
+        0xAF, 0x01, 0x00, 0xC0, 0x85, 0x11,  // and C0:0001 is the ROM again
+        0x80, 0xFE,
+    };
+    code.insert(code.end(), end.begin(), end.end());
+    std::vector<uint8_t> rom = chipCart(0x200000, code, "STAR OCEAN TEST", 0x43, 0);
+    for (int i = 0; i < 64; ++i) {
+        rom[0x100001 + static_cast<size_t>(i)] = static_cast<uint8_t>(i * 37 + 11);
+        rom[0x100101 + static_cast<size_t>(i)] = static_cast<uint8_t>(i * 37 + 11);
+    }
+    rom[0x100000] = 0x00;  // 2 bpp, context 0
+    rom[0x100100] = 0xC0;  // 8 bits a pixel
+    rom[0x100040] = rom[0x100140] = 0;  // the reference read zeros past 64 bytes
+    Snes snes;
+    std::string error;
+    check(snes.loadRomData(rom, &error) && snes.loadNotice().empty() && snes.cartInfo().chip == snes::Chip::Sdd1,
+          "s-dd1: a game with it loads");
+    snes.runFrame();
+    // Worked out by a separate transcription of the decompressor (ares'), from the same input.
+    const uint8_t tiles[16] = {0x00, 0x01, 0x00, 0x00, 0x81, 0xF1, 0x81, 0xCA,
+                               0x80, 0xAC, 0x00, 0xD5, 0x00, 0xDC, 0x03, 0x7B};
+    const uint8_t mode7[16] = {0x00, 0x80, 0x00, 0x08, 0x00, 0x40, 0x88, 0x70,
+                               0xC4, 0x24, 0xC0, 0x60, 0x5A, 0x62, 0x32, 0xC4};
+    bool same = true;
+    for (int i = 0; i < 16; ++i)
+        same = same && snes.peek(0x7E0100 + static_cast<uint32_t>(i)) == tiles[i] &&
+               snes.peek(0x7E0200 + static_cast<uint32_t>(i)) == mode7[i];
+    check(same, "s-dd1: the DMA decompresses (2 bpp and mode 7)");
+    check(snes.peek(0x10) == 0x00, "s-dd1: the channel turns off after its bytes");
+    check(snes.peek(0x11) == 11, "s-dd1: and C0-CF show the second megabyte");
+    std::vector<uint8_t> state;
+    check(snes.saveState(state, true) && snes.loadState(state, &error), "s-dd1: savestate");
+}
+
+// The Cx4: a game starts a small HG51B program from its ROM, then reads the registers.
+void testCx4() {
+    namespace fs = std::filesystem;
+    const std::vector<int> cpu = {
+        0x78, 0x18, 0xFB, 0xE2, 0x30,  // sei clc xce sep #$30
+        0x9C, 0x49, 0x7F, 0xA9, 0x80, 0x8D, 0x4A, 0x7F, 0xA9, 0x01, 0x8D, 0x4B, 0x7F,  // its program at 01:8000
+        0x9C, 0x4D, 0x7F, 0x9C, 0x4E, 0x7F,  // page 0
+        0x9C, 0x4F, 0x7F,                    // from instruction 0: go
+        0xAD, 0x5E, 0x7F, 0x29, 0x40, 0xD0, 0xF9,  // until it stops: lda $7F5E and #$40 bne
+        0xAD, 0x80, 0x7F, 0x85, 0x10, 0xAD, 0x81, 0x7F, 0x85, 0x11,  // R0
+        0xAD, 0x83, 0x7F, 0x85, 0x12, 0xAD, 0x84, 0x7F, 0x85, 0x13,  // R1
+        0xAD, 0x86, 0x7F, 0x85, 0x14, 0xAD, 0x88, 0x7F, 0x85, 0x15,  // R2's bytes 0 and 2
+        0xAD, 0x89, 0x7F, 0x85, 0x16,                                // R3
+        0xAD, 0x20, 0x60, 0x85, 0x17,                                // its data RAM
+        0x80, 0xFE,
+    };
+    const std::vector<uint16_t> program = {
+        0x6412,  // ld a, #$12
+        0xDC08,  // shl a, 8
+        0xBC34,  // or a, #$34
+        0xE060,  // st r0, a: 1234
+        0x9C03,  // mul a, #3
+        0x6002,  // ld a, mul (low)
+        0xE061,  // st r1, a: 369C
+        0x7405,  // rdrom 5: from the table of constants
+        0x6008,  // ld a, rom
+        0xE062,  // st r2, a
+        0x6455,  // ld a, #$55
+        0xE00C,  // st ram, a
+        0x6420,  // ld a, #$20
+        0xE800,  // wrram 0, a: data RAM 020 = 55
+        0x9421,  // sub a, #$21: negative
+        0x1412,  // jmp mi, 18
+        0x6402,  // ld a, #2 (not taken)
+        0xFC00,  // halt
+        0x6401,  // 18: ld a, #1
+        0xE063,  // st r3, a
+        0xFC00,  // halt
+    };
+    std::vector<uint8_t> rom = chipCart(0x10000, cpu, "MEGAMAN X CX4 TEST", 0xF3, 0);
+    rom[0x7FBF] = 0x10;  // the Cx4
+    for (size_t i = 0; i < program.size(); ++i) {
+        rom[0x8000 + i * 2] = static_cast<uint8_t>(program[i]);
+        rom[0x8001 + i * 2] = static_cast<uint8_t>(program[i] >> 8);
+    }
+    std::string error;
+    Snes without;
+    check(without.loadRomData(rom, &error) && without.loadNotice().find("cx4.rom") != std::string::npos,
+          "cx4: without its table it says which file it needs");
+    std::error_code ec;
+    const fs::path dir = fs::temp_directory_path() / "plumnin_cx4_test";
+    fs::create_directories(dir, ec);
+    const std::string game = (dir / "game.sfc").string();
+    std::ofstream(game, std::ios::binary).write(reinterpret_cast<const char*>(rom.data()), static_cast<std::streamsize>(rom.size()));
+    std::vector<uint8_t> table(3072, 0);
+    table[15] = 0xEF;  // word 5 = ABCDEF
+    table[16] = 0xCD;
+    table[17] = 0xAB;
+    std::ofstream(dir / "cx4.rom", std::ios::binary)
+        .write(reinterpret_cast<const char*>(table.data()), static_cast<std::streamsize>(table.size()));
+    Snes snes;
+    check(snes.loadRom(game, &error) && snes.loadNotice().empty() && snes.coprocessor() &&
+              snes.cartInfo().chip == snes::Chip::Cx4,
+          "cx4: a game with it loads");
+    snes.runFrame();
+    check(snes.peek(0x10) == 0x34 && snes.peek(0x11) == 0x12, "cx4: it runs its program from the ROM");
+    check(snes.peek(0x12) == 0x9C && snes.peek(0x13) == 0x36, "cx4: the multiplier");
+    check(snes.peek(0x14) == 0xEF && snes.peek(0x15) == 0xAB, "cx4: the table of constants");
+    check(snes.peek(0x16) == 0x01, "cx4: a jump on the sign");
+    check(snes.peek(0x17) == 0x55, "cx4: its data RAM, seen by the console");
+    check(snes.coprocessor()->irq(), "cx4: and it interrupts when it stops");
+    std::vector<uint8_t> state;
+    check(snes.saveState(state, true) && snes.loadState(state, &error), "cx4: savestate");
+    fs::remove_all(dir, ec);
+}
+
+// The SPC7110: its arithmetic, the data port, the banks, the RAM's gate, and the
+// decompressor (1 and 4 bpp) handing out tiles at 4800.
+void testSpc7110() {
+    std::vector<int> code = {
+        0x78, 0x18, 0xFB, 0xE2, 0x30,                                // sei clc xce sep #$30
+        0xA9, 0x34, 0x8D, 0x20, 0x48, 0xA9, 0x12, 0x8D, 0x21, 0x48,  // 1234
+        0xA9, 0x10, 0x8D, 0x24, 0x48, 0x9C, 0x25, 0x48,              // x 0010
+        0xAD, 0x28, 0x48, 0x85, 0x10, 0xAD, 0x29, 0x48, 0x85, 0x11, 0xAD, 0x2A, 0x48, 0x85, 0x12,
+        0xA9, 0x01, 0x8D, 0x2E, 0x48,                                // signed
+        0xA9, 0x9C, 0x8D, 0x20, 0x48, 0xA9, 0xFF, 0x8D, 0x21, 0x48, 0x8D, 0x22, 0x48, 0x8D, 0x23, 0x48,  // -100
+        0xA9, 0x07, 0x8D, 0x26, 0x48, 0x9C, 0x27, 0x48,              // / 7
+        0xAD, 0x28, 0x48, 0x85, 0x13, 0xAD, 0x2C, 0x48, 0x85, 0x14, 0xAD, 0x2D, 0x48, 0x85, 0x15,
+        0x9C, 0x18, 0x48, 0xA9, 0x10, 0x8D, 0x11, 0x48, 0x9C, 0x12, 0x48, 0x9C, 0x13, 0x48,  // data port at 000010
+        0xAD, 0x10, 0x48, 0x85, 0x16, 0xAD, 0x10, 0x48, 0x85, 0x17,
+        0xAF, 0x10, 0x00, 0xD0, 0x85, 0x18,                          // lda $D00010
+        0xA9, 0x5A, 0x8D, 0x00, 0x60, 0xAD, 0x00, 0x60, 0x85, 0x19,  // the RAM, closed
+        0xA9, 0x80, 0x8D, 0x30, 0x48,                                // open
+        0xA9, 0x5A, 0x8D, 0x00, 0x60, 0xAD, 0x00, 0x60, 0x85, 0x1A,
+        0x9C, 0x01, 0x48, 0xA9, 0x01, 0x8D, 0x02, 0x48, 0x9C, 0x03, 0x48,  // the table at 000100
+        0x9C, 0x0B, 0x48, 0x9C, 0x05, 0x48,
+        0x9C, 0x04, 0x48, 0x9C, 0x06, 0x48,                          // entry 0, go
+        0xAD, 0x0C, 0x48, 0x85, 0x1B,
+        0xA2, 0x00, 0xAD, 0x00, 0x48, 0x9D, 0x00, 0x01, 0xE8, 0xE0, 0x10, 0xD0, 0xF5,  // 16 bytes to 0100
+        0xA9, 0x01, 0x8D, 0x04, 0x48, 0x9C, 0x06, 0x48,              // entry 1, go
+        0xA2, 0x00, 0xAD, 0x00, 0x48, 0x9D, 0x00, 0x02, 0xE8, 0xE0, 0x20, 0xD0, 0xF5,  // 32 bytes to 0200
+        0x80, 0xFE,
+    };
+    // A 1 MB program (HiROM: the code at 8000, the header at FFC0) and a 1 MB data ROM.
+    std::vector<uint8_t> rom(0x200000, 0);
+    std::copy(code.begin(), code.end(), rom.begin() + 0x8000);
+    std::fill(rom.begin() + 0xFFC0, rom.begin() + 0xFFD5, ' ');
+    const char* title = "SPC7110 TEST";
+    std::copy(title, title + std::strlen(title), rom.begin() + 0xFFC0);
+    rom[0xFFD5] = 0x3A;
+    rom[0xFFD6] = 0xF5;  // ROM, RAM, battery and the SPC7110
+    rom[0xFFD7] = 0x0B;
+    rom[0xFFD8] = 0x03;
+    rom[0xFFD9] = 0x00;
+    rom[0xFFDC] = rom[0xFFDD] = 0xFF;
+    rom[0xFFFC] = 0x00;
+    rom[0xFFFD] = 0x80;
+    uint8_t* data = rom.data() + 0x100000;
+    data[0x10] = 0xA1;
+    data[0x11] = 0xB2;
+    const uint8_t table[8] = {0x00, 0x00, 0x04, 0x00, 0x02, 0x00, 0x04, 0x00};  // mode, address (big-endian)
+    std::copy(table, table + 8, data + 0x100);
+    for (int i = 0; i < 0x200; ++i) data[0x400 + i] = static_cast<uint8_t>(i * 73 + 29);
+    Snes snes;
+    std::string error;
+    check(snes.loadRomData(rom, &error) && snes.loadNotice().empty() && snes.cartInfo().chip == snes::Chip::Spc7110,
+          "spc7110: a game with it loads");
+    snes.runFrame();
+    check(snes.peek(0x10) == 0x40 && snes.peek(0x11) == 0x23 && snes.peek(0x12) == 0x01, "spc7110: the multiplier");
+    check(snes.peek(0x13) == 0xF2 && snes.peek(0x14) == 0xFE && snes.peek(0x15) == 0xFF, "spc7110: signed division");
+    check(snes.peek(0x16) == 0xA1 && snes.peek(0x17) == 0xB2, "spc7110: the data port");
+    check(snes.peek(0x18) == 0xA1, "spc7110: the data ROM's bank at D0");
+    check(snes.peek(0x19) == 0x00 && snes.peek(0x1A) == 0x5A, "spc7110: the save RAM only when 4830 opens it");
+    check(snes.peek(0x1B) & 0x80, "spc7110: the decompressor says it is ready");
+    // Worked out by a separate transcription of the decompressor (ares'), from the same data.
+    const uint8_t mode0[16] = {0x1D, 0xB8, 0x85, 0x55, 0x91, 0x49, 0x79, 0x65,
+                               0xDD, 0xCA, 0x40, 0xD2, 0xFF, 0xCA, 0x7B, 0x31};
+    const uint8_t mode2[32] = {0x7E, 0x57, 0x96, 0x14, 0x35, 0xCD, 0x70, 0x08, 0x5A, 0x5A, 0x5A,
+                               0x00, 0xB3, 0x6F, 0xB6, 0x4F, 0x03, 0xFF, 0xF0, 0x8A, 0xF3, 0x02,
+                               0x90, 0x73, 0x00, 0xE0, 0xCA, 0xAA, 0xAD, 0xA2, 0x8B, 0xFA};
+    bool same0 = true, same2 = true;
+    for (uint32_t i = 0; i < 16; ++i) same0 = same0 && snes.peek(0x7E0100 + i) == mode0[i];
+    for (uint32_t i = 0; i < 32; ++i) same2 = same2 && snes.peek(0x7E0200 + i) == mode2[i];
+    check(same0, "spc7110: 1 bpp tiles");
+    check(same2, "spc7110: 4 bpp tiles");
+    std::vector<uint8_t> state;
+    check(snes.saveState(state, true) && snes.loadState(state, &error), "spc7110: savestate");
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -1859,6 +2174,11 @@ int main() {
     testSnes();
     testNecDsp();
     testSuperFx();
+    testSa1();
+    testObc1();
+    testSdd1();
+    testCx4();
+    testSpc7110();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

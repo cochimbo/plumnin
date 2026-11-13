@@ -265,6 +265,11 @@ void Cpu::interrupt(uint16_t nativeVector, uint16_t emulationVector, bool softwa
     push(r.e && !software ? static_cast<uint8_t>(r.p & ~0x10) : r.p);
     r.p = static_cast<uint8_t>((r.p | I) & ~D);
     r.pb = 0;
+    uint16_t to = 0;
+    if (!software && bus_->hardwareVector(nativeVector == 0xFFEA, to)) {
+        r.pc = to;
+        return;
+    }
     const uint16_t vector = r.e ? emulationVector : nativeVector;
     const uint8_t lo = read(vector);
     r.pc = static_cast<uint16_t>(lo | read(vector + 1u) << 8);

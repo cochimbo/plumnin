@@ -15,6 +15,9 @@ public:
     virtual uint8_t read(uint32_t address) = 0;
     virtual void write(uint32_t address, uint8_t value) = 0;
     virtual void idle() = 0;
+    // Where an NMI or IRQ goes, if the bus gives it instead of the vector in memory
+    // (the SA-1 has its vectors in registers).
+    virtual bool hardwareVector(bool /*nmi*/, uint16_t& /*pc*/) { return false; }
 };
 
 // The 65C816 (the 5A22's core): the 6502's sixteen-bit successor with its emulation
@@ -33,6 +36,7 @@ public:
     void setIrq(bool on) { irqLine_ = on; }
     bool waiting() const { return waiting_; }
     bool stopped() const { return stopped_; }
+    void clearStop() { stopped_ = false; }
 
     struct Regs {
         uint16_t a = 0, x = 0, y = 0, s = 0x01FF, d = 0, pc = 0;

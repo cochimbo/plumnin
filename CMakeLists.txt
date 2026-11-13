@@ -74,7 +74,12 @@ add_library(plumnin_core STATIC
   src/core/snes/snes.cpp
   src/core/snes/snes_apu.cpp
   src/core/snes/snes_cart.cpp
+  src/core/snes/snes_cx4.cpp
   src/core/snes/snes_necdsp.cpp
+  src/core/snes/snes_obc1.cpp
+  src/core/snes/snes_sa1.cpp
+  src/core/snes/snes_sdd1.cpp
+  src/core/snes/snes_spc7110.cpp
   src/core/snes/snes_superfx.cpp
   src/core/snes/snes_cpu.cpp
   src/core/snes/snes_ppu.cpp
