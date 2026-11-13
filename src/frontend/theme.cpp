@@ -240,17 +240,8 @@ bool switchButton(const char* id, bool* on, const char* onLabel, const char* off
     return pressed;
 }
 
-void boxGrid(ImVec2 min, ImVec2 max) {
-    ImGuiWindow* w = ImGui::GetCurrentWindow();
-    ImDrawList* d = w->DrawList;
-    const float cell = 14.0f;
-    d->AddRectFilled(min, max, IM_COL32(0x05, 0x05, 0x06, 0xFF));
-    const ImU32 line = IM_COL32(0xFF, 0xFF, 0xFF, 0x50);
-    const float x0 = min.x - std::fmod(w->Scroll.x, cell), y0 = min.y - std::fmod(w->Scroll.y, cell);
-    for (float x = x0; x < max.x; x += cell)
-        if (x >= min.x) d->AddRectFilled(ImVec2(x, min.y), ImVec2(x + 1, max.y), line);
-    for (float y = y0; y < max.y; y += cell)
-        if (y >= min.y) d->AddRectFilled(ImVec2(min.x, y), ImVec2(max.x, y + 1), line);
+void libraryBackground(ImVec2 min, ImVec2 max) {
+    ImGui::GetCurrentWindow()->DrawList->AddRectFilled(min, max, IM_COL32(0x05, 0x05, 0x06, 0xFF));
 }
 
 void hint(const char* text) {
