@@ -231,7 +231,8 @@ void Snes::advance(int clocks) {
             target -= kLineClocks;
             hc_ = 0;
             ++line_;
-            if (line_ >= (pal_ ? 312 : 262)) line_ = 0;
+            // An interlaced frame has a line more every other field.
+            if (line_ >= (pal_ ? 312 : 262) + (ppu_.interlace() && !ppu_.field() ? 1 : 0)) line_ = 0;
             refreshed_ = hdmaDoneLine_ = irqDoneLine_ = false;
             startLine();
             continue;

@@ -72,8 +72,8 @@ there is:
   League 4): its banks of the data ROM, the data port, the multiplier and divider, and
   the decompressor of 1, 2 and 4 bpp tiles (not Far East of Eden Zero's clock). Games
   with the other chips (the ST018, the Super Game Boy) load with a warning
-  that they may not work: those are not emulated yet, nor the interlaced picture
-  (drawn as one field).
+  that they may not work: those are not emulated yet. Interlace: 448 (or 478) rows, the
+  two fields woven in modes 5 and 6 and with interlaced sprites, and the 263-line field.
 
 - The frontend from plumsg: the menus, the game library (covers, details and media from
   ScreenScraper and libretro-database, console tabs for the four consoles), savestates
@@ -135,7 +135,7 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
   SA-1 (started by the game, its multiplier, I-RAM, and its interrupt through SIV); the
   S-DD1's decompression through a DMA, against a separate transcription of the
   algorithm, the OBC1's sprite table, a small Cx4 program run from the ROM, and the SPC7110's units, its decompressor
-  against a separate transcription too.
+  against a separate transcription too; and interlace, in mode 1 and in mode 5.
 - `frontend_tests`: the settings files, each game's own options and the crash reports.
 - `headless`: `plumnin-headless` end to end: hashes, savestates, input scripts, recordings
   and netplay between two processes.

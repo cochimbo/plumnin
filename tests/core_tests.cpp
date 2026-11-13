@@ -2149,6 +2149,42 @@ void testSpc7110() {
     check(snes.saveState(state, true) && snes.loadState(state, &error), "spc7110: savestate");
 }
 
+// Interlace: a background of stripes (the even rows of each tile lit), in mode 1 (the
+// same picture in both fields) and in mode 5 (448 lines of background, a field each).
+void testSnesInterlace() {
+    for (int mode : {1, 5}) {
+        std::vector<int> code = {0x78, 0x18, 0xFB, 0xE2, 0x30, 0xA9, 0x80, 0x8D, 0x00, 0x21};  // forced blank
+        auto add = [&](std::initializer_list<int> bytes) { code.insert(code.end(), bytes); };
+        add({0x9C, 0x21, 0x21, 0x9C, 0x22, 0x21, 0x9C, 0x22, 0x21});              // colour 0 black
+        add({0xA9, 0xFF, 0x8D, 0x22, 0x21, 0xA9, 0x7F, 0x8D, 0x22, 0x21});        // colour 1 white
+        add({0xA9, 0x80, 0x8D, 0x15, 0x21, 0x9C, 0x16, 0x21, 0x9C, 0x17, 0x21});  // VRAM from 0000
+        for (int word = 0; word < 32; ++word) {  // tiles 0 and 1 (4 bpp): plane 0 on even rows
+            if ((word & 15) < 8 && !(word & 1)) add({0xA9, 0xFF, 0x8D, 0x18, 0x21, 0x9C, 0x19, 0x21});
+            else add({0x9C, 0x18, 0x21, 0x9C, 0x19, 0x21});
+        }
+        add({0xA9, 0x04, 0x8D, 0x07, 0x21, 0x9C, 0x0B, 0x21});  // the map at 0400 (all tile 0), the tiles at 0
+        add({0xA9, mode, 0x8D, 0x05, 0x21});
+        add({0xA9, 0x01, 0x8D, 0x2C, 0x21, 0x8D, 0x2D, 0x21});  // BG1 on both screens
+        add({0xA9, 0x01, 0x8D, 0x33, 0x21});                    // SETINI: interlace
+        add({0xA9, 0x0F, 0x8D, 0x00, 0x21, 0x80, 0xFE});
+        Snes snes;
+        std::string error;
+        check(snes.loadRomData(chipCart(0x8000, code, "INTERLACE TEST", 0x00, 0), &error), "snes: interlace program loads");
+        for (int i = 0; i < 4; ++i) snes.runFrame();
+        const VideoFrame& f = snes.frame();
+        if (mode == 1) {
+            check(f.interlaced && f.height == 448 && f.width == 256 && f.aspectLines == 224,
+                  "snes: an interlaced frame has 448 rows");
+            check(f.pixel(1, 0) == f.pixel(1, 1) && f.pixel(1, 2) == f.pixel(1, 3) && f.pixel(1, 0) != f.pixel(1, 2),
+                  "snes: in mode 1 each line fills both of its rows");
+        } else {
+            check(f.interlaced && f.height == 448 && f.width == 512, "snes: mode 5 interlaced: 512 x 448");
+            check(f.pixel(1, 0) != f.pixel(1, 1) && f.pixel(1, 0) == f.pixel(1, 2) && f.pixel(1, 1) == f.pixel(1, 3),
+                  "snes: in mode 5 the two fields weave the background's lines");
+        }
+    }
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -2179,6 +2215,7 @@ int main() {
     testSdd1();
     testCx4();
     testSpc7110();
+    testSnesInterlace();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }
