@@ -1010,11 +1010,12 @@ void Ui::drawSoundMenu(UiActions& out) {
         out.settingsChanged = true;
     }
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s", tr("La música de la Game Boy y la NES suena con instrumentos General MIDI del SoundFont\n"
-                                   "elegido, como en un módulo SC-55: los pulsos como oboes, trompetas o clarinetes,\n"
-                                   "el triángulo y los graves como bajo, la onda según su forma, y el ruido como batería.\n"
-                                   "Las muestras de la NES (el DMC) siguen siendo las del juego. La Super Nintendo,\n"
-                                   "de momento, suena siempre original."));
+        ImGui::SetTooltip("%s", tr("La música suena con instrumentos General MIDI del SoundFont elegido, como en un\n"
+                                   "módulo SC-55. En la Game Boy y la NES, los pulsos como oboes, trompetas o clarinetes,\n"
+                                   "el triángulo y los graves como bajo, la onda según su forma, y el ruido como batería;\n"
+                                   "las muestras de la NES (el DMC) siguen siendo las del juego. En la Super Nintendo,\n"
+                                   "cada muestra del juego se cambia por un instrumento según su nota, cómo se sostiene\n"
+                                   "y su timbre, y las que no tienen nota por piezas de la batería."));
     ImGui::BeginDisabled(!settings_.synth);
     drawSoundfontCombo(out);
     if (ImGui::MenuItem(tr("Abrir la carpeta de SoundFonts"))) openInSystem(soundfontFolder_);

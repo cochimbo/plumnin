@@ -81,7 +81,7 @@ Output
   --png-every N         a PNG every N frames, as frame_000123.png in --out-dir
   --out-dir DIR         where screenshots without a name go (default: .)
   --wav FILE            the whole run's sound (44100 Hz stereo)
-  --synth SF2           the music through the synthesizer, on this SoundFont (GB, NES)
+  --synth SF2           the music through the synthesizer, on this SoundFont
   --synth-chip PERCENT  how loud the chip's own sound stays under it (default 0)
   --gif FILE            the run as an animated GIF, as plumnin's Grabar GIF makes it
   --avi FILE            the run as a video with its sound (Motion JPEG and PCM)
