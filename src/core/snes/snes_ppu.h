@@ -45,6 +45,7 @@ public:
     void startVblank();
     bool overscan() const { return setini_ & 0x04; }
     bool interlace() const { return setini_ & 0x01; }
+    bool field() const { return field_; }
     // The lines of picture: 224, or 239 with the overscan bit.
     int visibleLines() const { return overscan() ? 239 : 224; }
     bool forceBlank() const { return inidisp_ & 0x80; }
@@ -60,6 +61,7 @@ public:
            cgHigh_, cgLatch_, w12sel_, wobjsel_, wh_, wbglog_, wobjlog_, tm_, ts_, tmw_, tsw_, cgwsel_, cgadsub_, fixed_,
            setini_, hcounter_, vcounter_, hFlip_, vFlip_, latched_, timeOver_, rangeOver_, field_, ppu1Bus_, ppu2Bus_,
            mosaicLine_, pal_, line_, dot_, hires_);
+        ar(frameInterlace_, prevInterlace_);
     }
 
 private:
@@ -86,6 +88,8 @@ private:
     uint16_t paletteColor(int index) const { return cgram_[index & 0xFF] & 0x7FFF; }
     void output(int row, int width, bool hires);
     void expandToHires();
+    void shrinkToLowres();
+    int rows() const { return frameInterlace_ ? visibleLines() * 2 : visibleLines(); }
 
     VideoFrame* frame_ = nullptr;
     bool unlimited_ = false;
@@ -125,6 +129,11 @@ private:
     bool pal_ = false;
     int16_t line_ = 0, dot_ = 0;
     bool hires_ = false;  // this frame has lines of 512 columns
+    // Interlace (SETINI bit 0): this frame is one field, its lines every other row of
+    // the picture; the other rows keep the previous field's.
+    bool frameInterlace_ = false, prevInterlace_ = false;
+    bool drew_ = false;  // this frame's lines were drawn (not skipped)
+    std::array<bool, VideoFrame::kMaxHeight> rowWide_{};  // that row of the picture has 512 columns
 
     // The lines being put together (not part of the state: drawn anew every line).
     std::array<LayerLine, 4> bg_;

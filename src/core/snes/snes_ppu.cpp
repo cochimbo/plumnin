@@ -105,6 +105,8 @@ void Ppu::reset() {
     ppu1Bus_ = ppu2Bus_ = 0;
     mosaicLine_ = 1;
     hires_ = false;
+    frameInterlace_ = prevInterlace_ = false;
+    rowWide_.fill(false);
 }
 
 uint16_t Ppu::vramAddress() const {
@@ -359,17 +361,23 @@ void Ppu::startFrame(bool pal) {
     hires_ = false;
     mosaicLine_ = 1;
     field_ = !field_;
+    prevInterlace_ = frameInterlace_;
+    frameInterlace_ = interlace();
     if (!forceBlank()) timeOver_ = rangeOver_ = false;
-    if (frame_) {
-        frame_->width = 256;
-        frame_->wideLeft = frame_->wideRight = 0;
-    }
+    drew_ = false;
+    if (frame_) frame_->wideLeft = frame_->wideRight = 0;
 }
 
 void Ppu::startVblank() {
     if (!forceBlank()) oamAddr_ = static_cast<uint16_t>(oamBase_ << 1);
     if (frame_) {
-        frame_->height = visibleLines();
+        if (drew_) {
+            // The previous field may have been in high resolution and this one not.
+            if (!hires_) shrinkToLowres();
+            frame_->width = hires_ ? 512 : 256;
+        }
+        frame_->height = rows();
+        frame_->interlaced = frameInterlace_;
         frame_->aspectLines = visibleLines();
     }
 }
@@ -542,6 +550,8 @@ void Ppu::drawSprites(int y, LayerLine& out) {
     std::fill(out.index.begin(), out.index.begin() + 256, uint16_t{0});
     const int row = y - 1;
     const int sizeSel = obsel_ >> 5;
+    // OBJ interlace: sprites at half height, each field its lines.
+    const bool objInterlace = frameInterlace_ && (setini_ & 0x02);
     const int first = oamPriority_ ? (oamBase_ >> 1) & 0x7F : 0;
     int list[128];
     int count = 0;
@@ -552,7 +562,7 @@ void Ppu::drawSprites(int y, LayerLine& out) {
         const int w = kObjWidth[sizeSel][large], h = kObjHeight[sizeSel][large];
         const int x = oam_[i * 4] | (high & 1) << 8;
         const int sy = oam_[i * 4 + 1];
-        if (((row - sy) & 0xFF) >= h) continue;
+        if (((row - sy) & 0xFF) >= (objInterlace ? h >> 1 : h)) continue;
         if (x >= 256 && x + w <= 512) continue;  // off the left edge entirely
         if (count == 32) {
             rangeOver_ = true;
@@ -575,6 +585,7 @@ void Ppu::drawSprites(int y, LayerLine& out) {
         const int sy = oam_[i * 4 + 1];
         const uint8_t chr = oam_[i * 4 + 2], attr = oam_[i * 4 + 3];
         int fy = (row - sy) & 0xFF;
+        if (objInterlace) fy = fy * 2 + field_;
         if (attr & 0x80) fy = h - 1 - fy;
         const int pal = (attr >> 1) & 7;
         const uint16_t base = static_cast<uint16_t>(attr & 1 ? nameBase + nameSelect : nameBase);
@@ -645,7 +656,9 @@ void Ppu::windowMask(int layer, std::array<bool, 256>& mask) const {
 
 void Ppu::expandToHires() {
     VideoFrame& f = *frame_;
-    for (int row = 0; row < f.height && row < VideoFrame::kMaxHeight; ++row) {
+    for (int row = 0; row < rows() && row < VideoFrame::kMaxHeight; ++row) {
+        if (rowWide_[static_cast<size_t>(row)]) continue;  // the other field's, already wide
+        rowWide_[static_cast<size_t>(row)] = true;
         const size_t base = static_cast<size_t>(row) * VideoFrame::kMaxWidth;
         for (int x = 255; x >= 0; --x) {
             const size_t from = base + static_cast<size_t>(x), to = base + static_cast<size_t>(x) * 2;
@@ -656,6 +669,21 @@ void Ppu::expandToHires() {
     f.width = 512;
 }
 
+// The rows left wide by the previous field, back to 256 columns (the main screen's).
+void Ppu::shrinkToLowres() {
+    VideoFrame& f = *frame_;
+    for (int row = 0; row < rows() && row < VideoFrame::kMaxHeight; ++row) {
+        if (!rowWide_[static_cast<size_t>(row)]) continue;
+        rowWide_[static_cast<size_t>(row)] = false;
+        const size_t base = static_cast<size_t>(row) * VideoFrame::kMaxWidth;
+        for (int x = 0; x < 256; ++x) {
+            const size_t to = base + static_cast<size_t>(x), from = base + static_cast<size_t>(x) * 2 + 1;
+            for (auto* a : {&f.rgba, &f.planeB, &f.planeA, &f.sprites}) (*a)[to] = (*a)[from];
+            for (auto* a : {&f.info, &f.planeBInfo, &f.planeAInfo, &f.spriteInfo}) (*a)[to] = (*a)[from];
+        }
+    }
+}
+
 void Ppu::drawLine(int line, bool drawing) {
     if (!frame_ || line < 1 || line > visibleLines()) return;
     const int mode = bgmode_ & 7;
@@ -664,11 +692,19 @@ void Ppu::drawLine(int line, bool drawing) {
         if (hiresLine) hires_ = true;
         return;
     }
+    if (!drew_) {
+        drew_ = true;
+        frame_->width = 256;  // until a line in high resolution
+    }
     if (hiresLine && !hires_) {
-        frame_->height = std::max(frame_->height, line - 1);
         expandToHires();
         hires_ = true;
     }
+    // In interlace, modes 5 and 6 show 448 lines of background, each field its half,
+    // and so do the sprites with SETINI bit 1; the other modes show the same picture in
+    // both fields, so the line fills both rows.
+    const bool fieldLines = frameInterlace_ && (mode == 5 || mode == 6 || (setini_ & 0x02));
+    const int bgLine = frameInterlace_ && (mode == 5 || mode == 6) ? line * 2 + field_ : line;
     const int bgWidth = mode == 5 || mode == 6 ? 512 : 256;
     for (int bg = 0; bg < 4; ++bg) std::fill(bg_[static_cast<size_t>(bg)].index.begin(), bg_[static_cast<size_t>(bg)].index.end(), uint16_t{0});
     if (!forceBlank()) {
@@ -676,13 +712,29 @@ void Ppu::drawLine(int line, bool drawing) {
             drawMode7(line, bg_[0], bg_[1], setini_ & 0x40);
         } else {
             for (int bg = 0; bg < 4; ++bg)
-                if (kBpp[mode][bg] && ((tm_ | ts_) & (1 << bg))) drawBackground(bg, line, bgWidth, bg_[static_cast<size_t>(bg)]);
+                if (kBpp[mode][bg] && ((tm_ | ts_) & (1 << bg))) drawBackground(bg, bgLine, bgWidth, bg_[static_cast<size_t>(bg)]);
         }
         drawSprites(line, obj_);
     } else {
         std::fill(obj_.index.begin(), obj_.index.end(), uint16_t{0});
     }
-    output(line - 1, bgWidth, hiresLine);
+    const int row = frameInterlace_ ? (line - 1) * 2 + field_ : line - 1;
+    output(row, bgWidth, hiresLine);
+    rowWide_[static_cast<size_t>(row)] = hires_;
+    // Both rows, unless the line belongs to this field only (and the other row has the
+    // previous field's: not the first field after interlace comes on).
+    if (frameInterlace_ && (!fieldLines || !prevInterlace_)) {
+        VideoFrame& f = *frame_;
+        const size_t from = static_cast<size_t>(row) * VideoFrame::kMaxWidth;
+        const size_t to = static_cast<size_t>(row ^ 1) * VideoFrame::kMaxWidth;
+        const size_t n = static_cast<size_t>(hires_ ? 512 : 256);
+        for (auto* a : {&f.rgba, &f.planeB, &f.planeA, &f.sprites}) std::copy_n(a->begin() + from, n, a->begin() + to);
+        for (auto* a : {&f.info, &f.planeBInfo, &f.planeAInfo, &f.spriteInfo})
+            std::copy_n(a->begin() + from, n, a->begin() + to);
+        f.backdrop[static_cast<size_t>(row ^ 1)] = f.backdrop[static_cast<size_t>(row)];
+        f.lines[static_cast<size_t>(row ^ 1)] = f.lines[static_cast<size_t>(row)];
+        rowWide_[static_cast<size_t>(row ^ 1)] = hires_;
+    }
 }
 
 void Ppu::output(int row, int bgWidth, bool hiresLine) {
