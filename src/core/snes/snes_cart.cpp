@@ -159,11 +159,18 @@ bool Cart::load(const std::vector<uint8_t>& file, std::string* error) {
     info.battery = parts == 0x02 || parts == 0x05 || parts == 0x06 || parts == 0x09 || parts == 0x0A;
     if (parts >= 0x03) info.chip = chipOf(info, rom[h - 1]);
     info.coprocessor = chipName(info.chip);
-    // Super FX games give the size of their RAM elsewhere; without the chip it is moot.
+    // The Super FX's RAM: its size is in the extended header (FFBD) when there is one
+    // (FFDA is 33), else 32 KB, as on Star Fox.
+    if (info.chip == Chip::SuperFx) {
+        const uint8_t ext = rom[h - 3];
+        info.ramSize = rom[h + 0x1A] == 0x33 && ext && ext <= 0x08 ? 1024u << ext : 0x8000;
+    }
     if (!info.ramSize && info.battery) info.ramSize = 0x2000;
     info_ = info;
     rom_ = std::move(rom);
-    ram_.assign(info_.ramSize, 0xFF);
+    // The Super FX's RAM is where it draws: it starts blank, as other emulators have it
+    // (programs count on that).
+    ram_.assign(info_.ramSize, info_.chip == Chip::SuperFx ? 0x00 : 0xFF);
     ramChanged_ = false;
     return true;
 }

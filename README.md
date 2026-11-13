@@ -54,9 +54,13 @@ there is:
   with plumnin: its file (`dsp1b.rom`, `dsp1.rom`, `dsp2.rom`, `dsp3.rom`, `dsp4.rom`,
   `st010.rom` or `st011.rom`, as other emulators name them, in either byte order) goes
   next to the game, in a `firmware` folder next to it, or in the `firmware` folder beside
-  `plumnin.ini`; without it the game says which file it needs. Games with the other
-  chips (Super FX, SA-1, Cx4, S-DD1, SPC7110...) load with a warning that they may not
-  work: those are not emulated yet, nor the interlaced picture (drawn as one field).
+  `plumnin.ini`; without it the game says which file it needs. The Super FX (Star Fox,
+  Yoshi's Island, Doom...): the GSU with its cache, its buffered ROM and RAM accesses,
+  PLOT and RPIX in 2, 4 and 8 bits per pixel, its timing at 10.7 and 21.4 MHz and its
+  interrupt; it passes krom's test of each instruction and draws his PLOT demos as his
+  screenshots. Games with the other chips (SA-1, Cx4, S-DD1, SPC7110...) load with a
+  warning that they may not work: those are not emulated yet, nor the interlaced
+  picture (drawn as one field).
 
 - The frontend from plumsg: the menus, the game library (covers, details and media from
   ScreenScraper and libretro-database, console tabs for the four consoles), savestates
@@ -80,7 +84,7 @@ The plan, in order:
 1. The base. (done)
 2. Game Boy and Game Boy Color. (done)
 3. NES. (done)
-4. Super Nintendo. (done; of the cartridges' chips, the NEC DSPs)
+4. Super Nintendo. (done; of the cartridges' chips, the NEC DSPs and the Super FX)
 
 What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIOS, the
 32X, the light guns, the Roland synthesizer with its instrument editor and score, and the
@@ -113,7 +117,8 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
   answers, on the test pattern; and the Game Boy and the NES on small programs the test
   writes itself (their picture and layers, the pads, the sound, savestates, cheats, the
   battery saves, and PAL on the NES), and the same on a small SNES program; and a
-  small program of its own for the NEC DSP, which a SNES program talks to on the bus.
+  small program of its own for the NEC DSP, which a SNES program talks to on the bus,
+  and one for the Super FX (its program, its registers and its interrupt).
 - `frontend_tests`: the settings files, each game's own options and the crash reports.
 - `headless`: `plumnin-headless` end to end: hashes, savestates, input scripts, recordings
   and netplay between two processes.
@@ -127,8 +132,9 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
   [nes-test-roms](https://github.com/christopherpow/nes-test-roms) and configure with
   `-DNES_TEST_ROMS=path/to/it`. `nes-test-roms --run ROM [--pal] --png out.png` runs one
   and prints what it said.
-- `snes_test_roms`: krom's SNES test ROMs (each instruction of the processor, the
-  cartridge's banks, a tune checked note by note). Clone
+- `snes_test_roms`: krom's SNES test ROMs (each instruction of the processor and of the
+  Super FX, the cartridge's banks, the Super FX's PLOT demos against their screenshots,
+  a tune checked note by note). Clone
   [PeterLemon/SNES](https://github.com/PeterLemon/SNES) and configure with
   `-DSNES_TEST_ROMS=path/to/it`. `snes-test-roms --run ROM --png out.png` runs one.
 - `snes_cpu_tests` and `snes_spc_tests`: [SingleStepTests](https://github.com/SingleStepTests)'
