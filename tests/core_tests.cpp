@@ -2000,6 +2000,82 @@ void testSdd1() {
     check(snes.saveState(state, true) && snes.loadState(state, &error), "s-dd1: savestate");
 }
 
+// The Cx4: a game starts a small HG51B program from its ROM, then reads the registers.
+void testCx4() {
+    namespace fs = std::filesystem;
+    const std::vector<int> cpu = {
+        0x78, 0x18, 0xFB, 0xE2, 0x30,  // sei clc xce sep #$30
+        0x9C, 0x49, 0x7F, 0xA9, 0x80, 0x8D, 0x4A, 0x7F, 0xA9, 0x01, 0x8D, 0x4B, 0x7F,  // its program at 01:8000
+        0x9C, 0x4D, 0x7F, 0x9C, 0x4E, 0x7F,  // page 0
+        0x9C, 0x4F, 0x7F,                    // from instruction 0: go
+        0xAD, 0x5E, 0x7F, 0x29, 0x40, 0xD0, 0xF9,  // until it stops: lda $7F5E and #$40 bne
+        0xAD, 0x80, 0x7F, 0x85, 0x10, 0xAD, 0x81, 0x7F, 0x85, 0x11,  // R0
+        0xAD, 0x83, 0x7F, 0x85, 0x12, 0xAD, 0x84, 0x7F, 0x85, 0x13,  // R1
+        0xAD, 0x86, 0x7F, 0x85, 0x14, 0xAD, 0x88, 0x7F, 0x85, 0x15,  // R2's bytes 0 and 2
+        0xAD, 0x89, 0x7F, 0x85, 0x16,                                // R3
+        0xAD, 0x20, 0x60, 0x85, 0x17,                                // its data RAM
+        0x80, 0xFE,
+    };
+    const std::vector<uint16_t> program = {
+        0x6412,  // ld a, #$12
+        0xDC08,  // shl a, 8
+        0xBC34,  // or a, #$34
+        0xE060,  // st r0, a: 1234
+        0x9C03,  // mul a, #3
+        0x6002,  // ld a, mul (low)
+        0xE061,  // st r1, a: 369C
+        0x7405,  // rdrom 5: from the table of constants
+        0x6008,  // ld a, rom
+        0xE062,  // st r2, a
+        0x6455,  // ld a, #$55
+        0xE00C,  // st ram, a
+        0x6420,  // ld a, #$20
+        0xE800,  // wrram 0, a: data RAM 020 = 55
+        0x9421,  // sub a, #$21: negative
+        0x1412,  // jmp mi, 18
+        0x6402,  // ld a, #2 (not taken)
+        0xFC00,  // halt
+        0x6401,  // 18: ld a, #1
+        0xE063,  // st r3, a
+        0xFC00,  // halt
+    };
+    std::vector<uint8_t> rom = chipCart(0x10000, cpu, "MEGAMAN X CX4 TEST", 0xF3, 0);
+    rom[0x7FBF] = 0x10;  // the Cx4
+    for (size_t i = 0; i < program.size(); ++i) {
+        rom[0x8000 + i * 2] = static_cast<uint8_t>(program[i]);
+        rom[0x8001 + i * 2] = static_cast<uint8_t>(program[i] >> 8);
+    }
+    std::string error;
+    Snes without;
+    check(without.loadRomData(rom, &error) && without.loadNotice().find("cx4.rom") != std::string::npos,
+          "cx4: without its table it says which file it needs");
+    std::error_code ec;
+    const fs::path dir = fs::temp_directory_path() / "plumnin_cx4_test";
+    fs::create_directories(dir, ec);
+    const std::string game = (dir / "game.sfc").string();
+    std::ofstream(game, std::ios::binary).write(reinterpret_cast<const char*>(rom.data()), static_cast<std::streamsize>(rom.size()));
+    std::vector<uint8_t> table(3072, 0);
+    table[15] = 0xEF;  // word 5 = ABCDEF
+    table[16] = 0xCD;
+    table[17] = 0xAB;
+    std::ofstream(dir / "cx4.rom", std::ios::binary)
+        .write(reinterpret_cast<const char*>(table.data()), static_cast<std::streamsize>(table.size()));
+    Snes snes;
+    check(snes.loadRom(game, &error) && snes.loadNotice().empty() && snes.coprocessor() &&
+              snes.cartInfo().chip == snes::Chip::Cx4,
+          "cx4: a game with it loads");
+    snes.runFrame();
+    check(snes.peek(0x10) == 0x34 && snes.peek(0x11) == 0x12, "cx4: it runs its program from the ROM");
+    check(snes.peek(0x12) == 0x9C && snes.peek(0x13) == 0x36, "cx4: the multiplier");
+    check(snes.peek(0x14) == 0xEF && snes.peek(0x15) == 0xAB, "cx4: the table of constants");
+    check(snes.peek(0x16) == 0x01, "cx4: a jump on the sign");
+    check(snes.peek(0x17) == 0x55, "cx4: its data RAM, seen by the console");
+    check(snes.coprocessor()->irq(), "cx4: and it interrupts when it stops");
+    std::vector<uint8_t> state;
+    check(snes.saveState(state, true) && snes.loadState(state, &error), "cx4: savestate");
+    fs::remove_all(dir, ec);
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -2028,6 +2104,7 @@ int main() {
     testSa1();
     testObc1();
     testSdd1();
+    testCx4();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

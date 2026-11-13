@@ -6,6 +6,7 @@
 
 #include "../i18n.h"
 #include "snes_necdsp.h"
+#include "snes_cx4.h"
 #include "snes_obc1.h"
 #include "snes_sa1.h"
 #include "snes_sdd1.h"
@@ -71,6 +72,15 @@ void Snes::setupCoprocessor() {
         case Chip::Sa1: copro_ = std::make_unique<snes::Sa1>(cart_.rom(), cart_.ram()); return;
         case Chip::Obc1: copro_ = std::make_unique<snes::Obc1>(cart_.ram()); return;
         case Chip::Sdd1: copro_ = std::make_unique<snes::Sdd1>(cart_.rom(), cart_.ram()); return;
+        case Chip::Cx4: {
+            auto cx4 = std::make_unique<snes::Cx4>(cart_.rom(), cart_.ram());
+            if (cx4->setFirmware(findFirmware("cx4.rom"))) {
+                copro_ = std::move(cx4);
+                return;
+            }
+            files = {"cx4.rom"};
+            break;
+        }
         case Chip::Dsp1:
             // Most games have the DSP-1B; Pilotwings' demo needs the first DSP-1.
             files = info.title.find("PILOTWINGS") != std::string::npos ? std::vector<const char*>{"dsp1.rom", "dsp1b.rom"}
@@ -94,6 +104,13 @@ void Snes::setupCoprocessor() {
                               info.coprocessor.c_str());
             return;
     }
+    auto missingFirmware = [&] {
+        loadNotice_ = trf(
+            "Este juego necesita el programa del chip %s (el archivo %s), que no viene con plumnin: ponlo junto al juego o "
+            "en la carpeta «firmware» de plumnin.",
+            info.coprocessor.c_str(), files.front());
+    };
+    if (info.chip == Chip::Cx4) return missingFirmware();
     NecDsp::Map map = NecDsp::Map::LoRom;
     if (model == NecDsp::Model::Upd96050) map = NecDsp::Map::St01x;
     else if (info.mapping != snes::Mapping::LoRom) map = NecDsp::Map::HiRom;
@@ -107,10 +124,7 @@ void Snes::setupCoprocessor() {
         copro_ = std::move(dsp);
         return;
     }
-    loadNotice_ = trf(
-        "Este juego necesita el programa del chip %s (el archivo %s), que no viene con plumnin: ponlo junto al juego o "
-        "en la carpeta «firmware» de plumnin.",
-        info.coprocessor.c_str(), files.front());
+    missingFirmware();
 }
 
 Region Snes::effectiveRegion() const {
