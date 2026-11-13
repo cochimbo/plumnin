@@ -225,6 +225,7 @@ void Snes::advance(int clocks) {
         if (stall) {
             master_ += static_cast<uint64_t>(stall);
             apu_.addTime(static_cast<uint32_t>(stall));
+            if (copro_) copro_->addTime(static_cast<uint32_t>(stall));
             target += stall;
         }
     }
