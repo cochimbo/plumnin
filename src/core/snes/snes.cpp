@@ -695,10 +695,20 @@ void Snes::runFrame() {
     frameDone_ = false;
     // A frame is about 357 000 master clocks; give up after two in case one never ends.
     const uint64_t limit = master_ + 800000;
+    const size_t before = audio_.output().size() / 2;
+    apu_.setSynth(synth_);
+    if (synth_) {
+        synth_->setClock(32000.0);
+        synth_->beginFrame(apu_.musicClock());
+    }
     while (!frameDone_ && master_ < limit) cpu_.step();
     apu_.catchUp();
     if (copro_) copro_->catchUp();
     apu_.takeSamples(audio_.output());
+    if (synth_) {
+        synth_->endFrame(apu_.musicClock(), audio_.output(), before, outputRate_);
+        updateChipVoices();
+    }
     ++frames_;
     frame_->frameNumber = frames_;
 }

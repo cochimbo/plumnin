@@ -2,9 +2,11 @@
 
 #include <array>
 #include <cstdint>
+#include <map>
 #include <vector>
 
 #include "../state_io.h"
+#include "../synth_music.h"
 #include "snes_smp.h"
 
 namespace plumnin::snes {
@@ -21,6 +23,19 @@ public:
     void write(uint8_t address, uint8_t value);
     // One sample, added to `out` as left and right.
     void sample(std::vector<int16_t>& out);
+
+    // What voice `i` is playing, for the synthesizer: its sample (by a fingerprint of
+    // its BRR data, with the note it was recorded at worked out once), its pitch, its
+    // volume and its key ons. A voice playing the noise is Kind::Noise.
+    void musicVoice(int i, SynthMusic::VoiceState& out);
+    // The voices (a bit each) heard at full volume; the rest at `percent`.
+    void setVoiceGains(uint32_t full, int percent) {
+        for (int i = 0; i < 8; ++i) gains_[static_cast<size_t>(i)] = (full >> i) & 1 ? 100 : percent;
+    }
+    // A sample in the sound RAM, decoded from its BRR blocks (up to 2 seconds): where it
+    // loops back to and whether it does. Public for the tests.
+    static std::vector<int16_t> decodeSample(const std::array<uint8_t, 0x10000>& ram, uint16_t start, uint16_t loop,
+                                             size_t* loopIndex, bool* looped);
 
     template <class Ar>
     void state(Ar& ar) {
@@ -61,6 +76,18 @@ private:
     uint8_t esa_ = 0;
     uint8_t echoPos_ = 0;
     std::array<std::array<int32_t, 2>, 8> echoHistory_{};
+
+    // For the synthesizer, not part of the state.
+    struct MusicSample {
+        uint32_t fingerprint = 0;
+        double hz = 0;  // its note at 32 kHz, 0 for none
+        SynthMusic::Traits traits;
+    };
+    std::map<uint64_t, MusicSample> musicSamples_;  // by start, loop and a hash of its data
+    std::array<const MusicSample*, 8> voiceSample_{};
+    std::array<uint32_t, 8> kons_{}, sampledAt_{};
+    std::array<uint16_t, 8> voiceSource_{};
+    std::array<int, 8> gains_{100, 100, 100, 100, 100, 100, 100, 100};
 };
 
 // The sound module: the SPC700 with its 64 KB of RAM, the IPL ROM that loads the
@@ -89,6 +116,12 @@ public:
     // The sound made, at the frontend's rate.
     void setSampleRate(double hz) { outRate_ = hz; }
     void takeSamples(std::vector<int16_t>& out);
+
+    // The synthesizer (not owned, null for none): polled 500 times a second, its clock
+    // the DSP's samples.
+    void setSynth(SynthMusic* synth) { synth_ = synth; }
+    uint64_t musicClock() const { return dspSamples_; }
+    void setVoiceGains(uint32_t full, int percent) { dsp_.setVoiceGains(full, percent); }
 
     std::array<uint8_t, 0x10000>& ram() { return ram_; }
 
@@ -125,6 +158,8 @@ private:
     int64_t budget_ = 0;
     uint8_t dspClock_ = 0;
 
+    SynthMusic* synth_ = nullptr;
+    uint64_t dspSamples_ = 0;
     std::vector<int16_t> samples_;  // at 32 kHz
     double outRate_ = 44100, resamplePos_ = 0;
     int16_t lastL_ = 0, lastR_ = 0;

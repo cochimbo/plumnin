@@ -20,6 +20,7 @@
 #include "gb/gb.h"
 #include "nes/nes.h"
 #include "snes/snes.h"
+#include "snes/snes_apu.h"
 #include "snes/snes_necdsp.h"
 #include "miniz.h"
 #include "netplay.h"
@@ -2332,6 +2333,103 @@ void testSynth() {
     }
 }
 
+// The SNES's synthesizer: a looped sine of 32 samples a cycle (1000 Hz at 32 kHz) in BRR,
+// and a burst of noise that does not loop, played on the DSP itself.
+std::vector<uint8_t> brrBlocks(const std::vector<int>& pcm, bool loop) {
+    std::vector<uint8_t> out;
+    for (size_t b = 0; b < pcm.size() / 16; ++b) {
+        const bool last = b + 1 == pcm.size() / 16;
+        out.push_back(static_cast<uint8_t>(10 << 4 | (last ? (loop ? 3 : 1) : 0)));  // shift 10, filter 0
+        for (int i = 0; i < 16; i += 2) {
+            auto nibble = [&](int v) { return std::clamp(static_cast<int>(std::lround(v / 1024.0)), -8, 7) & 15; };
+            out.push_back(static_cast<uint8_t>(nibble(pcm[b * 16 + static_cast<size_t>(i)]) << 4 |
+                                               nibble(pcm[b * 16 + static_cast<size_t>(i) + 1])));
+        }
+    }
+    return out;
+}
+
+void testSnesSynth() {
+    using Kind = SynthMusic::Kind;
+    auto ram = std::make_unique<std::array<uint8_t, 0x10000>>();
+    std::vector<int> sine, noise;
+    for (int i = 0; i < 64; ++i) sine.push_back(static_cast<int>(6000 * std::sin(i * 2 * 3.14159265358979 / 32)));
+    std::mt19937 rng(7);
+    for (int i = 0; i < 1600; ++i) noise.push_back(static_cast<int>(rng() % 12000) - 6000);
+    const std::vector<uint8_t> a = brrBlocks(sine, true), b = brrBlocks(noise, false);
+    std::copy(a.begin(), a.end(), ram->begin() + 0x1000);
+    std::copy(b.begin(), b.end(), ram->begin() + 0x2000);
+    // The directory at 0x0300: sample 0 the sine (looping to its start), 1 the noise.
+    const uint8_t dir[8] = {0x00, 0x10, 0x00, 0x10, 0x00, 0x20, 0x00, 0x20};
+    std::copy(std::begin(dir), std::end(dir), ram->begin() + 0x300);
+
+    size_t loopIndex = 9;
+    bool looped = false;
+    std::vector<int16_t> pcm = snes::Dsp::decodeSample(*ram, 0x1000, 0x1000, &loopIndex, &looped);
+    check(pcm.size() == 64 && looped && loopIndex == 0, "snes synth: a looped BRR sample decodes whole");
+    SynthMusic::Traits traits;
+    const double hz = SynthMusic::analyzeSample(pcm.data(), pcm.size(), loopIndex, looped, 32000.0, &traits);
+    check(std::fabs(hz - 1000) < 5 && traits.pitched && traits.fundamental > 0.8,
+          "snes synth: its note is found, 1000 Hz, nearly all fundamental");
+    pcm = snes::Dsp::decodeSample(*ram, 0x2000, 0x2000, &loopIndex, &looped);
+    SynthMusic::analyzeSample(pcm.data(), pcm.size(), loopIndex, looped, 32000.0, &traits);
+    check(!looped && !traits.pitched, "snes synth: a burst of noise has no pitch");
+    check(SynthMusic::suggest(traits, SynthMusic::Heard{}).drum >= 35, "snes synth: and is a drum");
+
+    snes::Dsp dsp(*ram);
+    dsp.power();
+    std::vector<int16_t> out;
+    auto w = [&](int r, int v) { dsp.write(static_cast<uint8_t>(r), static_cast<uint8_t>(v)); };
+    w(0x6C, 0x20);  // FLG: out of reset and mute, echo writes off
+    w(0x0C, 127), w(0x1C, 127), w(0x5D, 0x03);
+    // Voice 0: the sine at 440 Hz (pitch 0x0709), voice 1 the noise sample, louder on the right.
+    w(0x00, 100), w(0x01, 100), w(0x02, 0x09), w(0x03, 0x07), w(0x04, 0), w(0x05, 0x8F), w(0x06, 0xE0);
+    w(0x10, 30), w(0x11, 120), w(0x12, 0x00), w(0x13, 0x10), w(0x14, 1), w(0x15, 0x8F), w(0x16, 0xE0);
+    SynthMusic synth;
+    std::vector<std::string> log;
+    synth.setLog(&log);
+    synth.setClock(32000);
+    uint64_t clock = 0;
+    auto run = [&](int samples) {
+        for (int i = 0; i < samples; ++i) {
+            dsp.sample(out);
+            if (++clock % 64) continue;
+            for (int v = 0; v < 2; ++v) {
+                SynthMusic::VoiceState s;
+                dsp.musicVoice(v, s);
+                synth.update(v, s, clock);
+            }
+        }
+    };
+    w(0x4C, 0x03);  // KON both
+    run(3200);
+    check(logHas(log, "0 on 69"), "snes synth: the sine plays A 440 on its own MIDI channel");
+    bool drum = false;
+    for (const std::string& l : log) drum = drum || l.rfind("9 on ", 0) == 0;
+    check(drum, "snes synth: the noise sample on the drums");
+    check(logHas(log, "0 program 73"), "snes synth: a looped sine is a flute");
+    w(0x4C, 0x00);
+    w(0x5C, 0x01);  // KOFF voice 0
+    run(320);
+    check(logHas(log, "0 off 69"), "snes synth: a key off ends the note");
+    w(0x5C, 0x00);
+    // The same note again: a key on is a new note even at the same pitch.
+    const size_t ons = static_cast<size_t>(std::count(log.begin(), log.end(), std::string("0 on 69")));
+    w(0x4C, 0x01);
+    run(640);
+    check(static_cast<size_t>(std::count(log.begin(), log.end(), std::string("0 on 69"))) == ons + 1,
+          "snes synth: a key on plays it again");
+    // A slide without a key on bends the note.
+    log.clear();
+    w(0x4C, 0x00);
+    w(0x03, 0x07), w(0x02, 0x80);  // a little higher
+    run(320);
+    bool bent = false;
+    for (const std::string& l : log) bent = bent || l.rfind("0 bend ", 0) == 0;
+    check(bent && !logHas(log, "0 on 69") && !logHas(log, "0 on 70"), "snes synth: a slide bends the note");
+    (void)Kind::Sample;
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -2364,6 +2462,7 @@ int main() {
     testSpc7110();
     testSnesInterlace();
     testSynth();
+    testSnesSynth();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

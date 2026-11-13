@@ -55,6 +55,7 @@ public:
     };
     using Assignments = std::map<uint32_t, Assignment>;
 
+    struct Traits;
     // What one of the chip's channels is doing when the console polls it.
     struct VoiceState {
         bool sounding = false;
@@ -68,12 +69,18 @@ public:
         int duty = 2;
         int noise = 8;
         const uint8_t* wave = nullptr;
+        // Only a key on starts a note (the SNES keys every note on): a slide of the pitch
+        // or a change of volume without one stays the same note.
+        bool keyed = false;
+        // A sample's traits (analyzeSample()), for Kind::Sample.
+        const Traits* traits = nullptr;
     };
 
     // How the game has played an instrument so far, for the rules.
     struct Heard {
         int notes = 0;
         std::array<uint16_t, 128> pitches{};  // notes started, by MIDI note
+        int distinct() const;
         int held = 0;            // notes let go
         double heldSeconds = 0;  // how long those were held, in all
         int decayed = 0;         // of those, whose loudness fell below a third (plucked)
@@ -87,8 +94,18 @@ public:
         int duty = 2;
         int noise = 8;
         std::array<uint8_t, 32> wave{};
+        // A sample's: whether it has a pitch, whether it loops (an instrument that holds
+        // its note) or how long it lasts, how bright it is (its spectrum's centre over the
+        // highest frequency, 0..1) and how much of its sound is the fundamental (0..1).
+        bool pitched = true, looped = true;
+        double seconds = 1, brightness = 0.2, fundamental = 0.5;
     };
     static Assignment suggest(const Traits& traits, const Heard& heard);
+    // What a sample sounds like: its traits, and the frequency of its note when played at
+    // `rate` samples a second (0 if it has no pitch, like a drum). `loopStart` is where it
+    // loops back to, if `looped`.
+    static double analyzeSample(const int16_t* pcm, size_t count, size_t loopStart, bool looped, double rate,
+                                Traits* traits);
 
     // An instrument heard since clearSeen(), for an editor.
     struct Seen {

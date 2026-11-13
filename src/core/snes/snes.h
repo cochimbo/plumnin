@@ -33,7 +33,11 @@ public:
     void runFrame() override;
     const VideoFrame& frame() const override { return *frame_; }
     double refreshRate() const override { return pal_ ? 50.0070 : 60.0988; }
-    void setSampleRate(double hz) override { apu_.setSampleRate(hz); }
+    void setSampleRate(double hz) override {
+        outputRate_ = hz;
+        apu_.setSampleRate(hz);
+    }
+    bool synthSupported() const override { return true; }
     void setUnlimitedSprites(bool on) override { ppu_.setUnlimitedSprites(on); }
 
     bool hasSaveData() const override;
@@ -70,6 +74,7 @@ public:
     static const char* cheatFormats();
 
 protected:
+    void setChipVoices(uint32_t full, int percent) override { apu_.setVoiceGains(full, percent); }
     void saveBlocks(StateBlocks& blocks) override;
     bool loadBlock(uint32_t id, StateReader& r) override;
     bool insert(const std::vector<uint8_t>& rom, std::string* error) override;

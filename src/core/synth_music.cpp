@@ -317,6 +317,12 @@ void SynthMusic::Heard::add(int note) {
     ++pitches[static_cast<size_t>(std::clamp(note, 0, 127))];
 }
 
+int SynthMusic::Heard::distinct() const {
+    int count = 0;
+    for (uint16_t p : pitches) count += p != 0;
+    return count;
+}
+
 int SynthMusic::Heard::median() const {
     int count = 0;
     for (int n = 0; n < 128; ++n)
@@ -352,7 +358,21 @@ SynthMusic::Assignment SynthMusic::suggest(const Traits& t, const Heard& heard) 
             else a.program = 48;
             break;
         }
-        case Kind::Sample: a.program = 0; break;
+        case Kind::Sample: {
+            // A sample without a pitch, or a short one the game plays on one or two
+            // notes, is a drum, by how bright it is; the rest by how it holds its note.
+            const bool drum = !t.pitched || (!t.looped && t.seconds < 0.35 && (heard.notes < 4 || heard.distinct() <= 2));
+            if (drum) {
+                a.drum = t.brightness < 0.06 ? 36 : t.brightness < 0.18 ? 38 : t.seconds > 0.6 ? 49 : 42;
+                break;
+            }
+            if (median < 48) a.program = t.looped ? 33 : 32;
+            else if (!t.looped) a.program = t.seconds < 0.5 ? 12 : median < 62 ? 24 : 0;
+            else if (t.fundamental > 0.8) a.program = 73;
+            else if (t.brightness > 0.25) a.program = 61;
+            else a.program = 48;
+            break;
+        }
         default: {
             static constexpr int kByDuty[4] = {68, 56, 71, 56};
             if (median < 45) a.program = 38;
@@ -489,6 +509,10 @@ void SynthMusic::noteOn(int voice, const VoiceState& s, uint64_t clock) {
     rule.traits.duty = s.duty;
     rule.traits.noise = s.noise;
     if (s.wave) std::copy(s.wave, s.wave + 32, rule.traits.wave.begin());
+    if (s.traits) {
+        rule.traits = *s.traits;
+        rule.traits.kind = kindOf(fp);
+    }
     const int pitch = static_cast<int>(std::lround(s.note));
     if (rule.traits.kind != Kind::Noise) rule.heard.add(pitch);
     else ++rule.heard.notes;
@@ -589,6 +613,106 @@ void SynthMusic::pitchTo(int voice, double note, uint64_t clock) {
     }
 }
 
+// The note of a sample: YIN's difference function (de Cheveigné and Kawahara) over a
+// stretch of it, the loop repeated if it loops, which finds the period that best repeats.
+// Where nothing repeats well it has no pitch. Then how bright it is (its spectrum's
+// centre) and how much of it is the fundamental, from the harmonics of that period.
+double SynthMusic::analyzeSample(const int16_t* pcm, size_t count, size_t loopStart, bool looped, double rate,
+                                 Traits* traits) {
+    Traits t;
+    t.kind = Kind::Sample;
+    t.looped = looped && loopStart < count;
+    t.seconds = t.looped ? 10.0 : static_cast<double>(count) / rate;
+    constexpr size_t kLength = 2048, kMaxLag = 1000, kMinLag = 8;
+    std::vector<double> x(kLength, 0.0);
+    if (t.looped) {
+        const size_t loop = count - loopStart;
+        for (size_t i = 0; i < kLength; ++i) {
+            const size_t at = loopStart + (i < count - loopStart ? i : i % loop);
+            x[i] = at < count ? pcm[at] : 0;
+        }
+        // The stretch before the loop too, when there is enough of it: the attack.
+        if (loopStart >= kLength + count / 10)
+            for (size_t i = 0; i < kLength; ++i) x[i] = pcm[count / 10 + i];
+    } else {
+        const size_t from = std::min(count / 10, count > kLength ? count - kLength : 0);
+        for (size_t i = 0; i < kLength && from + i < count; ++i) x[i] = pcm[from + i];
+    }
+    double energy = 0;
+    for (double v : x) energy += v * v;
+    double hz = 0;
+    if (energy > 1e3 && count >= 64) {
+        const size_t window = kLength - kMaxLag;
+        std::vector<double> d(kMaxLag + 1, 0.0);
+        double running = 0;
+        size_t best = 0;
+        double bestValue = 1e9;
+        for (size_t lag = 1; lag <= kMaxLag; ++lag) {
+            double sum = 0;
+            for (size_t j = 0; j < window; ++j) {
+                const double diff = x[j] - x[j + lag];
+                sum += diff * diff;
+            }
+            running += sum;
+            d[lag] = running > 0 ? sum * static_cast<double>(lag) / running : 1;
+        }
+        for (size_t lag = kMinLag; lag <= kMaxLag; ++lag) {
+            if (d[lag] < 0.15) {
+                while (lag + 1 <= kMaxLag && d[lag + 1] < d[lag]) ++lag;
+                best = lag;
+                bestValue = d[lag];
+                break;
+            }
+            if (d[lag] < bestValue) best = lag, bestValue = d[lag];
+        }
+        if (best && bestValue < 0.35) {
+            double lag = static_cast<double>(best);
+            if (best > kMinLag && best < kMaxLag) {  // between samples, by a parabola
+                const double a = d[best - 1], b = d[best], c = d[best + 1];
+                const double den = a - 2 * b + c;
+                if (den > 0) lag += 0.5 * (a - c) / den;
+            }
+            hz = rate / lag;
+        }
+    }
+    t.pitched = hz > 0;
+    // The spectrum, by its DFT at a few hundred frequencies, for the brightness; and the
+    // harmonics of the note for the fundamental's part.
+    if (energy > 0) {
+        double centre = 0, total = 0;
+        for (int k = 1; k < 128; ++k) {
+            const double f = k / 256.0;  // of the rate
+            double re = 0, im = 0;
+            for (size_t i = 0; i < kLength; i += 2) {
+                const double a = 2 * 3.14159265358979 * f * static_cast<double>(i);
+                re += x[i] * std::cos(a);
+                im -= x[i] * std::sin(a);
+            }
+            const double e = re * re + im * im;
+            centre += e * k / 128.0;
+            total += e;
+        }
+        t.brightness = total > 0 ? centre / total : 0;
+        if (hz > 0) {
+            double first = 0, all = 0;
+            for (int h = 1; h <= 12 && h * hz < rate / 2; ++h) {
+                double re = 0, im = 0;
+                for (size_t i = 0; i < kLength; ++i) {
+                    const double a = 2 * 3.14159265358979 * h * hz * static_cast<double>(i) / rate;
+                    re += x[i] * std::cos(a);
+                    im -= x[i] * std::sin(a);
+                }
+                const double e = re * re + im * im;
+                if (h == 1) first = e;
+                all += e;
+            }
+            t.fundamental = all > 0 ? first / all : 0;
+        }
+    }
+    if (traits) *traits = t;
+    return hz;
+}
+
 // A new note is a key on, another instrument, or, as the Nintendo chips are often
 // played without a key on for each note (the NES drivers that leave the high byte of
 // the period alone so as not to click), the pitch jumping to another semitone at once
@@ -607,8 +731,8 @@ void SynthMusic::update(int voice, const VoiceState& s, uint64_t clock) {
         return;
     }
     bool fresh = !v.on || triggered || s.fingerprint != v.fingerprint;
-    if (!fresh && s.amplitude > v.lastAmplitude * 1.9 && s.amplitude >= 0.1) fresh = true;
-    if (!fresh && !noise && std::fabs(s.note - v.lastNote) >= 0.9) fresh = true;
+    if (!fresh && !s.keyed && s.amplitude > v.lastAmplitude * 1.9 && s.amplitude >= 0.1) fresh = true;
+    if (!fresh && !s.keyed && !noise && std::fabs(s.note - v.lastNote) >= 0.9) fresh = true;
     v.lastNote = s.note;
     v.lastAmplitude = s.amplitude;
     if (fresh) {

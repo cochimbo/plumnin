@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace plumnin::snes {
 
@@ -237,6 +238,7 @@ void Dsp::sample(std::vector<int16_t>& out) {
         if (everyOther_) {
             if (koff_ & bit) v.envMode = Release;
             if (kon_ & bit) {
+                ++kons_[static_cast<size_t>(i)];
                 v.konDelay = 5;
                 v.envMode = Attack;
             }
@@ -261,8 +263,9 @@ void Dsp::sample(std::vector<int16_t>& out) {
         v.interpPos = (v.interpPos & 0x3FFF) + pitch;
         if (v.interpPos > 0x7FFF) v.interpPos = 0x7FFF;
 
+        const int heard = gains_[static_cast<size_t>(i)] == 100 ? output : output * gains_[static_cast<size_t>(i)] / 100;
         for (int ch = 0; ch < 2; ++ch) {
-            const int amp = (output * static_cast<int8_t>(reg(i, VolL + ch))) >> 7;
+            const int amp = (heard * static_cast<int8_t>(reg(i, VolL + ch))) >> 7;
             mainOut[ch] = clamp16(mainOut[ch] + amp);
             if (eon & bit) echoOut[ch] = clamp16(echoOut[ch] + amp);
         }
@@ -319,6 +322,111 @@ void Dsp::sample(std::vector<int16_t>& out) {
     esa_ = regs_[Esa];
 }
 
+std::vector<int16_t> Dsp::decodeSample(const std::array<uint8_t, 0x10000>& ram, uint16_t start, uint16_t loop,
+                                       size_t* loopIndex, bool* looped) {
+    std::vector<int16_t> out;
+    *loopIndex = 0;
+    *looped = false;
+    int p1 = 0, p2 = 0;  // the last two samples as the DSP keeps them (doubled)
+    uint16_t addr = start;
+    for (int block = 0; block < 7111; ++block) {  // 2 seconds at most
+        if (addr == loop) *loopIndex = out.size();
+        const uint8_t header = ram[addr];
+        const int shift = header >> 4, filter = header & 0x0C;
+        for (int b = 1; b <= 8; ++b) {
+            const uint8_t byte = ram[static_cast<uint16_t>(addr + b)];
+            for (int n : {byte >> 4, byte & 15}) {
+                int s = n >= 8 ? n - 16 : n;
+                s = (s << shift) >> 1;
+                if (shift >= 0xD) s = s < 0 ? -0x800 : 0;
+                const int q1 = p1, q2 = p2 >> 1;
+                if (filter >= 8) {
+                    s += q1;
+                    s -= q2;
+                    if (filter == 8) {
+                        s += q2 >> 4;
+                        s += (q1 * -3) >> 6;
+                    } else {
+                        s += (q1 * -13) >> 7;
+                        s += (q2 * 3) >> 4;
+                    }
+                } else if (filter) {
+                    s += q1 >> 1;
+                    s += (-q1) >> 5;
+                }
+                s = clamp16(s);
+                p2 = p1;
+                p1 = static_cast<int16_t>(static_cast<uint16_t>(s * 2));
+                out.push_back(static_cast<int16_t>(p1));
+            }
+        }
+        if (header & 1) {
+            *looped = (header & 2) != 0;
+            break;
+        }
+        addr = static_cast<uint16_t>(addr + 9);
+    }
+    return out;
+}
+
+void Dsp::musicVoice(int i, SynthMusic::VoiceState& out) {
+    using Kind = SynthMusic::Kind;
+    const size_t vi = static_cast<size_t>(i);
+    const Voice& v = voices_[vi];
+    out = {};
+    out.keyed = true;
+    out.triggers = kons_[vi];
+    // Sounding from its key on until its key off, the end of a sample that does not
+    // loop, or an envelope that has died away.
+    const bool dead = !v.konDelay && v.envMode != Attack && v.env == 0;
+    out.sounding = v.envMode != Release && !dead && !(regs_[Flg] & 0x80);
+    const int l = std::abs(static_cast<int>(static_cast<int8_t>(reg(i, VolL))));
+    const int r = std::abs(static_cast<int>(static_cast<int8_t>(reg(i, VolR))));
+    out.amplitude = std::min(1.0, std::max(l, r) / 127.0);
+    out.pan = l + r ? std::clamp(64 + (r - l) * 63 / (l + r), 0, 127) : 64;
+    if (regs_[Non] & (1 << i)) {
+        const uint8_t rate = regs_[Flg] & 0x1F;
+        out.noise = rate / 2;
+        out.note = 60;
+        out.fingerprint = SynthMusic::fingerprint(Kind::Noise, SynthMusic::hash(&rate, 1));
+        return;
+    }
+    // The sample, looked at again on each key on.
+    const uint16_t dirAddr = static_cast<uint16_t>(regs_[Dir] * 0x100 + reg(i, Srcn) * 4);
+    const uint16_t start = static_cast<uint16_t>(ram_[dirAddr] | ram_[static_cast<uint16_t>(dirAddr + 1)] << 8);
+    if (!voiceSample_[vi] || sampledAt_[vi] != kons_[vi] || voiceSource_[vi] != start) {
+        sampledAt_[vi] = kons_[vi];
+        voiceSource_[vi] = start;
+        const uint16_t loop =
+            static_cast<uint16_t>(ram_[static_cast<uint16_t>(dirAddr + 2)] | ram_[static_cast<uint16_t>(dirAddr + 3)] << 8);
+        uint8_t head[36];
+        for (int b = 0; b < 36; ++b) head[b] = ram_[static_cast<uint16_t>(start + b)];
+        const uint32_t h = SynthMusic::hash(head, sizeof head, start * 65536u + loop);
+        const uint64_t key = static_cast<uint64_t>(start) << 48 | static_cast<uint64_t>(loop) << 32 | h;
+        auto found = musicSamples_.find(key);
+        if (found == musicSamples_.end()) {
+            MusicSample m;
+            size_t loopIndex = 0;
+            bool looped = false;
+            const std::vector<int16_t> pcm = decodeSample(ram_, start, loop, &loopIndex, &looped);
+            // The fingerprint is its data, wherever the game loaded it.
+            std::vector<uint8_t> bytes;
+            for (int16_t s : pcm) bytes.push_back(static_cast<uint8_t>(s >> 8));
+            m.fingerprint = SynthMusic::fingerprint(Kind::Sample, SynthMusic::hash(bytes.data(), bytes.size(), looped ? 1u : 0u));
+            m.hz = SynthMusic::analyzeSample(pcm.data(), pcm.size(), loopIndex, looped, 32000.0, &m.traits);
+            if (musicSamples_.size() > 512) musicSamples_.clear();
+            found = musicSamples_.emplace(key, m).first;
+        }
+        voiceSample_[vi] = &found->second;
+    }
+    const MusicSample& m = *voiceSample_[vi];
+    const int pitch = reg(i, PitchL) | (reg(i, PitchH) & 0x3F) << 8;
+    out.fingerprint = m.fingerprint;
+    out.traits = &m.traits;
+    out.note = m.hz > 0 ? SynthMusic::noteOf(m.hz * pitch / 4096.0) : 60;
+    if (pitch == 0) out.sounding = false;
+}
+
 // --- The sound module -------------------------------------------------------------------
 
 Apu::Apu() : dsp_(ram_) { smp_.setBus(this); }
@@ -364,6 +472,14 @@ void Apu::cycle() {
     if (++dspClock_ == 32) {
         dspClock_ = 0;
         dsp_.sample(samples_);
+        ++dspSamples_;
+        if (synth_ && dspSamples_ % 64 == 0) {  // 500 times a second
+            for (int i = 0; i < 8; ++i) {
+                SynthMusic::VoiceState s;
+                dsp_.musicVoice(i, s);
+                synth_->update(i, s, dspSamples_);
+            }
+        }
     }
 }
 

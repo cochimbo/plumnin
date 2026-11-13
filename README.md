@@ -95,8 +95,16 @@ there is:
   **Chorus** add ambience. plumnin comes with **GeneralUser GS** in `soundfonts/` next to
   the executable; any General MIDI `.sf2` left in `sound/soundfonts/` (**Open the
   SoundFonts folder**) shows up in the list, and **Choose another (.sf2)...** opens one
-  from anywhere. The Super Nintendo is next, then an instrument editor to choose them by
-  hand. `plumnin-headless --synth file.sf2 --wav out.wav` records it without a window.
+  from anywhere. On the **Super Nintendo** each key on of the DSP is a note: the
+  sample it plays is decoded from its BRR blocks once, and the note it was recorded at
+  is found with YIN's difference function over its loop (or its body, if it does not
+  loop), so the pitch register gives the note played and its slides; the voice's volume
+  and its left/right balance are the expression and the pan. A sample without a pitch,
+  or a short one played on one or two notes, is a drum (bass drum, snare, hi-hat or
+  cymbal by how bright it is); the rest go by their register (a bass), whether they hold
+  their note (a looped sample: a flute if it is nearly all fundamental, brass if bright,
+  strings otherwise; one that dies away: marimba, guitar or piano), and the DSP's noise
+  is the drums too. An instrument editor to choose them by hand is next. `plumnin-headless --synth file.sf2 --wav out.wav` records it without a window.
 - The 2D and pseudo-3D views, with the xBR and Anime4K upscalers and the scanline and
   CRT filters.
 - Netplay over UDP with rollback.
