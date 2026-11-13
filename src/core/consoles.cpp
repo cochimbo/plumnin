@@ -1,5 +1,6 @@
 #include "console.h"
 #include "gb/gb.h"
+#include "nes/nes.h"
 #include "i18n.h"
 
 namespace plumnin {
@@ -12,16 +13,25 @@ bool gameBoy(ConsoleSystem s) { return s == ConsoleSystem::GameBoy || s == Conso
 
 }  // namespace
 
-bool emulated(ConsoleSystem s) { return gameBoy(s); }
+bool emulated(ConsoleSystem s) { return gameBoy(s) || s == ConsoleSystem::Nes; }
 
 std::unique_ptr<Console> createConsole(ConsoleSystem s) {
     if (gameBoy(s)) return std::make_unique<GameBoy>();
+    if (s == ConsoleSystem::Nes) return std::make_unique<Nes>();
     return nullptr;
 }
 
-CheatDecoder cheatDecoderFor(ConsoleSystem s) { return gameBoy(s) ? GameBoy::decoder() : CheatDecoder{}; }
+CheatDecoder cheatDecoderFor(ConsoleSystem s) {
+    if (gameBoy(s)) return GameBoy::decoder();
+    if (s == ConsoleSystem::Nes) return Nes::decoder();
+    return {};
+}
 
-const char* cheatFormatsFor(ConsoleSystem s) { return gameBoy(s) ? GameBoy::cheatFormats() : ""; }
+const char* cheatFormatsFor(ConsoleSystem s) {
+    if (gameBoy(s)) return GameBoy::cheatFormats();
+    if (s == ConsoleSystem::Nes) return Nes::cheatFormats();
+    return "";
+}
 
 std::unique_ptr<Console> openGame(const std::string& path, std::string* error) {
     const ConsoleSystem system = detectSystem(path);

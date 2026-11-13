@@ -10,7 +10,7 @@ frontend, its 3D view, its library, netplay and the tools around them.
 
 ## Status
 
-**The Game Boy and the Game Boy Color are emulated**; the NES and the Super Nintendo come
+**The Game Boy, the Game Boy Color and the NES are emulated**; the Super Nintendo comes
 next. A game made for the Color runs on a Color, the rest on a Game Boy with its green
 screen. What there is:
 
@@ -23,6 +23,17 @@ screen. What there is:
   `instr_timing`, `mem_timing`, `halt_bug`, `interrupt_time`, `dmg_sound`, `cgb_sound`),
   `dmg-acid2`, `cgb-acid2` and all of mooneye's acceptance and cartridge tests for the
   models it emulates (see Tests).
+- **NES** (`src/core/nes/`): the 2A03's 6502 cycle by cycle (with every unofficial
+  instruction, the dummy reads and writes, and the sprite and DMC DMAs that halt it), the
+  PPU dot by dot with its background and sprites kept apart for the 3D view (and an option
+  to lift the limit of 8 sprites a line), NTSC and PAL (from the header or the region
+  chosen), the sound (two pulses, triangle, noise and DMC), and the mappers NROM, MMC1,
+  UxROM, CNROM, MMC3 (MMC3A and MMC6 too), AxROM, MMC2, MMC4, Color Dreams, BNROM /
+  NINA-001, GxROM, Camerica, UNROM 180, Sunsoft FME-7 (without its sound) and Namco 108,
+  from iNES and NES 2.0 files. Battery saves, cheats in Game Genie and Pro Action Replay
+  codes, and RetroAchievements. It passes the 140 test ROMs of the suite in Tests:
+  blargg's processor, PPU, APU and DMA tests (also on PAL), the sprite 0 hit and overflow
+  tests, `ppu_vbl_nmi` and the MMC3's.
 
 - The frontend from plumsg: the menus, the game library (covers, details and media from
   ScreenScraper and libretro-database, console tabs for the four consoles), savestates
@@ -41,12 +52,12 @@ screen. What there is:
   pads move, two planes, a tone), so that everything above can be tried and tested
   without any commercial ROM: `plumnin --test-pattern [gb|gbc|nes|snes]`.
 
-Opening a NES or Super Nintendo game says that its console is not emulated yet. The plan,
-in order:
+Opening a Super Nintendo game says that its console is not emulated yet. The plan, in
+order:
 
 1. The base. (done)
 2. Game Boy and Game Boy Color. (done)
-3. NES.
+3. NES. (done)
 4. Super Nintendo.
 
 What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIOS, the
@@ -77,8 +88,9 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
 - `core_tests`: the savestates, rewind, run-ahead, netplay (two sessions over a simulated
   network that loses and reorders packets), RetroAchievements against a made-up server,
   the 3D planes, cheats, the library's names, ScreenScraper's and libretro-database's
-  answers, on the test pattern; and the Game Boy on a small program the test writes itself
-  (its picture and layers, the pad, the sound, savestates, cheats and the MBC3's save).
+  answers, on the test pattern; and the Game Boy and the NES on small programs the test
+  writes itself (their picture and layers, the pads, the sound, savestates, cheats, the
+  battery saves, and PAL on the NES).
 - `frontend_tests`: the settings files, each game's own options and the crash reports.
 - `headless`: `plumnin-headless` end to end: hashes, savestates, input scripts, recordings
   and netplay between two processes.
@@ -88,6 +100,10 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
   [game-boy-test-roms](https://github.com/c-sp/game-boy-test-roms/releases) and configure
   with `-DGB_TEST_ROMS=path/to/it`. `gb-test-roms --run ROM --png out.png` runs one to look
   at it.
+- `nes_test_roms`: the NES's test ROMs, also not part of plumnin. Clone
+  [nes-test-roms](https://github.com/christopherpow/nes-test-roms) and configure with
+  `-DNES_TEST_ROMS=path/to/it`. `nes-test-roms --run ROM [--pal] --png out.png` runs one
+  and prints what it said.
 
 ```sh
 ./build/plumnin-headless --test-rom --system gb --frames 300 --do "60-120 right a" --png out.png
