@@ -58,9 +58,14 @@ there is:
   Yoshi's Island, Doom...): the GSU with its cache, its buffered ROM and RAM accesses,
   PLOT and RPIX in 2, 4 and 8 bits per pixel, its timing at 10.7 and 21.4 MHz and its
   interrupt; it passes krom's test of each instruction and draws his PLOT demos as his
-  screenshots. Games with the other chips (SA-1, Cx4, S-DD1, SPC7110...) load with a
-  warning that they may not work: those are not emulated yet, nor the interlaced
-  picture (drawn as one field).
+  screenshots. The SA-1 (Super Mario RPG, the Kirbys...): its 65C816 at 10.7 MHz in
+  step with the console's, waiting when both want the same memory, I-RAM and BW-RAM
+  (also as a 2 or 4 bits a pixel bitmap) with their write protections, the ROM in 1 MB
+  windows, its multiplier, divider and sum of products, the bit field reader, its
+  timers, the interrupts and vectors both ways, and its DMA with both character
+  conversions. Games with the other chips (Cx4, S-DD1, SPC7110...) load with a warning
+  that they may not work: those are not emulated yet, nor the interlaced picture
+  (drawn as one field).
 
 - The frontend from plumsg: the menus, the game library (covers, details and media from
   ScreenScraper and libretro-database, console tabs for the four consoles), savestates
@@ -84,7 +89,7 @@ The plan, in order:
 1. The base. (done)
 2. Game Boy and Game Boy Color. (done)
 3. NES. (done)
-4. Super Nintendo. (done; of the cartridges' chips, the NEC DSPs and the Super FX)
+4. Super Nintendo. (done; of the cartridges' chips, the NEC DSPs, the Super FX and the SA-1)
 
 What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIOS, the
 32X, the light guns, the Roland synthesizer with its instrument editor and score, and the
@@ -118,7 +123,8 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
   writes itself (their picture and layers, the pads, the sound, savestates, cheats, the
   battery saves, and PAL on the NES), and the same on a small SNES program; and a
   small program of its own for the NEC DSP, which a SNES program talks to on the bus,
-  and one for the Super FX (its program, its registers and its interrupt).
+  one for the Super FX (its program, its registers and its interrupt) and one for the
+  SA-1 (started by the game, its multiplier, I-RAM, and its interrupt through SIV).
 - `frontend_tests`: the settings files, each game's own options and the crash reports.
 - `headless`: `plumnin-headless` end to end: hashes, savestates, input scripts, recordings
   and netplay between two processes.

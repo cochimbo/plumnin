@@ -23,6 +23,9 @@ public:
     virtual void addTime(uint32_t clocks) = 0;
     virtual void setMasterRate(double hz) = 0;
     virtual void catchUp() = 0;
+    // The address the console's processor is about to reach (for chips that share the
+    // bus with it and wait when both want the same memory).
+    virtual void cpuAccess(uint32_t) {}
     // Its interrupt request to the processor.
     virtual bool irq() const { return false; }
 

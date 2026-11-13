@@ -6,6 +6,7 @@
 
 #include "../i18n.h"
 #include "snes_necdsp.h"
+#include "snes_sa1.h"
 #include "snes_superfx.h"
 
 namespace plumnin {
@@ -65,6 +66,7 @@ void Snes::setupCoprocessor() {
     switch (info.chip) {
         case Chip::None: return;
         case Chip::SuperFx: copro_ = std::make_unique<snes::SuperFx>(cart_.rom(), cart_.ram()); return;
+        case Chip::Sa1: copro_ = std::make_unique<snes::Sa1>(cart_.rom(), cart_.ram()); return;
         case Chip::Dsp1:
             // Most games have the DSP-1B; Pilotwings' demo needs the first DSP-1.
             files = info.title.find("PILOTWINGS") != std::string::npos ? std::vector<const char*>{"dsp1.rom", "dsp1b.rom"}
@@ -279,12 +281,14 @@ void Snes::autoJoypad() {
 }
 
 uint8_t Snes::read(uint32_t address) {
+    if (copro_) copro_->cpuAccess(address);
     advance(speed(address));
     mdr_ = busRead(address);
     return mdr_;
 }
 
 void Snes::write(uint32_t address, uint8_t value) {
+    if (copro_) copro_->cpuAccess(address);
     advance(speed(address));
     mdr_ = value;
     busWrite(address, value);

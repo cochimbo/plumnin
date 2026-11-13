@@ -1639,11 +1639,11 @@ void testSnes() {
     check(snes->peek(0x10) == 0x50, "snes: and the game runs again on it");
 
     std::vector<uint8_t> chip = snesProgram();
-    chip[0x7FD6] = 0x35;  // ROM, an SA-1 and battery
+    chip[0x7FD6] = 0x43;  // ROM and an S-DD1
     check(Snes().loadRomData(chip, &error), "snes: a game with a chip still loads");
     Snes withChip;
     withChip.loadRomData(chip, &error);
-    check(withChip.loadNotice().find("SA-1") != std::string::npos, "snes: and says which chip it lacks");
+    check(withChip.loadNotice().find("S-DD1") != std::string::npos, "snes: and says which chip it lacks");
 }
 
 // A small uPD7725 program, as the DSP-1's would talk: it asks for two words (K and L),
@@ -1834,6 +1834,70 @@ void testSuperFx() {
     check(snes.saveState(state, true) && snes.loadState(state, &error), "super fx: savestate");
 }
 
+// The SA-1: the game starts it, it computes and writes into I-RAM, and interrupts the
+// console's processor through the vector it gives.
+void testSa1() {
+    std::vector<uint8_t> rom(0x8000, 0);
+    const std::vector<int> cpu = {
+        0x78, 0x18, 0xFB, 0xE2, 0x30,  // sei clc xce sep #$30
+        0xA9, 0x00, 0x8D, 0x03, 0x22,  // CRV = 9000
+        0xA9, 0x90, 0x8D, 0x04, 0x22,  //
+        0xA9, 0x80, 0x8D, 0x01, 0x22,  // SIE: its interrupt on
+        0x9C, 0x00, 0x22,              // CCNT = 0: out of reset
+        0x58,                          // cli
+        0xA5, 0x10, 0xF0, 0xFC,        // wait: lda $10 beq wait
+        0x80, 0xFE,                    // bra *
+    };
+    const std::vector<int> irq = {
+        0xAD, 0x00, 0x23, 0x85, 0x11,  // lda $2300 sta $11: SFR
+        0xA9, 0x80, 0x8D, 0x02, 0x22,  // SIC: clear it
+        0xAD, 0x00, 0x30, 0x85, 0x12,  // I-RAM, as the console sees it
+        0xAD, 0x01, 0x30, 0x85, 0x13,  //
+        0xA9, 0x01, 0x85, 0x10, 0x40,  // done, rti
+    };
+    const std::vector<int> sa1 = {
+        0xA9, 0xFF, 0x8D, 0x2A, 0x22,  // CIWP: I-RAM writable
+        0xA9, 0x12, 0x8D, 0x00, 0x30,  // I-RAM[0] = 12
+        0x9C, 0x50, 0x22,              // MCNT: multiply
+        0xA9, 0xFD, 0x8D, 0x51, 0x22,  // MA = -3
+        0xA9, 0xFF, 0x8D, 0x52, 0x22,  //
+        0xA9, 0x07, 0x8D, 0x53, 0x22,  // MB = 7
+        0x9C, 0x54, 0x22,              //
+        0xAD, 0x06, 0x23, 0x8D, 0x01, 0x30,  // I-RAM[1] = low byte of -21
+        0xA9, 0x00, 0x8D, 0x0E, 0x22,  // SIV = 8800
+        0xA9, 0x88, 0x8D, 0x0F, 0x22,  //
+        0xA9, 0xC0, 0x8D, 0x09, 0x22,  // SCNT: interrupt the console, through SIV
+        0x80, 0xFE,                    // bra *
+    };
+    std::copy(cpu.begin(), cpu.end(), rom.begin());
+    std::copy(irq.begin(), irq.end(), rom.begin() + 0x0800);
+    std::copy(sa1.begin(), sa1.end(), rom.begin() + 0x1000);
+    std::fill(rom.begin() + 0x7FC0, rom.begin() + 0x7FD5, ' ');
+    const char* title = "PLUMNIN SA1 TEST";
+    std::copy(title, title + std::strlen(title), rom.begin() + 0x7FC0);
+    rom[0x7FD5] = 0x23;
+    rom[0x7FD6] = 0x35;  // ROM, SA-1, RAM and battery
+    rom[0x7FD7] = 0x05;
+    rom[0x7FD8] = 0x03;  // 8 KB of BW-RAM
+    rom[0x7FD9] = 0x01;
+    rom[0x7FDC] = rom[0x7FDD] = 0xFF;
+    rom[0x7FEE] = 0x00;  // the IRQ vector in ROM points to the reset code: SIV must win
+    rom[0x7FEF] = 0x80;
+    rom[0x7FFC] = 0x00;
+    rom[0x7FFD] = 0x80;
+    Snes snes;
+    std::string error;
+    check(snes.loadRomData(rom, &error) && snes.loadNotice().empty() && snes.coprocessor() &&
+              snes.cartInfo().chip == snes::Chip::Sa1 && snes.saveData().size() == 0x2000,
+          "sa-1: a game with it loads, with its BW-RAM");
+    snes.runFrame();
+    check(snes.peek(0x10) == 1, "sa-1: it runs and interrupts the console through SIV");
+    check(snes.peek(0x11) & 0x80, "sa-1: SFR says it asked");
+    check(snes.peek(0x12) == 0x12 && snes.peek(0x13) == 0xEB, "sa-1: I-RAM and the multiplier (-3 x 7)");
+    std::vector<uint8_t> state;
+    check(snes.saveState(state, true) && snes.loadState(state, &error), "sa-1: savestate");
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -1859,6 +1923,7 @@ int main() {
     testSnes();
     testNecDsp();
     testSuperFx();
+    testSa1();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }
