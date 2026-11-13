@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "../state_io.h"
+#include "../synth_music.h"
 
 namespace plumnin::gb {
 
@@ -24,6 +25,14 @@ public:
     void takeSamples(std::vector<int16_t>& out) {
         out.insert(out.end(), samples_.begin(), samples_.end());
         samples_.clear();
+    }
+
+    // What channel `ch` (0-3: the squares, the wave, the noise) is playing, for the
+    // synthesizer.
+    void musicVoice(int ch, SynthMusic::VoiceState& out) const;
+    // The channels (a bit each) heard at full volume; the rest at `percent`.
+    void setChannelGains(uint32_t full, int percent) {
+        for (int i = 0; i < 4; ++i) gains_[i] = (full >> i) & 1 ? 100 : percent;
     }
 
     template <class Ar>
@@ -102,6 +111,8 @@ private:
     int64_t accCycles_ = 0;
     double dcL_ = 0, dcR_ = 0;
     std::vector<int16_t> samples_;
+    uint32_t triggers_[4] = {};  // key ons, for the synthesizer
+    int gains_[4] = {100, 100, 100, 100};
 };
 
 }  // namespace plumnin::gb

@@ -1,6 +1,7 @@
 #include "gb_apu.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace plumnin::gb {
@@ -112,6 +113,7 @@ void Apu::frameSequencerClock() {
 }
 
 void Apu::trigger(int ch) {
+    ++triggers_[ch];
     if (ch < 2) {
         Square& s = sq_[ch];
         s.on = s.dac;
@@ -296,6 +298,47 @@ void Apu::write(uint16_t address, uint8_t value) {
     }
 }
 
+void Apu::musicVoice(int ch, SynthMusic::VoiceState& out) const {
+    using Kind = SynthMusic::Kind;
+    out = {};
+    out.triggers = triggers_[ch];
+    if (!power_) return;
+    const bool left = nr51_ & (0x10 << ch), right = nr51_ & (0x01 << ch);
+    if (!left && !right) return;
+    out.pan = left == right ? 64 : left ? 16 : 111;
+    if (ch < 2) {
+        const Square& s = sq_[ch];
+        out.sounding = s.on && s.dac;
+        out.note = SynthMusic::noteOf(131072.0 / (2048 - s.freq));
+        out.amplitude = s.volume / 15.0;
+        out.duty = s.duty;
+        // The instrument: its duty and how its envelope goes, not its starting volume.
+        const uint8_t key[2] = {s.duty, static_cast<uint8_t>(s.nrx2 & 0x0F)};
+        out.fingerprint = SynthMusic::fingerprint(Kind::Pulse, SynthMusic::hash(key, 2));
+    } else if (ch == 2) {
+        static const double kLevel[4] = {0, 1, 0.5, 0.25};
+        out.sounding = wave_.on && wave_.dac;
+        out.note = SynthMusic::noteOf(65536.0 / (2048 - wave_.freq));
+        out.amplitude = kLevel[wave_.level];
+        out.fingerprint = SynthMusic::fingerprint(Kind::Wave, SynthMusic::hash(waveRam_, 16));
+        static thread_local uint8_t samples[32];
+        for (int i = 0; i < 16; ++i) {
+            samples[i * 2] = waveRam_[i] >> 4;
+            samples[i * 2 + 1] = waveRam_[i] & 15;
+        }
+        out.wave = samples;
+    } else {
+        out.sounding = noise_.on && noise_.dac;
+        out.amplitude = noise_.volume / 15.0;
+        // How high it is: 524288 / divisor / 2^(shift + 1) Hz, from 2 Hz to 1 MHz.
+        const int r = noise_.nr43 & 7;
+        const double hz = 524288.0 / (r ? r : 0.5) / (2 << (noise_.nr43 >> 4));
+        out.noise = std::clamp(static_cast<int>((std::log2(hz) - 8) * 15 / 12), 0, 15);
+        const uint8_t key[2] = {noise_.nr43, static_cast<uint8_t>(noise_.nr42 & 0x0F)};
+        out.fingerprint = SynthMusic::fingerprint(Kind::Noise, SynthMusic::hash(key, 2));
+    }
+}
+
 void Apu::run(int cycles) {
     for (auto& s : sq_) {
         if (!s.on) continue;
@@ -346,6 +389,7 @@ void Apu::mix(int cycles) {
             out[3] = noise_.dac ? 2 * d - 15 : 0;
         }
         for (int i = 0; i < 4; ++i) {
+            if (gains_[i] != 100) out[i] = out[i] * gains_[i] / 100;
             if (nr51_ & (0x10 << i)) left += out[i];
             if (nr51_ & (0x01 << i)) right += out[i];
         }

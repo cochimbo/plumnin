@@ -81,6 +81,8 @@ Output
   --png-every N         a PNG every N frames, as frame_000123.png in --out-dir
   --out-dir DIR         where screenshots without a name go (default: .)
   --wav FILE            the whole run's sound (44100 Hz stereo)
+  --synth SF2           the music through the synthesizer, on this SoundFont (GB, NES)
+  --synth-chip PERCENT  how loud the chip's own sound stays under it (default 0)
   --gif FILE            the run as an animated GIF, as plumnin's Grabar GIF makes it
   --avi FILE            the run as a video with its sound (Motion JPEG and PCM)
                         (both at the console's own size, and not with netplay)
@@ -359,7 +361,8 @@ int main(int argc, char** argv) {
     std::string outDir = ".";
     std::vector<std::string> cheats, scripts, lines;
     ConsoleSystem testSystem = ConsoleSystem::Nes;
-    long frames = 600, overclock = 100, pngEvery = 0, netPort = 0, inputDelay = 2, netLag = 0, netLoss = 0;
+    long frames = 600, overclock = 100, pngEvery = 0, netPort = 0, inputDelay = 2, netLag = 0, netLoss = 0, synthChip = 0;
+    std::string synthFont;
     bool netHost = false;
     std::string netJoin;
     int wideLeft = 0, wideRight = 0;
@@ -429,6 +432,8 @@ int main(int argc, char** argv) {
         else if (a == "--png-every") number(&pngEvery);
         else if (a == "--out-dir") outDir = next();
         else if (a == "--wav") wav = next();
+        else if (a == "--synth") synthFont = next();
+        else if (a == "--synth-chip") number(&synthChip);
         else if (a == "--gif") gifOut = next();
         else if (a == "--avi") aviOut = next();
         else if (a == "--save-state") stateOut = next();
@@ -581,6 +586,15 @@ int main(int argc, char** argv) {
 
     constexpr int kRate = 44100;
     md.setSampleRate(kRate);
+    SynthMusic synth;
+    if (!synthFont.empty()) {
+        std::vector<uint8_t> data;
+        if (!readFile(synthFont, data) || !synth.loadSoundfont(data)) {
+            std::fprintf(stderr, "cannot load SoundFont %s\n", synthFont.c_str());
+            return 1;
+        }
+        md.setSynth(&synth, static_cast<int>(synthChip));
+    }
     md.audio().clearSamples();
     std::vector<int16_t> sound;
     uint32_t audioHash = 2166136261u;

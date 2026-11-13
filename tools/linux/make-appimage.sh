@@ -31,6 +31,14 @@ install -m 755 "$build/plumnin" "$bin/plumnin"
 
 cp "$root/LICENSE" "$bin/LICENSE.txt"
 
+# The synthesizer's SoundFont, GeneralUser GS (free to use and share, with its license),
+# next to the executable where plumnin looks for it.
+GENERALUSER_COMMIT=${GENERALUSER_COMMIT:-main}
+mkdir -p "$bin/soundfonts"
+gu="https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/$GENERALUSER_COMMIT"
+curl -sSfL -o "$bin/soundfonts/GeneralUser-GS.sf2" "$gu/GeneralUser-GS.sf2"
+curl -sSfL -o "$bin/soundfonts/GeneralUser-GS-LICENSE.txt" "$gu/documentation/LICENSE.txt"
+
 # The menu entry and the plum icon.
 cp "$here/plumnin.desktop" "$work/plumnin.desktop"
 cp "$root/src/frontend/assets/icon.png" "$work/plumnin.png"

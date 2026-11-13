@@ -117,6 +117,9 @@ public:
     // True while the mouse is over a menu or window.
     bool mouseBusy() const;
 
+    // The SoundFont that comes with plumnin, and the folder whose .sf2 files are listed.
+    void setSoundfonts(std::string included, std::string folder);
+
     // Builds this frame's interface. Call once per frame before drawing the game.
     UiActions frame(const UiState& state);
     // Pixels at the top of the window covered by the menu bar.
@@ -207,6 +210,8 @@ private:
 
     void drawMenuBar(const UiState& state, UiActions& out);
     void drawSoundMenu(UiActions& out);
+    void drawSoundfontCombo(UiActions& out);
+    void chooseSoundfont(UiActions& out);
     void drawControls(UiActions& out);
     // The table of bindings of `c`: the console buttons, and the hotkeys too when not `game`.
     // Returns whether a binding was cleared (a new one arrives later, in finishCapture).
@@ -288,7 +293,8 @@ private:
     std::vector<std::string> localAddresses_;  // this computer's, for the host to share
     bool showFolders_ = false;  // the library's list of folders, unfolded
     // What the file browser (or the system dialog) is choosing a file or folder for.
-    enum class BrowseFor { Game, LibraryFolder, CoverImage };
+    enum class BrowseFor { Game, LibraryFolder, CoverImage, Soundfont };
+    std::string includedSoundfont_, soundfontFolder_;
     BrowseFor browseFor_ = BrowseFor::Game;
     std::string coverImageFor_;  // the game (its path) whose cover image is being chosen
     bool openRequested_ = false;

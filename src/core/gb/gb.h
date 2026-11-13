@@ -28,7 +28,11 @@ public:
     void runFrame() override;
     const VideoFrame& frame() const override { return *frame_; }
     double refreshRate() const override { return 4194304.0 / gb::kDotsPerFrame; }
-    void setSampleRate(double hz) override { apu_.setSampleRate(hz); }
+    void setSampleRate(double hz) override {
+        outputRate_ = hz;
+        apu_.setSampleRate(hz);
+    }
+    bool synthSupported() const override { return true; }
 
     bool hasSaveData() const override { return cart_.hasBattery(); }
     std::vector<uint8_t> saveData() const override { return cart_.saveData(); }
@@ -112,6 +116,9 @@ private:
     uint8_t dec(uint8_t v);
     uint8_t cb(int op, uint8_t v);
     bool condition(int cc) const;
+    void setChipVoices(uint32_t full, int percent) override { apu_.setChannelGains(full, percent); }
+    // Hands the synthesizer what each sound channel is doing.
+    void pollMusic();
 
     std::unique_ptr<VideoFrame> frame_;
     gb::Cartridge cart_;

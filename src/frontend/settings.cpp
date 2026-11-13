@@ -116,6 +116,11 @@ void Settings::parse(std::istream& in, Settings& s) {
         } else if (section == "audio") {
             if (key == "volume") s.volume = std::clamp(std::atoi(value.c_str()), 0, 100);
             else if (key == "mute") s.mute = yes(value);
+            else if (key == "synth") s.synth = yes(value);
+            else if (key == "soundfont") s.soundfont = value;
+            else if (key == "synth_chip") s.chipMix = std::clamp(std::atoi(value.c_str()), 0, 100);
+            else if (key == "reverb") s.reverb = std::clamp(std::atoi(value.c_str()), 0, 100);
+            else if (key == "chorus") s.chorus = std::clamp(std::atoi(value.c_str()), 0, 100);
         } else if (section == "console") {
             if (key == "region") {
                 for (int i = 0; i < 4; ++i)
@@ -226,6 +231,14 @@ void Settings::write(std::ostream& out) const {
         << "# volume: 0 to 100.\n"
         << "volume = " << volume << "\n"
         << "mute = " << flag(mute) << "\n"
+        << "# synth: the music as General MIDI instruments on a SoundFont (soundfont, a .sf2; empty for\n"
+        << "# the included GeneralUser GS). synth_chip: how loud the chip's own music stays under it,\n"
+        << "# reverb and chorus: 0 to 100.\n"
+        << "synth = " << flag(synth) << "\n"
+        << "soundfont = " << soundfont << "\n"
+        << "synth_chip = " << chipMix << "\n"
+        << "reverb = " << reverb << "\n"
+        << "chorus = " << chorus << "\n"
         << "\n[console]\n"
         << "# region: auto (the cartridge's), japan, usa or europe. pad2: pad, or none for nothing plugged in.\n"
         << "region = " << kRegionNames[static_cast<int>(region)] << "\n"

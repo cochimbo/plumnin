@@ -115,7 +115,10 @@ void GameBoy::setDiv(uint16_t value) {
         if_ |= 8;
     }
     const uint16_t sound = doubleSpeed_ ? 0x2000 : 0x1000;
-    if ((old & sound) && !(value & sound)) apu_.frameSequencerClock();
+    if ((old & sound) && !(value & sound)) {
+        apu_.frameSequencerClock();
+        if (synth_) pollMusic();  // 512 times a second
+    }
 }
 
 void GameBoy::tick() {
@@ -341,10 +344,25 @@ void GameBoy::runFrame() {
     ppu_.setDrawing(drawing_);
     // A frame is 70224 dots; give up after a few in case the screen never ends one.
     const uint64_t limit = cycles_ + static_cast<uint64_t>(gb::kDotsPerFrame);
+    const size_t before = audio_.output().size() / 2;
+    if (synth_) {
+        synth_->setClock(1048576.0);
+        synth_->beginFrame(cycles_);
+    }
     while (!ppu_.takeFrameDone() && cycles_ < limit) step();
     apu_.takeSamples(audio_.output());
+    if (synth_) synth_->endFrame(cycles_, audio_.output(), before, outputRate_);
     ++frames_;
     frame_->frameNumber = frames_;
+}
+
+void GameBoy::pollMusic() {
+    for (int ch = 0; ch < 4; ++ch) {
+        SynthMusic::VoiceState s;
+        apu_.musicVoice(ch, s);
+        synth_->update(ch, s, cycles_);
+    }
+    updateChipVoices();
 }
 
 CheatDecoder GameBoy::cheatDecoder() const { return decoder(); }

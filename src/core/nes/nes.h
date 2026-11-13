@@ -32,7 +32,11 @@ public:
     void runFrame() override;
     const VideoFrame& frame() const override { return *frame_; }
     double refreshRate() const override { return pal_ ? 50.0070 : 60.0988; }
-    void setSampleRate(double hz) override { apu_.setSampleRate(hz); }
+    void setSampleRate(double hz) override {
+        outputRate_ = hz;
+        apu_.setSampleRate(hz);
+    }
+    bool synthSupported() const override { return true; }
     void setUnlimitedSprites(bool on) override { ppu_.setUnlimitedSprites(on); }
 
     bool hasSaveData() const override { return cart_ && cart_->hasBattery(); }
@@ -114,6 +118,11 @@ private:
 
     // The processor (nes_cpu.cpp).
     void step();
+    void setChipVoices(uint32_t full, int percent) override { apu_.setChannelGains(full, percent); }
+    // Hands the synthesizer what each sound channel is doing, about 480 times a second.
+    void pollMusic();
+    int64_t lastPoll_ = 0;
+    double cpuHz() const { return pal_ ? 1662607.0 : 1789773.0; }
     void execute(uint8_t op);
     void interrupt();
     uint16_t operand(Mode m);

@@ -183,6 +183,9 @@ msgstr "Ouvrir la bibliothèque au démarrage"
 msgid "Abrir la carpeta"
 msgstr "Ouvrir le dossier"
 
+msgid "Abrir la carpeta de SoundFonts"
+msgstr "Ouvrir le dossier des SoundFonts"
+
 msgid "Abrir la carpeta de grabaciones"
 msgstr "Ouvrir le dossier des enregistrements"
 
@@ -195,11 +198,23 @@ msgstr "OK"
 msgid "Acerca de plumnin"
 msgstr "À propos de plumnin"
 
+msgid "Acordeón"
+msgstr "Accordéon"
+
 msgid "Activado"
 msgstr "Activé"
 
 msgid "Activar los logros"
 msgstr "Activer les succès"
+
+msgid "Agogó"
+msgstr "Agogo"
+
+msgid "Agogó agudo"
+msgstr "Agogo aigu"
+
+msgid "Agogó grave"
+msgstr "Agogo grave"
 
 msgid "Ahora no se usa ninguna cuenta tuya."
 msgstr "Aucun de vos comptes n’est utilisé."
@@ -222,11 +237,26 @@ msgstr "Héberger la partie (joueur 1)"
 msgid "Anfitrión"
 msgstr "Hôte"
 
+msgid "Aplausos"
+msgstr "Applaudissements"
+
 msgid "Archivo"
 msgstr "Fichier"
 
 msgid "Archivos"
 msgstr "Fichiers"
+
+msgid "Armonio"
+msgstr "Harmonium"
+
+msgid "Armónica"
+msgstr "Harmonica"
+
+msgid "Armónicos de guitarra"
+msgstr "Harmoniques de guitare"
+
+msgid "Arpa"
+msgstr "Harpe"
 
 msgid "Arrastra una ROM a la ventana o usa Archivo > Abrir ROM."
 msgstr "Glissez une ROM dans la fenêtre ou utilisez Fichier > Ouvrir une ROM."
@@ -297,6 +327,36 @@ msgstr "Année"
 msgid "Aún no se ha descargado nada de este juego: pulsa Descargar de ScreenScraper."
 msgstr "Rien n’a encore été téléchargé pour ce jeu : appuyez sur Télécharger depuis ScreenScraper."
 
+msgid "Bajo acústico"
+msgstr "Basse acoustique"
+
+msgid "Bajo eléctrico (dedo)"
+msgstr "Basse électrique (doigts)"
+
+msgid "Bajo eléctrico (púa)"
+msgstr "Basse électrique (médiator)"
+
+msgid "Bajo sin trastes"
+msgstr "Basse fretless"
+
+msgid "Bajo sintetizado 1"
+msgstr "Basse synthé 1"
+
+msgid "Bajo sintetizado 2"
+msgstr "Basse synthé 2"
+
+msgid "Bajo slap 1"
+msgstr "Basse slap 1"
+
+msgid "Bajo slap 2"
+msgstr "Basse slap 2"
+
+msgid "Bandoneón"
+msgstr "Bandonéon"
+
+msgid "Banjo"
+msgstr "Banjo"
+
 msgid "Barra de menús"
 msgstr "Barre de menus"
 
@@ -312,11 +372,26 @@ msgstr "Bibliothèque de jeux"
 msgid "Biblioteca..."
 msgstr "Bibliothèque..."
 
+msgid "Bombo"
+msgstr "Grosse caisse"
+
+msgid "Bombo acústico"
+msgstr "Grosse caisse acoustique"
+
+msgid "Bongó agudo"
+msgstr "Bongo aigu"
+
+msgid "Bongó grave"
+msgstr "Bongo grave"
+
 msgid "Borrar"
 msgstr "Effacer"
 
 msgid "Borrar lista"
 msgstr "Effacer la liste"
+
+msgid "Botella soplada"
+msgstr "Bouteille soufflée"
 
 msgid "Botones propios de este juego"
 msgstr "Boutons propres à ce jeu"
@@ -351,6 +426,27 @@ msgstr "Chercher un autre jeu"
 msgid "CRT"
 msgstr "CRT"
 
+msgid "Cabasa"
+msgstr "Cabasa"
+
+msgid "Caja"
+msgstr "Caisse claire"
+
+msgid "Caja china"
+msgstr "Wood-block"
+
+msgid "Caja china aguda"
+msgstr "Wood-block aigu"
+
+msgid "Caja china grave"
+msgstr "Wood-block grave"
+
+msgid "Caja de música"
+msgstr "Boîte à musique"
+
+msgid "Caja eléctrica"
+msgstr "Caisse claire électrique"
+
 msgid "Caja en 3D"
 msgstr "Boîte en 3D"
 
@@ -359,6 +455,15 @@ msgstr "Changez de vue avec V ou avec Select sur la manette."
 
 msgid "Cambia el nombre si no sale el juego: sin región ni número de versión suele ir mejor."
 msgstr "Modifiez le nom si le jeu n'apparaît pas : sans région ni numéro de version, cela marche souvent mieux."
+
+msgid "Campana del ride"
+msgstr "Cloche de ride"
+
+msgid "Campanas tubulares"
+msgstr "Cloches tubulaires"
+
+msgid "Campanilla"
+msgstr "Clochette"
 
 msgid "Cancelar"
 msgstr "Annuler"
@@ -396,8 +501,26 @@ msgstr "Casual"
 msgid "Caza y pesca"
 msgstr "Chasse et pêche"
 
+msgid "Celesta"
+msgstr "Célesta"
+
+msgid "Cencerro"
+msgstr "Cloche de vache"
+
 msgid "Cerrar sesión"
 msgstr "Se déconnecter"
+
+msgid "Charles abierto"
+msgstr "Charleston ouvert"
+
+msgid "Charles cerrado"
+msgstr "Charleston fermé"
+
+msgid "Charles con pedal"
+msgstr "Charleston à la pédale"
+
+msgid "Chorus"
+msgstr "Chorus"
 
 msgid ""
 "Cierra el juego (guarda su partida de cartucho) y vuelve a la\n"
@@ -405,6 +528,18 @@ msgid ""
 msgstr ""
 "Ferme le jeu (en gardant sa sauvegarde de cartouche) et revient à\n"
 "l'écran d'accueil, ou à la bibliothèque si elle a des dossiers."
+
+msgid "Clarinete"
+msgstr "Clarinette"
+
+msgid "Clavecín"
+msgstr "Clavecin"
+
+msgid "Claves"
+msgstr "Claves"
+
+msgid "Clavinet"
+msgstr "Clavinet"
 
 msgid ""
 "Como si no hubiera nada enchufado en el segundo puerto. En una partida en red el mando 2\n"
@@ -434,6 +569,15 @@ msgstr "Connexion à %s..."
 msgid "Conexión recuperada: logros enviados."
 msgstr "Connexion rétablie : succès envoyés."
 
+msgid "Conga aguda abierta"
+msgstr "Conga aiguë ouverte"
+
+msgid "Conga aguda apagada"
+msgstr "Conga aiguë étouffée"
+
+msgid "Conga grave"
+msgstr "Conga grave"
+
 msgid "Conseguidos"
 msgstr "Obtenus"
 
@@ -455,6 +599,9 @@ msgstr "Compteur d'IPS activé"
 msgid "Contador de FPS desactivado"
 msgstr "Compteur d'IPS désactivé"
 
+msgid "Contrabajo"
+msgstr "Contrebasse"
+
 msgid "Contraportada"
 msgstr "Dos de la boîte"
 
@@ -466,6 +613,12 @@ msgstr "Commandes"
 
 msgid "Controles..."
 msgstr "Commandes..."
+
+msgid "Corno inglés"
+msgstr "Cor anglais"
+
+msgid "Coro \"aah\""
+msgstr "Chœur \"aah\""
 
 msgid "Crear una cuenta"
 msgstr "Créer un compte"
@@ -491,6 +644,27 @@ msgstr "Compte ScreenScraper..."
 msgid "Cuenta..."
 msgstr "Compte..."
 
+msgid "Cuerdas 1"
+msgstr "Cordes 1"
+
+msgid "Cuerdas 2"
+msgstr "Cordes 2"
+
+msgid "Cuerdas en pizzicato"
+msgstr "Cordes en pizzicato"
+
+msgid "Cuerdas en trémolo"
+msgstr "Cordes en trémolo"
+
+msgid "Cuerdas sintetizadas 1"
+msgstr "Cordes synthé 1"
+
+msgid "Cuerdas sintetizadas 2"
+msgstr "Cordes synthé 2"
+
+msgid "Cuánto se oye además la música original del chip."
+msgstr "Combien on entend aussi la musique d'origine de la puce."
+
 msgid ""
 "Cuántos fotogramas tarda en hacer efecto lo que pulsas. Con más retardo hay menos\n"
 "saltos cuando la conexión es lenta; con 0 responde al instante pero salta más.\n"
@@ -499,6 +673,12 @@ msgstr ""
 "Combien d'images il faut pour que ce que vous appuyez prenne effet. Plus de retard, moins\n"
 "de saccades quand la connexion est lente ; avec 0 la réponse est immédiate mais saccade plus.\n"
 "C'est la valeur de l'hôte qui compte. 2 va bien presque toujours."
+
+msgid "Cuíca abierta"
+msgstr "Cuíca ouverte"
+
+msgid "Cuíca apagada"
+msgstr "Cuíca étouffée"
 
 msgid "Cámara lenta"
 msgstr "Ralenti"
@@ -527,6 +707,11 @@ msgstr "Codes %s de %s. Ils sont gardés pour ce jeu et activés à son ouvertur
 
 msgid "Deja de usar estos y vuelve a los de Opciones > Controles"
 msgstr "Cesse d'utiliser ceux-ci et revient à ceux d'Options > Commandes"
+
+msgid ""
+"Deja tus .sf2 en la carpeta de SoundFonts\n"
+"y aparecerán aquí."
+msgstr "Mettez vos .sf2 dans le dossier des SoundFonts\net ils apparaîtront ici."
 
 msgid "Deportes"
 msgstr "Sport"
@@ -607,6 +792,9 @@ msgstr ""
 "Anime4K : un petit réseau de neurones qui double l'image une ou deux fois selon\n"
 "la taille de la fenêtre. Plus doux ; conçu pour les dessins animés."
 
+msgid "Disparo"
+msgstr "Coup de feu"
+
 msgid "Disparos"
 msgstr "Tir"
 
@@ -615,6 +803,9 @@ msgstr "Éditeur"
 
 msgid "Dos jugadores, cada uno en su ordenador y con el mismo juego abierto (la misma ROM). Quien aloja es el jugador 1 y quien se une, el jugador 2; cada uno juega con sus controles del jugador 1. La partida empieza donde la tenga el anfitrión."
 msgstr "Deux joueurs, chacun sur son ordinateur avec le même jeu ouvert (la même ROM). Celui qui héberge est le joueur 1 et celui qui rejoint, le joueur 2 ; chacun joue avec ses commandes du joueur 1. La partie commence là où l'hôte l'a laissée."
+
+msgid "Dulcémele"
+msgstr "Tympanon"
 
 msgid "EE. UU. (NTSC)"
 msgstr "États-Unis (NTSC)"
@@ -631,8 +822,35 @@ msgstr "Effet 3D activé"
 msgid "Efecto 3D desactivado"
 msgstr "Effet 3D désactivé"
 
+msgid "Efecto atmósfera"
+msgstr "Effet atmosphère"
+
+msgid "Efecto banda sonora"
+msgstr "Effet bande-son"
+
+msgid "Efecto brillo"
+msgstr "Effet brillance"
+
+msgid "Efecto ciencia ficción"
+msgstr "Effet science-fiction"
+
+msgid "Efecto cristal"
+msgstr "Effet cristal"
+
+msgid "Efecto duendes"
+msgstr "Effet lutins"
+
+msgid "Efecto ecos"
+msgstr "Effet échos"
+
+msgid "Efecto lluvia"
+msgstr "Effet pluie"
+
 msgid "El 3D se guarda ahora solo para %s"
 msgstr "La 3D est désormais gardée rien que pour %s"
+
+msgid "El SoundFont del sintetizador"
+msgstr "La SoundFont du synthétiseur"
 
 msgid "El anfitrión está jugando a otro juego: abrid los dos el mismo (la misma ROM)."
 msgstr "L'hôte joue à un autre jeu : ouvrez tous les deux le même (la même ROM)."
@@ -667,6 +885,9 @@ msgstr "Le port %d est occupé (un autre plumnin héberge-t-il ?)."
 msgid "El puerto de \"%s\" no es válido."
 msgstr "Le port de \"%s\" n'est pas valide."
 
+msgid "El sonido del chip de la consola, tal cual."
+msgstr "Le son de la puce de la console, tel quel."
+
 msgid "El tamaño de las carátulas: más pequeñas caben más en cada fila."
 msgstr "La taille des jaquettes : plus petites, il en tient plus par ligne."
 
@@ -681,6 +902,9 @@ msgstr "Choisir un dossier..."
 
 msgid "Elegir imagen"
 msgstr "Choisir une image"
+
+msgid "Elegir otro (.sf2)..."
+msgstr "En choisir une autre (.sf2)..."
 
 msgid "Elige la carpeta donde tienes tus juegos de Game Boy, Game Boy Color, NES o Super Nintendo."
 msgstr "Choisissez le dossier où vous gardez vos jeux Game Boy, Game Boy Color, NES ou Super Nintendo."
@@ -833,6 +1057,9 @@ msgstr "F4 ou clic du stick gauche  menu des états, utilisable à la manette"
 msgid "F5 / F8  guardar / cargar estado; F6 / F7  cambiar de ranura"
 msgstr "F5 / F8  sauvegarder / charger l'état ;  F6 / F7  changer d'emplacement"
 
+msgid "Fagot"
+msgstr "Basson"
+
 msgid "Falta la función %s"
 msgstr "Il manque la fonction %s"
 
@@ -847,6 +1074,18 @@ msgstr "Filtre 2D"
 
 msgid "Filtro 2D:"
 msgstr "Filtre 2D :"
+
+msgid "Flauta"
+msgstr "Flûte"
+
+msgid "Flauta de pan"
+msgstr "Flûte de Pan"
+
+msgid "Flauta dulce"
+msgstr "Flûte à bec"
+
+msgid "Flautín"
+msgstr "Piccolo"
 
 msgid "Flechas  cruceta;  A S D  botones A B C;  Q W E  botones X Y Z"
 msgstr "Flèches  croix;  A S D  boutons A B C ;  Q W E  boutons X Y Z"
@@ -868,11 +1107,38 @@ msgstr ""
 msgid "Fondo (fan art)"
 msgstr "Fond (fan art)"
 
+msgid "Fondo arco"
+msgstr "Nappe archet"
+
+msgid "Fondo barrido"
+msgstr "Nappe balayage"
+
+msgid "Fondo coro"
+msgstr "Nappe chœur"
+
+msgid "Fondo cálido"
+msgstr "Nappe chaude"
+
+msgid "Fondo halo"
+msgstr "Nappe halo"
+
+msgid "Fondo metálico"
+msgstr "Nappe métallique"
+
+msgid "Fondo new age"
+msgstr "Nappe new age"
+
+msgid "Fondo polisintetizador"
+msgstr "Nappe polysynthé"
+
 msgid "Fuente: ScreenScraper"
 msgstr "Source : ScreenScraper"
 
 msgid "GIF guardado en %s"
 msgstr "GIF enregistré dans %s"
+
+msgid "Gaita"
+msgstr "Cornemuse"
 
 msgid "Game Genie (ABC-DEF-GHI) o GameShark (01FF34C1)"
 msgstr "Game Genie (ABC-DEF-GHI) ou GameShark (01FF34C1)"
@@ -886,8 +1152,20 @@ msgstr "Game Genie (SXIOPO ou YEUZUGAA) ou Pro Action Replay (0075:09)"
 msgid "General"
 msgstr "Général"
 
+msgid "GeneralUser GS (incluido)"
+msgstr "GeneralUser GS (inclus)"
+
 msgid "Giro"
 msgstr "Rotation"
+
+msgid "Glockenspiel"
+msgstr "Glockenspiel"
+
+msgid "Golpe de aro"
+msgstr "Rimshot"
+
+msgid "Golpe de orquesta"
+msgstr "Coup d'orchestre"
 
 msgid ""
 "Graba la partida con su sonido en un vídeo AVI, que abren Windows, VLC\n"
@@ -933,8 +1211,35 @@ msgstr "Sauvegarder l'état (emplacement %d)"
 msgid "Guardar la pantalla ancha solo para este juego"
 msgstr "Enregistrer l'écran large seulement pour ce jeu"
 
+msgid "Guitarra de acero"
+msgstr "Guitare acier"
+
+msgid "Guitarra de nailon"
+msgstr "Guitare nylon"
+
+msgid "Guitarra distorsionada"
+msgstr "Guitare distorsion"
+
+msgid "Guitarra eléctrica apagada"
+msgstr "Guitare électrique étouffée"
+
+msgid "Guitarra eléctrica de jazz"
+msgstr "Guitare électrique jazz"
+
+msgid "Guitarra eléctrica limpia"
+msgstr "Guitare électrique claire"
+
+msgid "Guitarra saturada"
+msgstr "Guitare saturée"
+
 msgid "Género"
 msgstr "Genre"
+
+msgid "Güiro corto"
+msgstr "Guiro court"
+
+msgid "Güiro largo"
+msgstr "Guiro long"
 
 msgid ""
 "Hace más rápido el procesador de la consola, para los juegos que se ralentizan cuando hay\n"
@@ -952,6 +1257,9 @@ msgstr "Vous avez quitté la partie en réseau"
 
 msgid "Has salido de la partida."
 msgstr "Vous avez quitté la partie."
+
+msgid "Helicóptero"
+msgstr "Hélicoptère"
 
 msgid "IP o nombre, y :puerto si no es el de arriba"
 msgstr "IP ou nom, et :port s'il diffère de celui du haut"
@@ -1032,6 +1340,12 @@ msgstr "Jouer en réseau"
 msgid "Jugar en red..."
 msgstr "Jouer en réseau..."
 
+msgid "Kalimba"
+msgstr "Kalimba"
+
+msgid "Koto"
+msgstr "Koto"
+
 msgid "L1 / R1 (o Q / E): cambiar de pestaña   B / Esc: cerrar"
 msgstr "L1 / R1 (ou Q / E) : changer d'onglet   B / Échap : fermer"
 
@@ -1061,6 +1375,19 @@ msgid ""
 msgstr ""
 "La caméra oscille de quelques degrés en suivant l'action,\n"
 "ainsi les couches bougent entre elles même vues de face."
+
+msgid ""
+"La música de la Game Boy y la NES suena con instrumentos General MIDI del SoundFont\n"
+"elegido, como en un módulo SC-55: los pulsos como oboes, trompetas o clarinetes,\n"
+"el triángulo y los graves como bajo, la onda según su forma, y el ruido como batería.\n"
+"Las muestras de la NES (el DMC) siguen siendo las del juego. La Super Nintendo,\n"
+"de momento, suena siempre original."
+msgstr ""
+"La musique de la Game Boy et de la NES joue sur des instruments General MIDI de la\n"
+"SoundFont choisie, comme sur un module SC-55 : les impulsions en hautbois, trompettes ou\n"
+"clarinettes, le triangle et les graves en basse, l'onde selon sa forme, et le bruit en batterie.\n"
+"Les échantillons de la NES (le DMC) restent ceux du jeu. La Super Nintendo, pour\n"
+"l'instant, sonne toujours d'origine."
 
 msgid "La pantalla ancha se guarda ahora solo para %s"
 msgstr "L'écran large est maintenant enregistré seulement pour %s"
@@ -1181,8 +1508,14 @@ msgstr "Manettes connectées :"
 msgid "Manual"
 msgstr "Manuel"
 
+msgid "Maracas"
+msgstr "Maracas"
+
 msgid "Marca enviada: %s"
 msgstr "Score envoyé : %s"
+
+msgid "Marimba"
+msgstr "Marimba"
 
 msgid "Marquesina"
 msgstr "Marquee"
@@ -1208,6 +1541,12 @@ msgstr "Menu des états..."
 msgid "Menús (todas las opciones)"
 msgstr "Menus (toutes les options)"
 
+msgid "Metales sintetizados 1"
+msgstr "Cuivres synthé 1"
+
+msgid "Metales sintetizados 2"
+msgstr "Cuivres synthé 2"
+
 msgid "Modo consola"
 msgstr "Mode console"
 
@@ -1219,6 +1558,9 @@ msgstr "Mode hardcore : pas de codes, de ralenti ni de retour arrière"
 
 msgid "Mostrar la barra de menús (Esc)"
 msgstr "Afficher la barre de menus (Échap)"
+
+msgid "Música"
+msgstr "Musique"
 
 msgid "Música y baile"
 msgstr "Musique et danse"
@@ -1275,6 +1617,9 @@ msgstr ""
 "%s\n"
 "\n"
 "plumnin ouvre les cartouches Game Boy, Game Boy Color, NES et Super Nintendo. Si le fichier en est une, il est peut-être incomplet ou abîmé : essayez de le copier à nouveau."
+
+msgid "No se pudo abrir el SoundFont %s: la música suena original."
+msgstr "Impossible d'ouvrir la SoundFont %s : la musique reste d'origine."
 
 msgid "No se pudo cargar el estado: %s. La partida sigue como estaba."
 msgstr "Impossible de charger l'état : %s. La partie continue comme avant."
@@ -1351,6 +1696,15 @@ msgstr "Nom du jeu"
 msgid "Nota"
 msgstr "Note"
 
+msgid "Oboe"
+msgstr "Hautbois"
+
+msgid "Ocarina"
+msgstr "Ocarina"
+
+msgid "Olas"
+msgstr "Vagues"
+
 msgid "Opciones"
 msgstr "Options"
 
@@ -1369,6 +1723,9 @@ msgstr "Options propres à %s. Mettez une option sur Propre pour que ce jeu util
 msgid "Opción desconocida: %s"
 msgstr "Option inconnue : %s"
 
+msgid "Original"
+msgstr "Original"
+
 msgid "Overclock"
 msgstr "Overclock"
 
@@ -1380,6 +1737,12 @@ msgstr "PAUSE"
 
 msgid "PDF"
 msgstr "PDF"
+
+msgid "Palmada"
+msgstr "Claquement de mains"
+
+msgid "Pandereta"
+msgstr "Tambourin"
 
 msgid "Pantalla ancha"
 msgstr "Écran large"
@@ -1417,6 +1780,24 @@ msgstr "Arrêter le téléchargement"
 msgid "Pausa"
 msgstr "Pause"
 
+msgid "Piano brillante"
+msgstr "Piano brillant"
+
+msgid "Piano de cantina"
+msgstr "Piano bastringue"
+
+msgid "Piano de cola"
+msgstr "Piano à queue"
+
+msgid "Piano eléctrico 1"
+msgstr "Piano électrique 1"
+
+msgid "Piano eléctrico 2"
+msgstr "Piano électrique 2"
+
+msgid "Piano eléctrico de cola"
+msgstr "Piano à queue électrique"
+
 msgid "Pidiendo los datos del juego..."
 msgstr "Demande des données du jeu..."
 
@@ -1434,6 +1815,27 @@ msgstr "Plan B à plat (comme le ciel)"
 
 msgid "Plataformas"
 msgstr "Plates-formes"
+
+msgid "Platillo al revés"
+msgstr "Cymbale inversée"
+
+msgid "Platillo chino"
+msgstr "Cymbale chinoise"
+
+msgid "Platillo crash 1"
+msgstr "Cymbale crash 1"
+
+msgid "Platillo crash 2"
+msgstr "Cymbale crash 2"
+
+msgid "Platillo ride 1"
+msgstr "Cymbale ride 1"
+
+msgid "Platillo ride 2"
+msgstr "Cymbale ride 2"
+
+msgid "Platillo splash"
+msgstr "Cymbale splash"
 
 msgid "Por año"
 msgstr "Par année"
@@ -1500,6 +1902,9 @@ msgstr "Appuyez sur une touche..."
 
 msgid "Puzle"
 msgstr "Réflexion"
+
+msgid "Pájaros"
+msgstr "Oiseaux"
 
 msgid "Píxeles cuadrados"
 msgstr "Pixels carrés"
@@ -1597,6 +2002,9 @@ msgstr "Réinitialiser"
 msgid "Reintentar"
 msgstr "Réessayer"
 
+msgid "Respiración"
+msgstr "Respiration"
+
 msgid "Restaurar predeterminados"
 msgstr "Rétablir les valeurs par défaut"
 
@@ -1614,6 +2022,9 @@ msgstr "RetroAchievements ne connaît pas ce jeu (ou cette version de la ROM)."
 
 msgid "Retroceso o gatillo izquierdo (mantener)  rebobinar"
 msgstr "Retour arrière ou gâchette gauche (maintenir)  rembobiner"
+
+msgid "Reverb"
+msgstr "Réverbération"
 
 msgid "Rol (RPG)"
 msgstr "Jeu de rôle (RPG)"
@@ -1638,6 +2049,18 @@ msgstr "Quitter la partie en réseau"
 
 msgid "Salir de plumnin"
 msgstr "Quitter plumnin"
+
+msgid "Saxo alto"
+msgstr "Saxo alto"
+
+msgid "Saxo barítono"
+msgstr "Saxo baryton"
+
+msgid "Saxo soprano"
+msgstr "Saxo soprano"
+
+msgid "Saxo tenor"
+msgstr "Saxo ténor"
 
 msgid "Scanlines"
 msgstr "Scanlines"
@@ -1702,6 +2125,9 @@ msgstr "Votre compte ScreenScraper a épuisé ses requêtes du jour."
 msgid "Se usa la cuenta «%s»."
 msgstr "Compte utilisé : « %s »."
 
+msgid "Sección de metales"
+msgstr "Section de cuivres"
+
 msgid "Segundos de rebobinado"
 msgstr "Secondes de rembobinage"
 
@@ -1711,8 +2137,26 @@ msgstr "Connecté en tant que %s (%u points)"
 msgid "Sesión iniciada como %s (%u puntos)."
 msgstr "Connecté en tant que %s (%u points)."
 
+msgid "Shakuhachi"
+msgstr "Shakuhachi"
+
+msgid "Shamisen"
+msgstr "Shamisen"
+
+msgid "Shanai"
+msgstr "Shehnai"
+
 msgid "Si ya tienes cuenta, escribe aquí tu usuario y tu contraseña de screenscraper.fr: con ella se pueden hacer más peticiones al día, y ScreenScraper sigue respondiendo aunque esté lleno. Se guarda en plumnin.ini."
 msgstr "Si vous avez déjà un compte, saisissez ici votre identifiant et votre mot de passe screenscraper.fr : il permet plus de requêtes par jour, et ScreenScraper continue de répondre même quand il est saturé. Il est enregistré dans plumnin.ini."
+
+msgid "Silbato corto"
+msgstr "Sifflet court"
+
+msgid "Silbato largo"
+msgstr "Sifflet long"
+
+msgid "Silbido"
+msgstr "Sifflement"
 
 msgid "Silenciar"
 msgstr "Couper le son"
@@ -1754,11 +2198,41 @@ msgstr "Pas de retour arrière, de ralenti, de codes ni de chargement d'états (
 msgid "Sin sesión iniciada"
 msgstr "Non connecté"
 
+msgid "Sintetizador"
+msgstr "Synthétiseur"
+
 msgid "Sistema"
 msgstr "Système"
 
+msgid "Sitar"
+msgstr "Sitar"
+
 msgid "Sobrescribir todos los medios"
 msgstr "Écraser tous les médias"
+
+msgid "Solista bajo y melodía"
+msgstr "Lead basse et mélodie"
+
+msgid "Solista calíope"
+msgstr "Lead calliope"
+
+msgid "Solista charango"
+msgstr "Lead charang"
+
+msgid "Solista chiff"
+msgstr "Lead chiff"
+
+msgid "Solista cuadrada"
+msgstr "Lead carré"
+
+msgid "Solista diente de sierra"
+msgstr "Lead dent de scie"
+
+msgid "Solista quintas"
+msgstr "Lead quintes"
+
+msgid "Solista voz"
+msgstr "Lead voix"
 
 msgid "Sombra de los sprites"
 msgstr "Ombre des sprites"
@@ -1768,6 +2242,9 @@ msgstr "Son"
 
 msgid "Sonido activado"
 msgstr "Son activé"
+
+msgid "Sonido original"
+msgstr "Son d'origine"
 
 msgid "Sonido silenciado"
 msgstr "Son coupé"
@@ -1790,6 +2267,9 @@ msgstr "Tab ou gâchette droite (maintenir)  avance rapide ;  F9  ralenti"
 msgid "Tablero"
 msgstr "Jeu de plateau"
 
+msgid "Taiko"
+msgstr "Taiko"
+
 msgid "Tamaño"
 msgstr "Taille"
 
@@ -1802,14 +2282,32 @@ msgstr "Taille :"
 msgid "También tiene"
 msgstr "Disponible aussi"
 
+msgid "Tambor sintetizado"
+msgstr "Tambour synthé"
+
+msgid "Tambores metálicos"
+msgstr "Steel drums"
+
 msgid "Teclado (jugador 1)"
 msgstr "Clavier (joueur 1)"
 
 msgid "Teclado (jugador 2)"
 msgstr "Clavier (joueur 2)"
 
+msgid "Teléfono"
+msgstr "Sonnerie de téléphone"
+
 msgid "Tienes %u de %u logros (%u de %u puntos)"
 msgstr "Vous avez %u succès sur %u (%u points sur %u)"
+
+msgid "Timbal agudo"
+msgstr "Timbale aiguë"
+
+msgid "Timbal grave"
+msgstr "Timbale grave"
+
+msgid "Timbales"
+msgstr "Timbales"
 
 msgid "Todos"
 msgstr "Tous"
@@ -1820,11 +2318,53 @@ msgstr "Tous les réglages 3D"
 msgid "Todos los archivos"
 msgstr "Tous les fichiers"
 
+msgid "Tom agudo"
+msgstr "Tom aigu"
+
+msgid "Tom agudo de suelo"
+msgstr "Tom basse aigu"
+
+msgid "Tom grave"
+msgstr "Tom grave"
+
+msgid "Tom grave de suelo"
+msgstr "Tom basse grave"
+
+msgid "Tom medio agudo"
+msgstr "Tom médium aigu"
+
+msgid "Tom medio grave"
+msgstr "Tom médium grave"
+
+msgid "Tom melódico"
+msgstr "Tom mélodique"
+
 msgid "Total"
 msgstr "Total"
 
 msgid "Trabajando..."
 msgstr "En cours..."
+
+msgid "Traste de guitarra"
+msgstr "Bruit de frette"
+
+msgid "Triángulo abierto"
+msgstr "Triangle ouvert"
+
+msgid "Triángulo apagado"
+msgstr "Triangle étouffé"
+
+msgid "Trombón"
+msgstr "Trombone"
+
+msgid "Trompa"
+msgstr "Cor"
+
+msgid "Trompeta"
+msgstr "Trompette"
+
+msgid "Trompeta con sordina"
+msgstr "Trompette bouchée"
 
 msgid "Truco"
 msgstr "Code"
@@ -1846,6 +2386,9 @@ msgstr "Votre meilleur score : %s"
 
 msgid "Tu puesto: %u de %u"
 msgstr "Votre rang : %u sur %u"
+
+msgid "Tuba"
+msgstr "Tuba"
 
 msgid "Título"
 msgstr "Titre"
@@ -1907,6 +2450,24 @@ msgstr "Voir sur screenscraper.fr"
 msgid "Versión %s"
 msgstr "Version %s"
 
+msgid "Vibraslap"
+msgstr "Vibraslap"
+
+msgid "Vibráfono"
+msgstr "Vibraphone"
+
+msgid "Viola"
+msgstr "Alto"
+
+msgid "Violonchelo"
+msgstr "Violoncelle"
+
+msgid "Violín"
+msgstr "Violon"
+
+msgid "Violín celta"
+msgstr "Violon celtique"
+
 msgid "Vista"
 msgstr "Vue"
 
@@ -1931,6 +2492,12 @@ msgstr "Réessayer"
 msgid "Volver a los generales"
 msgstr "Revenir aux généraux"
 
+msgid "Voz \"ooh\""
+msgstr "Voix \"ooh\""
+
+msgid "Voz sintetizada"
+msgstr "Voix synthé"
+
 msgid "Vídeo"
 msgstr "Vidéo"
 
@@ -1942,6 +2509,9 @@ msgstr "Vidéo..."
 
 msgid "Vóxeles"
 msgstr "Voxels"
+
+msgid "Xilófono"
+msgstr "Xylophone"
 
 msgid "Zona muerta del stick"
 msgstr "Zone morte du stick"
@@ -2148,3 +2718,15 @@ msgstr "· %d sans jaquette"
 
 msgid "¿No tienes cuenta? Es gratis:"
 msgstr "Pas de compte ? C’est gratuit :"
+
+msgid "Órgano de barras"
+msgstr "Orgue à tirettes"
+
+msgid "Órgano de iglesia"
+msgstr "Orgue d'église"
+
+msgid "Órgano de percusión"
+msgstr "Orgue percussif"
+
+msgid "Órgano de rock"
+msgstr "Orgue rock"
