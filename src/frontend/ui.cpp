@@ -2215,7 +2215,7 @@ void Ui::drawLibrary(UiActions& out) {
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("%s", tr("Busca en ScreenScraper (internet) cada juego que aún no tenga sus medios: portada completa,\n"
                                    "etiqueta del cartucho, capturas, logo... Las carátulas que ya hay se quedan, salvo\n"
-                                   "que ScreenScraper tenga la portada completa. Uno a uno, así que tarda un poco."));
+                                   "una caja entera guardada por una versión anterior: pasa a ser la portada. Uno a uno, así que tarda un poco."));
     ImGui::SameLine();
     if (ImGui::Checkbox(tr("Abrir la biblioteca al empezar"), &settings_.libraryAtStart)) out.settingsChanged = true;
 
