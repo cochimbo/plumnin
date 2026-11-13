@@ -1,35 +1,39 @@
 #include "console.h"
 #include "gb/gb.h"
 #include "nes/nes.h"
+#include "snes/snes.h"
 #include "i18n.h"
 
 namespace plumnin {
 
 // The consoles are added here as they are emulated: the Game Boy and Game Boy Color
-// first, then the NES, then the Super Nintendo.
+// first, then the NES, then the Super Nintendo: all four now.
 namespace {
 
 bool gameBoy(ConsoleSystem s) { return s == ConsoleSystem::GameBoy || s == ConsoleSystem::GameBoyColor; }
 
 }  // namespace
 
-bool emulated(ConsoleSystem s) { return gameBoy(s) || s == ConsoleSystem::Nes; }
+bool emulated(ConsoleSystem s) { return gameBoy(s) || s == ConsoleSystem::Nes || s == ConsoleSystem::Snes; }
 
 std::unique_ptr<Console> createConsole(ConsoleSystem s) {
     if (gameBoy(s)) return std::make_unique<GameBoy>();
     if (s == ConsoleSystem::Nes) return std::make_unique<Nes>();
+    if (s == ConsoleSystem::Snes) return std::make_unique<Snes>();
     return nullptr;
 }
 
 CheatDecoder cheatDecoderFor(ConsoleSystem s) {
     if (gameBoy(s)) return GameBoy::decoder();
     if (s == ConsoleSystem::Nes) return Nes::decoder();
+    if (s == ConsoleSystem::Snes) return Snes::decoder();
     return {};
 }
 
 const char* cheatFormatsFor(ConsoleSystem s) {
     if (gameBoy(s)) return GameBoy::cheatFormats();
     if (s == ConsoleSystem::Nes) return Nes::cheatFormats();
+    if (s == ConsoleSystem::Snes) return Snes::cheatFormats();
     return "";
 }
 

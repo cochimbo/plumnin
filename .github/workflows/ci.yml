@@ -82,6 +82,28 @@ jobs:
           cmake build -DNES_TEST_ROMS="$PWD/nestr"
           cmake --build build --parallel --target nes-test-roms
           ctest --test-dir build --output-on-failure -R nes_test_roms
+      # The SNES's: krom's test ROMs (only the ones the suite runs, at a fixed commit) and
+      # SingleStepTests' processor tests (the start of each 65816 file is enough).
+      - name: SNES test ROMs
+        if: steps.changes.outputs.build == 'true'
+        run: |
+          base=https://raw.githubusercontent.com/PeterLemon/SNES/350b394e86ec5d62f600b5cbf64cdce3721bb6ef
+          for t in ADC AND ASL BIT BRA CMP DEC EOR INC JMP LDR LSR MOV MSC ORA PHL PSR RET ROL ROR SBC STR TRN; do
+            echo "CPUTest/CPU/$t/CPU$t.sfc"
+          done > snes-roms.txt
+          for b in LoROMSlowROM LoROMFastROM HiROMSlowROM HiROMFastROM WRAM; do echo "BANK/$b/BANK$b.sfc"; done >> snes-roms.txt
+          echo SPC700/Twinkle/Twinkle.sfc >> snes-roms.txt
+          while read -r f; do curl -sSfL --create-dirs -o "snestr/$f" "$base/$f"; done < snes-roms.txt
+          mkdir -p ss65816 ssspc700
+          for i in $(seq 0 255); do h=$(printf %02x $i); echo "$h.e.json"; echo "$h.n.json"; done |
+            xargs -P 16 -I{} curl -sSfL -r 0-150000 -o ss65816/{} \
+              https://raw.githubusercontent.com/SingleStepTests/65816/307c63f5673c8c6b861c52f71ddb89212a227480/v1/{}
+          for i in $(seq 0 255); do printf '%02x.json\n' $i; done |
+            xargs -P 16 -I{} curl -sSfL -o ssspc700/{} \
+              https://raw.githubusercontent.com/SingleStepTests/spc700/67d15f492b2740964abd4efd1229e0ec9c342228/v1/{}
+          cmake build -DSNES_TEST_ROMS="$PWD/snestr" -DSNES_CPU_TESTS="$PWD/ss65816" -DSNES_SPC_TESTS="$PWD/ssspc700"
+          cmake --build build --parallel --target snes-test-roms snes-single-step
+          ctest --test-dir build --output-on-failure -R "snes_test_roms|snes_cpu_tests|snes_spc_tests"
       - name: Sample run with an input script
         if: steps.changes.outputs.build == 'true'
         run: |

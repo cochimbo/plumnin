@@ -71,7 +71,11 @@ add_library(plumnin_core STATIC
   src/core/nes/nes_ppu.cpp
   src/core/nes/nes_apu.cpp
   src/core/nes/nes_cart.cpp
+  src/core/snes/snes.cpp
+  src/core/snes/snes_apu.cpp
+  src/core/snes/snes_cart.cpp
   src/core/snes/snes_cpu.cpp
+  src/core/snes/snes_ppu.cpp
   src/core/snes/snes_smp.cpp
   src/core/system.cpp
   src/core/cheats.cpp
@@ -283,6 +287,16 @@ if(PLUMNIN_BUILD_TESTS)
   set(NES_TEST_ROMS "" CACHE PATH "Folder of the nes-test-roms repository, for the nes_test_roms test")
   if(NES_TEST_ROMS)
     add_test(NAME nes_test_roms COMMAND nes-test-roms ${NES_TEST_ROMS})
+  endif()
+
+  # The SNES's test ROMs, when their folder is given: -DSNES_TEST_ROMS=path/to/SNES
+  # (a clone of https://github.com/PeterLemon/SNES).
+  add_executable(snes-test-roms tests/snes_test_roms.cpp)
+  target_include_directories(snes-test-roms PRIVATE third_party/stb)
+  target_link_libraries(snes-test-roms PRIVATE plumnin_core)
+  set(SNES_TEST_ROMS "" CACHE PATH "Folder of PeterLemon's SNES repository, for the snes_test_roms test")
+  if(SNES_TEST_ROMS)
+    add_test(NAME snes_test_roms COMMAND snes-test-roms ${SNES_TEST_ROMS})
   endif()
 
   # SingleStepTests' processor tests, when their folders are given:

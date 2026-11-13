@@ -10,9 +10,9 @@ frontend, its 3D view, its library, netplay and the tools around them.
 
 ## Status
 
-**The Game Boy, the Game Boy Color and the NES are emulated**; the Super Nintendo comes
-next. A game made for the Color runs on a Color, the rest on a Game Boy with its green
-screen. What there is:
+**The Game Boy, the Game Boy Color, the NES and the Super Nintendo are emulated.** A game
+made for the Color runs on a Color, the rest on a Game Boy with its green screen. What
+there is:
 
 - **Game Boy and Game Boy Color** (`src/core/gb/`): the SM83 processor cycle by cycle, the
   timer, the picture processor with its background, window and sprites kept apart for the
@@ -34,6 +34,22 @@ screen. What there is:
   codes, and RetroAchievements. It passes the 140 test ROMs of the suite in Tests:
   blargg's processor, PPU, APU and DMA tests (also on PAL), the sprite 0 hit and overflow
   tests, `ppu_vbl_nmi` and the MMC3's.
+- **Super Nintendo** (`src/core/snes/`): the 65C816 bus cycle by bus cycle (with the
+  memory's 6, 8 and 12 clock speeds, FastROM and the WRAM refresh), the DMA and HDMA, the
+  multiplier and divider, the H/V timers and the automatic pad read; the PPU a line at a
+  time with its eight modes (mode 7 with EXTBG, offset per tile, the high resolution of
+  modes 5 and 6 and pseudo high resolution), the sprites with their limits of 32 a line
+  and 34 tiles (and the option to lift them), the windows, mosaic, colour math with the
+  sub screen and the brightness, its backgrounds and sprites kept apart for the 3D view;
+  the sound module with the SPC700, its timers and IPL, and the DSP (BRR, Gaussian
+  interpolation, ADSR and GAIN, noise, pitch modulation and echo); LoROM, HiROM and
+  ExHiROM cartridges (with or without a copier's header), NTSC and PAL. Battery saves,
+  cheats in Game Genie and Pro Action Replay codes, and RetroAchievements. The processors
+  pass all of SingleStepTests' tests (147 100 of the 65C816 and 256 000 of the SPC700,
+  with every bus cycle), and krom's processor and bank test ROMs (see Tests). Games
+  with a chip in the cartridge (Super FX, SA-1, the DSPs, Cx4, S-DD1, SPC7110...) load
+  with a warning that they may not work: those chips are not emulated yet, nor the
+  interlaced picture (it is drawn as one field).
 
 - The frontend from plumsg: the menus, the game library (covers, details and media from
   ScreenScraper and libretro-database, console tabs for the four consoles), savestates
@@ -52,13 +68,12 @@ screen. What there is:
   pads move, two planes, a tone), so that everything above can be tried and tested
   without any commercial ROM: `plumnin --test-pattern [gb|gbc|nes|snes]`.
 
-Opening a Super Nintendo game says that its console is not emulated yet. The plan, in
-order:
+The plan, in order:
 
 1. The base. (done)
 2. Game Boy and Game Boy Color. (done)
 3. NES. (done)
-4. Super Nintendo.
+4. Super Nintendo. (done, without the cartridges' chips)
 
 What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIOS, the
 32X, the light guns, the Roland synthesizer with its instrument editor and score, and the
@@ -90,7 +105,7 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
   the 3D planes, cheats, the library's names, ScreenScraper's and libretro-database's
   answers, on the test pattern; and the Game Boy and the NES on small programs the test
   writes itself (their picture and layers, the pads, the sound, savestates, cheats, the
-  battery saves, and PAL on the NES).
+  battery saves, and PAL on the NES), and the same on a small SNES program.
 - `frontend_tests`: the settings files, each game's own options and the crash reports.
 - `headless`: `plumnin-headless` end to end: hashes, savestates, input scripts, recordings
   and netplay between two processes.
@@ -104,6 +119,15 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
   [nes-test-roms](https://github.com/christopherpow/nes-test-roms) and configure with
   `-DNES_TEST_ROMS=path/to/it`. `nes-test-roms --run ROM [--pal] --png out.png` runs one
   and prints what it said.
+- `snes_test_roms`: krom's SNES test ROMs (each instruction of the processor, the
+  cartridge's banks, a tune checked note by note). Clone
+  [PeterLemon/SNES](https://github.com/PeterLemon/SNES) and configure with
+  `-DSNES_TEST_ROMS=path/to/it`. `snes-test-roms --run ROM --png out.png` runs one.
+- `snes_cpu_tests` and `snes_spc_tests`: [SingleStepTests](https://github.com/SingleStepTests)'
+  tests of the 65C816 and of the SPC700, one instruction from a known state each.
+  Configure with `-DSNES_CPU_TESTS=path/to/65816/v1` and `-DSNES_SPC_TESTS=path/to/spc700/v1`;
+  the 65816's files are large, and the start of each one is enough (CI takes the first
+  150 KB). `snes-single-step 65816|spc700 FOLDER --cycles` also compares each bus cycle.
 
 ```sh
 ./build/plumnin-headless --test-rom --system gb --frames 300 --do "60-120 right a" --png out.png
