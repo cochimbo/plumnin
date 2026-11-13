@@ -1639,11 +1639,12 @@ void testSnes() {
     check(snes->peek(0x10) == 0x50, "snes: and the game runs again on it");
 
     std::vector<uint8_t> chip = snesProgram();
-    chip[0x7FD6] = 0x43;  // ROM and an S-DD1
+    chip[0x7FD6] = 0xF3;  // ROM and an ST018 (its subtype at FFBF)
+    chip[0x7FBF] = 0x02;
     check(Snes().loadRomData(chip, &error), "snes: a game with a chip still loads");
     Snes withChip;
     withChip.loadRomData(chip, &error);
-    check(withChip.loadNotice().find("S-DD1") != std::string::npos, "snes: and says which chip it lacks");
+    check(withChip.loadNotice().find("ST018") != std::string::npos, "snes: and says which chip it lacks");
 }
 
 // A small uPD7725 program, as the DSP-1's would talk: it asks for two words (K and L),
@@ -1898,6 +1899,107 @@ void testSa1() {
     check(snes.saveState(state, true) && snes.loadState(state, &error), "sa-1: savestate");
 }
 
+// A LoROM cartridge for the chip tests: the code at 8000, the header, the reset vector.
+std::vector<uint8_t> chipCart(size_t size, const std::vector<int>& code, const char* title, uint8_t chipset,
+                              uint8_t ramSize) {
+    std::vector<uint8_t> rom(size, 0);
+    std::copy(code.begin(), code.end(), rom.begin());
+    std::fill(rom.begin() + 0x7FC0, rom.begin() + 0x7FD5, ' ');
+    std::copy(title, title + std::strlen(title), rom.begin() + 0x7FC0);
+    rom[0x7FD5] = 0x20;
+    rom[0x7FD6] = chipset;
+    rom[0x7FD7] = static_cast<uint8_t>(size >= 0x200000 ? 0x0B : 0x08);
+    rom[0x7FD8] = ramSize;
+    rom[0x7FD9] = 0x01;
+    rom[0x7FDC] = rom[0x7FDD] = 0xFF;
+    rom[0x7FFC] = 0x00;
+    rom[0x7FFD] = 0x80;
+    return rom;
+}
+
+void testObc1() {
+    const std::vector<int> code = {
+        0x78, 0x18, 0xFB, 0xE2, 0x30,  // sei clc xce sep #$30
+        0x9C, 0xF5, 0x7F,              // the table at 1C00
+        0xA9, 0x05, 0x8D, 0xF6, 0x7F,  // entry 5
+        0xA9, 0x11, 0x8D, 0xF0, 0x7F,  // its four bytes
+        0xA9, 0x22, 0x8D, 0xF1, 0x7F,  //
+        0xA9, 0x33, 0x8D, 0xF2, 0x7F,  //
+        0xA9, 0x44, 0x8D, 0xF3, 0x7F,  //
+        0xA9, 0xFD, 0x8D, 0xF4, 0x7F,  // its two bits: only those change (the RAM starts at FF)
+        0xAD, 0xF2, 0x7F, 0x85, 0x10,  // read one back
+        0xAD, 0xF4, 0x7F, 0x85, 0x11,  //
+        0x80, 0xFE,                    // bra *
+    };
+    Snes snes;
+    std::string error;
+    check(snes.loadRomData(chipCart(0x8000, code, "METAL COMBAT TEST", 0x25, 0x03), &error) &&
+              snes.loadNotice().empty() && snes.cartInfo().chip == snes::Chip::Obc1,
+          "obc1: a game with it loads");
+    snes.runFrame();
+    check(snes.peek(0x10) == 0x33 && snes.peek(0x11) == 0xF7, "obc1: an entry's bytes and bits read back");
+    const std::vector<uint8_t> ram = snes.saveData();
+    check(ram.size() == 0x2000 && ram[0x1C14] == 0x11 && ram[0x1C17] == 0x44 && ram[0x1E01] == 0xF7 &&
+              ram[0x1FF6] == 0x05,
+          "obc1: the table is in the cartridge's RAM");
+}
+
+void testSdd1() {
+    // Two DMAs from C0:0000 (bank register 4804 = 1: the ROM's second megabyte), with
+    // the S-DD1 decompressing, into WRAM at 0100 and 0200: 16 bytes of 2 bpp tiles,
+    // then 16 of mode 7 pixels from C0:0100.
+    std::vector<int> code = {0x78, 0x18, 0xFB, 0xE2, 0x30, 0xA9, 0x01, 0x8D, 0x04, 0x48};
+    auto dma = [&](int source, int to) {
+        const std::vector<int> part = {
+            0xA9, 0x08, 0x8D, 0x00, 0x43,  // fixed A address, A to B
+            0xA9, 0x80, 0x8D, 0x01, 0x43,  // WMDATA
+            0xA9, source & 0xFF, 0x8D, 0x02, 0x43, 0xA9, source >> 8, 0x8D, 0x03, 0x43,
+            0xA9, 0xC0, 0x8D, 0x04, 0x43,  // C0:source
+            0xA9, 0x10, 0x8D, 0x05, 0x43, 0x9C, 0x06, 0x43,  // 16 bytes
+            0x9C, 0x81, 0x21, 0xA9, to >> 8, 0x8D, 0x82, 0x21, 0x9C, 0x83, 0x21,  // WMADD = to
+            0xA9, 0x01, 0x8D, 0x00, 0x48, 0x8D, 0x01, 0x48,  // channel 0 decompresses
+            0x8D, 0x0B, 0x42,  // MDMAEN
+        };
+        code.insert(code.end(), part.begin(), part.end());
+    };
+    dma(0x0000, 0x0100);
+    const std::vector<int> mid = {0xAD, 0x01, 0x48, 0x85, 0x10};  // 4801 after it: the channel is off
+    code.insert(code.end(), mid.begin(), mid.end());
+    dma(0x0100, 0x0200);
+    const std::vector<int> end = {
+        0xAF, 0x01, 0x00, 0xC0, 0x85, 0x11,  // and C0:0001 is the ROM again
+        0x80, 0xFE,
+    };
+    code.insert(code.end(), end.begin(), end.end());
+    std::vector<uint8_t> rom = chipCart(0x200000, code, "STAR OCEAN TEST", 0x43, 0);
+    for (int i = 0; i < 64; ++i) {
+        rom[0x100001 + static_cast<size_t>(i)] = static_cast<uint8_t>(i * 37 + 11);
+        rom[0x100101 + static_cast<size_t>(i)] = static_cast<uint8_t>(i * 37 + 11);
+    }
+    rom[0x100000] = 0x00;  // 2 bpp, context 0
+    rom[0x100100] = 0xC0;  // 8 bits a pixel
+    rom[0x100040] = rom[0x100140] = 0;  // the reference read zeros past 64 bytes
+    Snes snes;
+    std::string error;
+    check(snes.loadRomData(rom, &error) && snes.loadNotice().empty() && snes.cartInfo().chip == snes::Chip::Sdd1,
+          "s-dd1: a game with it loads");
+    snes.runFrame();
+    // Worked out by a separate transcription of the decompressor (ares'), from the same input.
+    const uint8_t tiles[16] = {0x00, 0x01, 0x00, 0x00, 0x81, 0xF1, 0x81, 0xCA,
+                               0x80, 0xAC, 0x00, 0xD5, 0x00, 0xDC, 0x03, 0x7B};
+    const uint8_t mode7[16] = {0x00, 0x80, 0x00, 0x08, 0x00, 0x40, 0x88, 0x70,
+                               0xC4, 0x24, 0xC0, 0x60, 0x5A, 0x62, 0x32, 0xC4};
+    bool same = true;
+    for (int i = 0; i < 16; ++i)
+        same = same && snes.peek(0x7E0100 + static_cast<uint32_t>(i)) == tiles[i] &&
+               snes.peek(0x7E0200 + static_cast<uint32_t>(i)) == mode7[i];
+    check(same, "s-dd1: the DMA decompresses (2 bpp and mode 7)");
+    check(snes.peek(0x10) == 0x00, "s-dd1: the channel turns off after its bytes");
+    check(snes.peek(0x11) == 11, "s-dd1: and C0-CF show the second megabyte");
+    std::vector<uint8_t> state;
+    check(snes.saveState(state, true) && snes.loadState(state, &error), "s-dd1: savestate");
+}
+
 int main() {
     testSystems();
     testConsoles();
@@ -1924,6 +2026,8 @@ int main() {
     testNecDsp();
     testSuperFx();
     testSa1();
+    testObc1();
+    testSdd1();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

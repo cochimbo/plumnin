@@ -63,7 +63,9 @@ there is:
   (also as a 2 or 4 bits a pixel bitmap) with their write protections, the ROM in 1 MB
   windows, its multiplier, divider and sum of products, the bit field reader, its
   timers, the interrupts and vectors both ways, and its DMA with both character
-  conversions. Games with the other chips (Cx4, S-DD1, SPC7110...) load with a warning
+  conversions. The S-DD1 (Star Ocean, Street Fighter Alpha 2): its ROM banks and the
+  decompression of graphics as a DMA reads them. The OBC1 (Metal Combat): its sprite
+  table in the cartridge's RAM. Games with the other chips (Cx4, SPC7110...) load with a warning
   that they may not work: those are not emulated yet, nor the interlaced picture
   (drawn as one field).
 
@@ -89,7 +91,7 @@ The plan, in order:
 1. The base. (done)
 2. Game Boy and Game Boy Color. (done)
 3. NES. (done)
-4. Super Nintendo. (done; of the cartridges' chips, the NEC DSPs, the Super FX and the SA-1)
+4. Super Nintendo. (done; of the cartridges' chips, the NEC DSPs, the Super FX, the SA-1, the S-DD1 and the OBC1)
 
 What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIOS, the
 32X, the light guns, the Roland synthesizer with its instrument editor and score, and the
@@ -124,7 +126,9 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
   battery saves, and PAL on the NES), and the same on a small SNES program; and a
   small program of its own for the NEC DSP, which a SNES program talks to on the bus,
   one for the Super FX (its program, its registers and its interrupt) and one for the
-  SA-1 (started by the game, its multiplier, I-RAM, and its interrupt through SIV).
+  SA-1 (started by the game, its multiplier, I-RAM, and its interrupt through SIV); the
+  S-DD1's decompression through a DMA, against a separate transcription of the
+  algorithm, and the OBC1's sprite table.
 - `frontend_tests`: the settings files, each game's own options and the crash reports.
 - `headless`: `plumnin-headless` end to end: hashes, savestates, input scripts, recordings
   and netplay between two processes.
