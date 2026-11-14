@@ -51,6 +51,8 @@ public:
     // A routine: its address with the bank it was in.
     virtual uint32_t routineId(uint16_t address) const = 0;
     virtual bool vector(uint16_t address) const = 0;  // where interrupts and restarts land
+    // An interrupt's handler can be called as a routine (it comes back as one does).
+    virtual bool handlerReturns() const = 0;
     virtual uint8_t peek(uint16_t address) const = 0;
     virtual void poke(uint16_t address, uint8_t value) = 0;
     virtual bool chip(uint16_t address) const = 0;  // a register of the sound chip
@@ -105,6 +107,7 @@ public:
         return bank << 16 | a;
     }
     bool vector(uint16_t a) const override { return a < 0x68; }
+    bool handlerReturns() const override { return true; }
     uint8_t peek(uint16_t a) const override { return gb.peek(a); }
     void poke(uint16_t a, uint8_t v) override { gb.poke(a, v); }
     bool chip(uint16_t a) const override { return a >= 0xFF10 && a < 0xFF40; }
@@ -214,6 +217,9 @@ public:
         return bank << 16 | a;
     }
     bool vector(uint16_t) const override { return false; }
+    // (RTI also takes the flags back, and the game's own work is in the NMI: the driver
+    // is something it calls.)
+    bool handlerReturns() const override { return false; }
     uint8_t peek(uint16_t a) const override { return nes.peek(a); }
     void poke(uint16_t a, uint8_t v) override { nes.poke(a, v); }
     bool chip(uint16_t a) const override { return a >= 0x4000 && a < 0x4018 && a != 0x4014 && a != 0x4016; }
@@ -327,6 +333,7 @@ struct Routine {
     uint64_t soundFrame = 0;  // the frame it last wrote the chip in, and how often
     int frameWrites = 0;
     bool underDriver = false, aboveDriver = false;
+    bool interrupt = false;  // an interrupt came in to it
     RamSet wrote;  // outside the driver
     std::array<std::set<uint8_t>, 3> arguments;  // A, C and E as it was called
 };
@@ -366,6 +373,7 @@ public:
         else if (now - r.lastClock < static_cast<uint64_t>(clock_ / 200)) ++r.quickCalls;
         r.lastClock = now;
         ++r.calls;
+        r.interrupt = r.interrupt || interrupt;
         if (trackMemory) {
             const std::array<uint8_t, 3> args = m_.arguments();
             for (size_t i = 0; i < 3; ++i)
@@ -613,7 +621,7 @@ private:
             // and then for the first seconds, the same on every run.
             PadState pad;
             const int second = i / 60, frame = i % 60;
-            pad.start = second < 20 && second % 4 == 3 && frame < 6;
+            pad.start = second < 4 * starts && second % 4 == 3 && frame < 6;
             pad.a = second < 20 && second % 4 == 1 && frame < 6;
             c.setPads(pad, PadState{});
             c.runFrame();
@@ -622,6 +630,13 @@ private:
         m.setTracer(nullptr);
     }
     bool cancelled() const { return progress_ && progress_->cancel.load(); }
+
+public:
+    // How many times Start is pressed: an even number leaves a game that pauses on it
+    // the way it was.
+    int starts = 5;
+
+private:
     void step() {
         if (progress_) ++progress_->step;
         if (std::getenv("PLUMNIN_RIP_DEBUG") && progress_ && progress_->step % 32 == 0)
@@ -904,6 +919,7 @@ bool Ripper::run(std::vector<SongRipper::Song>* songs, std::string* error, std::
     double best = 0;
     for (const auto& [id, r] : first.routines) {
         if (r.calls < 30 || r.sound * 10 < first.soundWrites * 4 || skip.count(id)) continue;
+        if (r.interrupt && !gb.handlerReturns()) continue;
         const double seconds = static_cast<double>(r.lastClock - r.firstClock) / kClock;
         const double rate = seconds > 0 ? static_cast<double>(r.calls - 1) / seconds : 0;
         if (rate < 20) continue;
@@ -1237,19 +1253,27 @@ bool SongRipper::run(const std::vector<uint8_t>& rom, const Options& options, Pr
     }
     // A driver that, run by itself, plays nothing the game asks: some need what calls them
     // (a flag it sets, the bank it keeps). Then the next one, up to three.
-    std::set<uint32_t> skip;
+    // And if none plays anything, once more pressing Start once less: the last press
+    // may have paused the game (Dr. Mario), its driver then silent whatever it is asked.
     std::string firstError;
     bool ok = false;
-    for (int attempt = 0; attempt < 3; ++attempt) {
-        songs->clear();
-        if (error) error->clear();
-        if (progress) progress->step = 0;
-        Ripper r(system, rom, options, progress);
-        r.skip = skip;
-        ok = r.run(songs, error, report);
-        if (attempt == 0 && error) firstError = *error;
-        if (ok || !r.driverTaken || (progress && progress->cancel)) break;
-        skip.insert(r.driverTaken);
+    for (int starts : {5, 4}) {
+        std::set<uint32_t> skip;
+        bool driverFound = false;
+        for (int attempt = 0; attempt < 3; ++attempt) {
+            songs->clear();
+            if (error) error->clear();
+            if (progress) progress->step = 0;
+            Ripper r(system, rom, options, progress);
+            r.skip = skip;
+            r.starts = starts;
+            ok = r.run(songs, error, report);
+            if (firstError.empty() && error) firstError = *error;
+            driverFound = driverFound || r.driverTaken;
+            if (ok || !r.driverTaken || (progress && progress->cancel)) break;
+            skip.insert(r.driverTaken);
+        }
+        if (ok || !driverFound || (progress && progress->cancel)) break;
     }
     if (!ok && error && !firstError.empty()) *error = firstError;
     if (!ok && error && error->empty() && progress && progress->cancel) *error = tr("Cancelado.");
