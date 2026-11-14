@@ -1395,6 +1395,9 @@ msgstr "Esquerda"
 msgid "Japón (NTSC)"
 msgstr "Japão (NTSC)"
 
+msgid "Juega a este juego para ver sus instrumentos: aparecen aquí a medida que suenan."
+msgstr "Jogue este jogo para ver os seus instrumentos: aparecem aqui à medida que soam."
+
 msgid "Juega: se graba lo que suene hasta que la pares."
 msgstr "Jogue: tudo o que tocar é gravado até você parar."
 

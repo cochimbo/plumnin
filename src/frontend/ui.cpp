@@ -675,8 +675,16 @@ UiActions Ui::frame(const UiState& state) {
     if (showAbout_) drawAbout();
     if (showCheats_) drawCheats(state, out);
     if (showGameOptions_) drawGameOptions(state, out);
-    if (synth_) editor_.draw(*synth_, state.romLoaded ? state.romPath : std::string(), state.synthOn,
-                               state.romLoaded ? state.console : nullptr, settings_.chipMix);
+    if (synth_) {
+        // The editor opened from a game's menu in the library is for that game until it is
+        // closed or another game is played; its console only when it is the one running.
+        const std::string running = state.romLoaded ? state.romPath : std::string();
+        if (running != editorRunning_ || !editor_.isOpen()) editorGame_.clear();
+        editorRunning_ = running;
+        const std::string& game = editorGame_.empty() ? running : editorGame_;
+        editor_.draw(*synth_, game, state.synthOn, state.romLoaded && game == running ? state.console : nullptr,
+                     settings_.chipMix);
+    }
     // With no game running, the covers can take more of each frame.
     library_.update(state.romLoaded && !state.paused ? 3 : 10);
     gameInfo_.update();
@@ -2406,6 +2414,7 @@ void Ui::drawLibrary(UiActions& out) {
             ImGui::TextDisabled("%s", g.title.c_str());
             ImGui::Separator();
             static const char* items[LibraryView::kItems] = {N_("Jugar"), N_("Trucos..."), N_("Opciones de este juego..."),
+                                                             N_("Editor de instrumentos..."),
                                                              N_("Buscar en ScreenScraper por nombre..."),
                                                              N_("Carátula desde imagen..."), N_("Medios de ScreenScraper...")};
             int picked = libraryView_.menuAction;
@@ -2415,9 +2424,14 @@ void Ui::drawLibrary(UiActions& out) {
                 case 0: libraryView_.load = n; break;
                 case 1: out.cheatsFor = g.path; showCheats_ = true; break;
                 case 2: out.optionsFor = g.path; showGameOptions_ = true; break;
-                case 3: startMedia(visible[static_cast<size_t>(n)], 2); break;  // ScreenScraper's search by name
-                case 4: chooseCoverImage(visible[static_cast<size_t>(n)]); break;
-                case 5: openMedia(visible[static_cast<size_t>(n)]); break;
+                case 3:
+                    editorGame_ = g.path;
+                    editor_.open();
+                    showLibrary_ = false;
+                    break;
+                case 4: startMedia(visible[static_cast<size_t>(n)], 2); break;  // ScreenScraper's search by name
+                case 5: chooseCoverImage(visible[static_cast<size_t>(n)]); break;
+                case 6: openMedia(visible[static_cast<size_t>(n)]); break;
                 default: break;
             }
             if (picked >= 0) {
