@@ -255,6 +255,9 @@ void SuperFx::instruction(uint8_t op) {
             switch (op) {
                 case 0x00:  // stop
                     if (!(cfgr_ & 0x80)) irq_ = true;
+                    // A write still in its buffer gets to the RAM all the same: the last
+                    // byte of a STW just before it, which the processor reads next.
+                    syncRam();
                     g_ = false;
                     pipeline_ = 0x01;
                     resetPrefix();
