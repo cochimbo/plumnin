@@ -902,8 +902,8 @@ msgstr "The synthesizer's SoundFont"
 msgid "El VGM está cortado."
 msgstr "The VGM is cut short."
 
-msgid "El VGM no es de una Game Boy: no tiene su chip de sonido."
-msgstr "The VGM is not a Game Boy one: it does not have its sound chip."
+msgid "El VGM no es de una Game Boy ni de una NES: no tiene su chip de sonido."
+msgstr "The VGM is not from a Game Boy or a NES: it does not have its sound chip."
 
 msgid "El anfitrión está jugando a otro juego: abrid los dos el mismo (la misma ROM)."
 msgstr "The host is playing another game: both of you open the same one (the same ROM)."
@@ -2004,8 +2004,8 @@ msgstr "Ride cymbal 2"
 msgid "Platillo splash"
 msgstr "Splash cymbal"
 
-msgid "Por ahora, solo en los juegos de Game Boy y Game Boy Color."
-msgstr "For now, only in Game Boy and Game Boy Color games."
+msgid "Por ahora, solo en los juegos de Game Boy, Game Boy Color y NES."
+msgstr "For now, only in Game Boy, Game Boy Color and NES games."
 
 msgid "Por año"
 msgstr "By year"

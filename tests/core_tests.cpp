@@ -30,7 +30,7 @@
 #include "system.h"
 #include "test_console.h"
 #include "vgm.h"
-#include "gb/gb_songs.h"
+#include "songs.h"
 #include "frontend/achievements.h"
 #include "frontend/game_info_data.h"
 #include "frontend/library_names.h"
@@ -2271,12 +2271,12 @@ std::vector<uint8_t> gameBoySongs() {
 }
 
 void testSongRipper() {
-    GbSongRipper::Options options;
+    SongRipper::Options options;
     options.traceSeconds = 6;
-    GbSongRipper::Progress progress;
-    std::vector<GbSongRipper::Song> songs;
+    SongRipper::Progress progress;
+    std::vector<SongRipper::Song> songs;
     std::string error, report;
-    const bool ok = GbSongRipper::run(gameBoySongs(), options, &progress, &songs, &error, &report);
+    const bool ok = SongRipper::run(gameBoySongs(), options, &progress, &songs, &error, &report);
     check(ok && songs.size() == 3, "songs: the three songs of the driver, from the ROM alone");
     if (!ok) std::printf("     %s\n%s", error.c_str(), report.c_str());
     check(report.find("byte C000") != std::string::npos, "songs: asked for with the byte the game writes");
@@ -2302,9 +2302,9 @@ void testSongRipper() {
         check(!player.finished() && std::count(log.begin(), log.end(), "0 on 60") >= 2,
               "songs: played back, the first song's notes come round again");
     }
-    GbSongRipper::Progress none;
+    SongRipper::Progress none;
     songs.clear();
-    check(!GbSongRipper::run(gameBoyScale(), options, &none, &songs, &error) && !error.empty(),
+    check(!SongRipper::run(gameBoyScale(), options, &none, &songs, &error) && !error.empty(),
           "songs: a program without a driver has none");
 }
 
@@ -2349,8 +2349,29 @@ void testVgm() {
 
     VgmFile bad;
     check(!bad.parse({1, 2, 3}, &error) && !error.empty(), "vgm: anything else is not one");
+
+    // The NES's, the same.
     Nes nes;
-    check(!nes.recordMusic(&writer), "vgm: the NES's music is not recorded (yet)");
+    check(nes.loadRomData(nesScale(), &error), "vgm: the NES's scale loads");
+    nes.setSampleRate(44100);
+    VgmWriter nesWriter;
+    check(nes.recordMusic(&nesWriter) && nesWriter.recording(), "vgm: the NES's music can be recorded");
+    for (int i = 0; i < 160; ++i) nes.runFrame();
+    nes.recordMusic(nullptr);
+    VgmFile nesFile;
+    check(nesFile.parse(nesWriter.finish({"Escala", "Prueba", ""}), &error) && nesFile.nesClock == 1789773 && !nesFile.gbClock,
+          "vgm: the NES's reads back, for its chip");
+    VgmPlayer nesPlayer;
+    nesPlayer.load(nesFile);
+    SynthMusic nesSynth;
+    std::vector<std::string> nesLog;
+    nesSynth.setLog(&nesLog);
+    nesPlayer.setSynth(&nesSynth, 0);
+    std::vector<int16_t> nesOut;
+    for (int i = 0; i < 160; ++i) nesPlayer.play(1.0 / 60.0, 44100, nesOut);
+    bool nesScaleHeard = true;
+    for (int n : {72, 74, 76, 77, 79, 81, 83, 84}) nesScaleHeard = nesScaleHeard && logHas(nesLog, "0 on " + std::to_string(n));
+    check(nesScaleHeard && logHas(nesLog, "2 on 48"), "vgm: the NES's scale played back, pulse and triangle");
 }
 
 void testSynth() {

@@ -902,8 +902,8 @@ msgstr "O SoundFont do sintetizador"
 msgid "El VGM está cortado."
 msgstr "O VGM está cortado."
 
-msgid "El VGM no es de una Game Boy: no tiene su chip de sonido."
-msgstr "O VGM não é de um Game Boy: não tem o chip de som dele."
+msgid "El VGM no es de una Game Boy ni de una NES: no tiene su chip de sonido."
+msgstr "O VGM não é de um Game Boy nem de um NES: não tem o seu chip de som."
 
 msgid "El anfitrión está jugando a otro juego: abrid los dos el mismo (la misma ROM)."
 msgstr "O anfitrião está jogando outro jogo: abram os dois o mesmo (a mesma ROM)."
@@ -2004,8 +2004,8 @@ msgstr "Prato de condução 2"
 msgid "Platillo splash"
 msgstr "Prato splash"
 
-msgid "Por ahora, solo en los juegos de Game Boy y Game Boy Color."
-msgstr "Por enquanto, só nos jogos de Game Boy e Game Boy Color."
+msgid "Por ahora, solo en los juegos de Game Boy, Game Boy Color y NES."
+msgstr "Por enquanto, só nos jogos de Game Boy, Game Boy Color e NES."
 
 msgid "Por año"
 msgstr "Por ano"

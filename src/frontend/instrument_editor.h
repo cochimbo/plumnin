@@ -7,7 +7,7 @@
 #include <thread>
 #include <vector>
 
-#include "../core/gb/gb_songs.h"
+#include "../core/songs.h"
 #include "../core/synth_music.h"
 #include "../core/vgm.h"
 
@@ -26,7 +26,7 @@ class Console;
 // to hear them without playing (the game waits meanwhile), through the synthesizer
 // when it is on, so that its instruments can be changed while they play. They come
 // from recording the game as it plays, or, on the Game Boy, from Sacar canciones,
-// which finds every song in the ROM by itself (GbSongRipper).
+// which finds every song in the ROM by itself (SongRipper).
 class InstrumentEditor {
 public:
     InstrumentEditor() = default;
@@ -87,10 +87,10 @@ private:
     Console* recording_ = nullptr;
     // Sacar canciones, on a thread of its own.
     std::thread ripThread_;
-    std::unique_ptr<GbSongRipper::Progress> ripProgress_;
+    std::unique_ptr<SongRipper::Progress> ripProgress_;
     std::atomic<bool> ripDone_{false};
     bool ripOk_ = false;
-    std::vector<GbSongRipper::Song> ripSongs_;
+    std::vector<SongRipper::Song> ripSongs_;
     std::string ripError_, ripGame_, message_;
 };
 

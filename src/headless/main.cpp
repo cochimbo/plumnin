@@ -25,7 +25,7 @@
 
 #include "cheats.h"
 #include "console.h"
-#include "gb/gb_songs.h"
+#include "songs.h"
 #include "miniz.h"
 #include "net/udp.h"
 #include "netplay.h"
@@ -87,7 +87,7 @@ Output
   --rip-songs DIR       Sacar canciones: every song of the game (Game Boy and Color),
                         each to DIR as a .vgz with its loop, then exit
   --vgm FILE            the run's music as a VGM (gzip-compressed, .vgz), as the
-                        instrument editor records it (Game Boy and Color only)
+                        instrument editor records it (Game Boy, Color and NES)
   --gif FILE            the run as an animated GIF, as plumnin's Grabar GIF makes it
   --avi FILE            the run as a video with its sound (Motion JPEG and PCM)
                         (both at the console's own size, and not with netplay)
@@ -555,11 +555,11 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "cannot load %s: %s\n", game.c_str(), error.c_str());
             return 1;
         }
-        GbSongRipper::Options options;
-        GbSongRipper::Progress progress;
-        std::vector<GbSongRipper::Song> songs;
+        SongRipper::Options options;
+        SongRipper::Progress progress;
+        std::vector<SongRipper::Song> songs;
         const auto t0 = std::chrono::steady_clock::now();
-        const bool ok = GbSongRipper::run(rom, options, &progress, &songs, &error, &report);
+        const bool ok = SongRipper::run(rom, options, &progress, &songs, &error, &report);
         const double took = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         std::fputs(report.c_str(), stdout);
         if (!ok) {
@@ -567,7 +567,7 @@ int main(int argc, char** argv) {
             return 1;
         }
         std::filesystem::create_directories(ripDir);
-        for (const GbSongRipper::Song& s : songs) {
+        for (const SongRipper::Song& s : songs) {
             char file[64];
             std::snprintf(file, sizeof file, "/song %03d.vgz", s.number);
             if (!writeFile(ripDir + file, s.vgz.data(), s.vgz.size())) return 1;

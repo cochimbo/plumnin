@@ -306,6 +306,7 @@ uint8_t Apu::readStatus(uint64_t) {
 }
 
 void Apu::write(uint16_t address, uint8_t v, uint64_t cycle) {
+    if (address >= 0x4000 && address < 0x4018) regs_[address - 0x4000] = v;
     switch (address) {
         case 0x4000:
         case 0x4004: {

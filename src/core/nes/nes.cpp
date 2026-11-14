@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "../i18n.h"
+#include "../vgm.h"
 
 namespace plumnin {
 
@@ -186,6 +187,7 @@ void Nes::busWrite(uint16_t a, uint8_t v) {
             if (strobe_) latchPads();
         } else if (a < 0x4018) {
             apu_.write(a, v, static_cast<uint64_t>(cycle_));
+            if (recorder_) recorder_->nesWrite(a - 0x4000, v, static_cast<uint64_t>(cycle_));
         }
     } else {
         cart_->cpuWrite(a, v);
@@ -365,6 +367,29 @@ void Nes::runFrame() {
     if (synth_) synth_->endFrame(static_cast<uint64_t>(cycle_), audio_.output(), before, outputRate_);
     ++frames_;
     frame_->frameNumber = frames_;
+}
+
+void Nes::idleSound(uint64_t cycles, bool chip) {
+    for (uint64_t i = 0; i < cycles; ++i) {
+        ++cycle_;
+        master_ += startClocks_ + endClocks_;
+        if (!chip) continue;
+        apu_.clock(static_cast<uint64_t>(cycle_));
+        // The delta modulation channel's bytes, fetched without the processor's halt.
+        if (apu_.takeDmcRequest()) apu_.dmcFill(peek(apu_.dmcAddress()));
+        apu_.takeDmcAbort();
+    }
+    // The picture is not drawn meanwhile: it carries on from here.
+    ppuClock_ = master_;
+}
+
+void Nes::beginMusicRecording(VgmWriter& recorder) {
+    uint8_t regs[0x18];
+    apu_.registers(regs);
+    std::vector<uint8_t> memory(0x4000, 0);
+    if (cart_)
+        for (size_t i = 0; i < memory.size(); ++i) memory[i] = peek(static_cast<uint16_t>(0xC000 + i));
+    recorder.nesBegin(regs, memory.data(), static_cast<uint64_t>(cycle_), cpuHz());
 }
 
 void Nes::pollMusic() {

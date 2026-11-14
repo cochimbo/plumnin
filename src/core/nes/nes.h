@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../console.h"
+#include "../cpu_tracer.h"
 #include "nes_apu.h"
 #include "nes_cart.h"
 #include "nes_ppu.h"
@@ -37,6 +38,8 @@ public:
         apu_.setSampleRate(hz);
     }
     bool synthSupported() const override { return true; }
+    bool musicRecordable() const override { return true; }
+    void beginMusicRecording(VgmWriter& recorder) override;
     void setUnlimitedSprites(bool on) override { ppu_.setUnlimitedSprites(on); }
 
     bool hasSaveData() const override { return cart_ && cart_->hasBattery(); }
@@ -66,6 +69,32 @@ public:
 
     static CheatDecoder decoder();
     static const char* cheatFormats();
+
+    // For Sacar canciones (songs.cpp): the processor watched, and pieces of the game's
+    // code run on their own.
+    void setTracer(CpuTracer* tracer) { tracer_ = tracer; }
+    struct Cpu {
+        uint8_t a = 0, x = 0, y = 0, p = 0, sp = 0;
+        uint16_t pc = 0;
+    };
+    Cpu cpu() const { return {a_, x_, y_, p_, sp_, pc_}; }
+    void setCpu(const Cpu& c) { a_ = c.a, x_ = c.x, y_ = c.y, p_ = c.p, sp_ = c.sp, pc_ = c.pc, jammed_ = false; }
+    // The PRG banks mapped now, as the mapper left them.
+    nes::Mapper::Banks banks() const { return cart_ ? cart_->banks() : nes::Mapper::Banks{}; }
+    void setBanks(const nes::Mapper::Banks& b) {
+        if (cart_) cart_->setBanks(b);
+    }
+    // One instruction, or an interrupt served (none while they are held off).
+    void stepInstruction() { step(); }
+    void holdInterrupts(bool on) { holdInterrupts_ = on; }
+    void poke(uint16_t address, uint8_t value) { busWrite(address, value); }
+    // The processor's clock: what music is recorded against.
+    uint64_t soundClock() const { return static_cast<uint64_t>(cycle_); }
+    // `cycles` with nothing else running: only the sound (or not even it, for listening to
+    // what is written to it).
+    void idleSound(uint64_t cycles, bool chip);
+    // The channels whose length counters still run (4015's low bits).
+    uint8_t channelsOn() const { return apu_.peekStatus() & 0x0F; }
 
 protected:
     void saveBlocks(StateBlocks& blocks) override;
@@ -99,12 +128,14 @@ private:
         startCycle(true);
         const uint8_t v = busRead(address);
         endCycle(true);
+        if (tracer_) tracer_->access(address, v, false);
         return v;
     }
     void write(uint16_t address, uint8_t value) {
         startCycle(false);
         busWrite(address, value);
         endCycle(false);
+        if (tracer_) tracer_->access(address, value, true);
     }
     void dummyRead(uint16_t address) { read(address); }
     uint8_t busRead(uint16_t address);
@@ -155,6 +186,8 @@ private:
     uint8_t ror(uint8_t v);
     void storeHigh(uint8_t index, uint8_t value);
 
+    CpuTracer* tracer_ = nullptr;
+    bool holdInterrupts_ = false;
     std::unique_ptr<VideoFrame> frame_;
     std::unique_ptr<nes::Mapper> cart_;
     nes::Ppu ppu_;
