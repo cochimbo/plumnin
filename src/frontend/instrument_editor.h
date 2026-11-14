@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>
@@ -35,10 +36,17 @@ public:
     InstrumentEditor& operator=(const InstrumentEditor&) = delete;
 
     // The sound folder, ending in a separator.
-    void setFolder(std::string folder) { folder_ = std::move(folder); }
+    void setFolder(std::string folder) {
+        folder_ = std::move(folder);
+        ++musicVersion_;
+    }
     // What a game (its path) has chosen, from its file; none if it has none.
     static SynthMusic::Assignments load(const std::string& folder, const std::string& game);
     static std::string fileFor(const std::string& folder, const std::string& game);
+
+    // The games with songs in their track folder (sound/tracks/<game>/), by file name
+    // without extension, and how many: the library marks them with a note.
+    const std::map<std::string, int>& gamesWithMusic();
 
     bool isOpen() const { return open_; }
     void open() { open_ = true; }
@@ -57,6 +65,7 @@ private:
     void drawInstruments(SynthMusic& synth, bool on);
     void drawSongs(SynthMusic& synth, bool on, Console* console, int chipPercent);
     void scanSongs();
+    static int songsIn(const std::string& folder);  // .vgm and .vgz
     void startSong(size_t index, SynthMusic& synth, bool on, int chipPercent);
     void stopSong();
     void stopRecording(Console* console, bool keep);
@@ -78,6 +87,8 @@ private:
     };
     std::vector<Track> songs_;
     bool scanned_ = false;
+    int musicVersion_ = 1, musicSeen_ = 0;  // a game's songs looked at again: read them all again
+    std::map<std::string, int> withMusic_;
     VgmPlayer player_;
     bool playing_ = false;
     size_t current_ = 0;
