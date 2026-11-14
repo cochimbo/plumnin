@@ -51,7 +51,7 @@ struct Routine {
     uint64_t quickCalls = 0;  // within 1/200 s of the one before
     bool underDriver = false, aboveDriver = false;
     RamSet wrote;  // outside the driver
-    std::set<uint8_t> arguments;  // A, C and E as it was called
+    std::array<std::set<uint8_t>, 3> arguments;  // A, C and E as it was called
 };
 
 // Watches the game run: which routines write the chip, and, once the driver is known,
@@ -88,11 +88,11 @@ public:
         else if (gb_.soundClock() - r.lastClock < static_cast<uint64_t>(kClock / 200)) ++r.quickCalls;
         r.lastClock = gb_.soundClock();
         ++r.calls;
-        if (trackMemory && r.arguments.size() < 12) {
+        if (trackMemory) {
             const GameBoy::Cpu c = gb_.cpu();
-            r.arguments.insert(c.a);
-            r.arguments.insert(c.c);
-            r.arguments.insert(c.e);
+            int i = 0;
+            for (uint8_t v : {c.a, c.c, c.e})
+                if (r.arguments[static_cast<size_t>(i++)].size() < 12) r.arguments[static_cast<size_t>(i - 1)].insert(v);
         }
         if (driver) {
             if (inDriver()) r.underDriver = true;
@@ -132,7 +132,7 @@ public:
             (write ? driverWrote : driverRead).set(k);
             // A request taken: what the game wrote, cleared (or marked) by the driver.
             // (At once, on the driver's next call: a counter run down later is no request.)
-            if (write && pending_[k] && driverCalls_ - pendingCall_[k] <= 1 && (v == 0 || v == (pending_[k] ^ 0x80))) {
+            if (write && pending_[k] && driverCalls_ - pendingCall_[k] <= 1 && (v == 0 || v == 0xFF || v == (pending_[k] ^ 0x80))) {
                 ++consumed[k];
                 if (requests[k].size() < 8) requests[k].insert(pending_[k]);
                 pending_[k] = 0;
@@ -183,9 +183,12 @@ public:
     uint8_t channels = 0;
     uint32_t signature = 2166136261u;
     uint32_t lateSignature = 2166136261u;  // of the notes after `late` was set
+    uint32_t opening = 2166136261u;        // of the first 24, wherever they fall
     bool late = false;
     uint64_t writes = 0;
     uint64_t writeHash = 1469598103934665603ull;  // of every write since it was last reset
+    std::vector<uint32_t> started;  // the notes started (channel and pitch) since it was last cleared
+    std::map<uint32_t, int> lateNotes;  // how many of each after `late` was set
 
     void instruction(uint16_t, uint16_t) override {}
     void call(uint16_t, uint16_t, bool) override {}
@@ -200,9 +203,12 @@ public:
             ++triggers;
             channels = static_cast<uint8_t>(channels | 1 << ch);
             const uint32_t pitch = ch == 3 ? regs_[0x12] : static_cast<uint32_t>(regs_[r - 1] | (v & 7) << 8);
+            if (started.size() < 64) started.push_back(static_cast<uint32_t>(ch) << 16 | pitch);
+            if (late) ++lateNotes[static_cast<uint32_t>(ch) << 16 | pitch];
             for (uint32_t x : {static_cast<uint32_t>(ch), pitch & 0xFF, pitch >> 8}) {
                 signature = (signature ^ x) * 16777619u;
                 if (late) lateSignature = (lateSignature ^ x) * 16777619u;
+                if (triggers <= 24) opening = (opening ^ x) * 16777619u;
             }
         }
     }
@@ -271,9 +277,10 @@ struct Way {
     std::vector<uint8_t> state;  // the console just as the routine is called, or the driver is
     std::set<uint8_t> asked;     // the numbers the game itself asked for this way
     bool whilePlaying = false;   // a byte, with the driver playing what the game asked last
+    int reg = 0;                 // a routine: which it is asked in, A, C or E
     std::string describe() const {
         char s[64];
-        if (routine) std::snprintf(s, sizeof s, "rutina %s", hexId(id).c_str());
+        if (routine) std::snprintf(s, sizeof s, "rutina %s (%c)", hexId(id).c_str(), "ACE"[reg]);
         else std::snprintf(s, sizeof s, "byte %04X%s", ramAddress(static_cast<int>(id)), whilePlaying ? "*" : "");
         return s;
     }
@@ -287,7 +294,21 @@ struct Heard {
     // Not many more notes than the game's own music has either, which is the driver
     // reading what is not a song.
     bool song(int most) const { return ok && channels >= 2 && triggers >= 8 && late > 0 && triggers <= most; }
-    uint32_t signature = 0, lateSignature = 0;
+    uint32_t signature = 0, lateSignature = 0, opening = 0;
+    std::map<uint32_t, int> lateNotes;
+    // Much the same notes late on as `other`, at much the same times or not: the same
+    // song going on, with an effect over its start.
+    bool goesOnAs(const Heard& other) const {
+        int differ = 0, total = 0;
+        for (const auto& [key, n] : lateNotes) {
+            auto it = other.lateNotes.find(key);
+            differ += std::abs(n - (it == other.lateNotes.end() ? 0 : it->second));
+            total += n;
+        }
+        for (const auto& [key, n] : other.lateNotes)
+            if (!lateNotes.count(key)) differ += n;
+        return total > 0 && 4 * differ <= total;
+    }
 };
 
 class Ripper {
@@ -341,7 +362,15 @@ private:
         GameBoy::Cpu c = gb.cpu();
         const uint16_t back = static_cast<uint16_t>(gb.peek(c.sp) | gb.peek(static_cast<uint16_t>(c.sp + 1)) << 8);
         const uint16_t sp = static_cast<uint16_t>(c.sp + 2);
-        c.a = c.c = c.e = static_cast<uint8_t>(number);
+        if (number < 0) {  // not called at all: as if it came back at once
+            c.pc = back;
+            c.sp = sp;
+            gb.setCpu(c);
+            gb.setInterruptEnable(0);
+            return true;
+        }
+        // The rest as the game had them: some give the bank of the song in another.
+        (way.reg == 0 ? c.a : way.reg == 1 ? c.c : c.e) = static_cast<uint8_t>(number);
         gb.setCpu(c);
         // The routine runs as in the game, interrupts and all, until it returns.
         for (int n = 0; n < 2000000; ++n) {
@@ -377,11 +406,24 @@ private:
         h.channels = l.channelCount();
         h.signature = l.signature;
         h.lateSignature = l.lateSignature;
+        h.opening = l.opening;
+        h.lateNotes = std::move(l.lateNotes);
         return h;
     }
 
     // `label` numbers it among the songs found, for its title.
-    bool record(GameBoy& gb, const Way& way, int number, int label, GbSongRipper::Song* song);
+    // A song recorded, to be written out once it is known which are kept.
+    struct Take {
+        std::unique_ptr<VgmWriter> vgm;
+        VgmWriter::Mark end, loop;
+        bool looped = false;
+        bool unfinished = false;  // neither looped nor ended, as long as it was recorded
+        bool inStep = true;       // unfinished, but with channels going round together
+        int number = 0;
+        const Way* way = nullptr;
+        std::vector<uint32_t> played;  // the notes it plays, in order, and those of its loop once more
+    };
+    bool record(GameBoy& gb, const Way& way, int number, Take* take);
 
     std::vector<uint8_t> rom_;
     GbSongRipper::Options options_;
@@ -413,10 +455,56 @@ bool repeats(const std::vector<uint64_t>& h, int shortest, int* from, int* perio
     return false;
 }
 
-bool Ripper::record(GameBoy& gb, const Way& way, int number, int label, GbSongRipper::Song* song) {
+// A note: when it started, in ticks, and which (channel and pitch).
+struct Note {
+    int tick;
+    uint32_t key;
+};
+
+// Whether the notes repeat, give or take a tick: drivers that keep fractions of a tick
+// for their tempo never come back to quite the same state, nor write quite the same in
+// each tick, but play the same notes. The last `period` ticks the same as the ones
+// before, for at least `least` ticks back: `from` is where that starts.
+bool repeatsLoosely(const std::vector<Note>& notes, int ticks, int shortest, int least, int* from, int* period) {
+    const auto at = [&](int tick) {
+        return std::lower_bound(notes.begin(), notes.end(), tick, [](const Note& a, int t) { return a.tick < t; });
+    };
+    // Is a note like `n` heard `d` ticks from it, give or take one?
+    const auto heard = [&](const Note& n, int d) {
+        for (auto it = at(n.tick + d - 1); it != notes.end() && it->tick <= n.tick + d + 1; ++it)
+            if (it->key == n.key) return true;
+        return false;
+    };
+    for (int p = shortest; 2 * p <= ticks; ++p) {
+        const int span = std::max(p, least);
+        if (span + p > ticks) break;
+        // Every note of the last `span` ticks heard `p` before, and every one of those
+        // heard `p` after: the same notes, not just some of them (all but one in fifty,
+        // for a drum a tick or two off).
+        const auto last = at(ticks - span), before = at(ticks - span - p);
+        const long count = notes.end() - last;
+        if (count < 16) continue;
+        long wrong = 0;
+        const long allowed = count / 50;
+        for (auto it = last; it != notes.end() && wrong <= allowed; ++it) wrong += !heard(*it, -p);
+        for (auto it = before; it != notes.end() && it->tick < ticks - p - 1 && wrong <= allowed; ++it) wrong += !heard(*it, p);
+        if (wrong > allowed) continue;
+        // Where it starts: as far back as the notes are heard again a period later.
+        auto first = at(ticks - span - p);
+        int start = ticks - span - p;
+        while (first != notes.begin() && (first - 1)->tick + p < ticks && heard(*(first - 1), p)) start = (--first)->tick;
+        *from = start;
+        *period = p;
+        return true;
+    }
+    return false;
+}
+
+bool Ripper::record(GameBoy& gb, const Way& way, int number, Take* take) {
     std::string error;
     if (!gb.loadState(way.state, &error)) return false;
-    VgmWriter vgm;
+    take->vgm = std::make_unique<VgmWriter>();
+    VgmWriter& vgm = *take->vgm;
     gb.recordMusic(&vgm);
     // The state is loaded again by ask(): the recording starts with the chip as it is.
     if (!ask(gb, way, number)) {
@@ -434,6 +522,7 @@ bool Ripper::record(GameBoy& gb, const Way& way, int number, int label, GbSongRi
     uint64_t triggers = 0;
     std::vector<int> notes;  // notes started before each tick
     std::vector<uint64_t> perTick;  // what was written in each
+    std::vector<Note> started;
     for (int t = 0; t < maxTicks; ++t) {
         marks.push_back(vgm.mark(gb.soundClock()));
         notes.push_back(l.triggers);
@@ -447,11 +536,14 @@ bool Ripper::record(GameBoy& gb, const Way& way, int number, int label, GbSongRi
         l.writeHash = 1469598103934665603ull;
         if (!driver_.tick(gb, next, true)) break;
         perTick.push_back(l.writeHash);
+        for (uint32_t key : l.started) started.push_back({t, key});
+        l.started.clear();
         // A driver that counts something forever never comes back to the same state: then
         // the loop is where what it writes repeats, every ten seconds from the thirtieth.
         if (t >= static_cast<int>(30 * driver_.rate) && t % static_cast<int>(10 * driver_.rate) == 0) {
             int from = -1, period = 0;
-            if (repeats(perTick, minLoop, &from, &period)) {
+            if (repeats(perTick, minLoop, &from, &period) ||
+                repeatsLoosely(started, t + 1, minLoop, static_cast<int>(12 * driver_.rate), &from, &period)) {
                 loopFrom = from;
                 end = from + period;
                 break;
@@ -474,14 +566,36 @@ bool Ripper::record(GameBoy& gb, const Way& way, int number, int label, GbSongRi
         end = std::min(end, lastSound + static_cast<int>(1.5 * driver_.rate));
         loopFrom = -1;
     }
+    take->unfinished = end < 0 && !cancelled();
+    if (take->unfinished) {
+        // Some of its channels going round in the same time, even if not all: a song,
+        // with a part that never quite comes back the same. None: the driver playing what
+        // is not a song, each channel on its own.
+        std::vector<int> periods;
+        for (uint32_t channel = 0; channel < 4; ++channel) {
+            std::vector<Note> own;
+            for (const Note& n : started)
+                if (n.key >> 16 == channel) own.push_back(n);
+            int from = 0, period = 0;
+            if (own.size() >= 20 &&
+                repeatsLoosely(own, static_cast<int>(marks.size()), minLoop, static_cast<int>(12 * driver_.rate), &from, &period))
+                periods.push_back(period);
+        }
+        take->inStep = false;
+        for (size_t i = 0; i < periods.size(); ++i)
+            for (size_t j = i + 1; j < periods.size(); ++j) take->inStep = take->inStep || std::abs(periods[i] - periods[j]) <= 2;
+    }
     if (end < 0) end = static_cast<int>(marks.size()) - 1;
     if (end <= 0) return false;
-    VgmWriter::Tag tag{trf("Canción %02d", label), title_, trf("Número %d del juego", number)};
-    const VgmWriter::Mark* loop = loopFrom >= 0 ? &marks[static_cast<size_t>(loopFrom)] : nullptr;
-    song->number = number;
-    song->vgz = vgm.finish(tag, &marks[static_cast<size_t>(end)], loop);
-    song->seconds = static_cast<double>(marks[static_cast<size_t>(end)].samples) / 44100.0;
-    song->loopSeconds = loop ? static_cast<double>(marks[static_cast<size_t>(end)].samples - loop->samples) / 44100.0 : 0;
+    for (const Note& n : started)
+        if (n.tick < end) take->played.push_back(n.key);
+    if (loopFrom >= 0)
+        for (const Note& n : started)
+            if (n.tick >= loopFrom && n.tick < end) take->played.push_back(n.key);
+    take->number = number;
+    take->end = marks[static_cast<size_t>(end)];
+    take->looped = loopFrom >= 0;
+    if (take->looped) take->loop = marks[static_cast<size_t>(loopFrom)];
     return true;
 }
 
@@ -575,13 +689,21 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
                 std::fprintf(stderr, "  writer %s: %zu bytes, %llu calls, under %d above %d\n", hexId(id).c_str(), n,
                              static_cast<unsigned long long>(r.calls), r.underDriver, r.aboveDriver);
         }
+        for (int i = 0; i < kRam; ++i) {
+            const size_t k = static_cast<size_t>(i);
+            if (second.driverRead[k] && second.outsideWrites[k] && std::getenv("PLUMNIN_RIP_DEBUG")[0] == '2') {
+                std::string vals;
+                for (uint8_t v : second.written[k]) vals += " " + std::to_string(v);
+                std::fprintf(stderr, "  input %04X: written %u:%s, driver writes %d\n", ramAddress(i), second.outsideWrites[k], vals.c_str(), (int)second.driverWrote[k]);
+            }
+        }
         for (int i = 0; i < kRam; ++i)
             if (second.consumed[static_cast<size_t>(i)])
                 std::fprintf(stderr, "  consumed %04X: %u, written %u, read %d\n", ramAddress(i), second.consumed[static_cast<size_t>(i)],
                              second.outsideWrites[static_cast<size_t>(i)], static_cast<int>(second.driverRead[static_cast<size_t>(i)]));
     }
     std::sort(starters.begin(), starters.end());
-    if (starters.size() > 8) starters.resize(8);
+    if (starters.size() > 24) starters.resize(24);
     // The bytes the game writes and the driver reads and then clears: requests.
     std::vector<std::pair<uint32_t, int>> bytes;
     for (int i = 0; i < kRam; ++i) {
@@ -596,14 +718,28 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         for (int i = 0; i < kRam; ++i) {
             const size_t k = static_cast<size_t>(i);
             const uint32_t n = second.outsideWrites[k];
-            if (second.driverRead[k] && n >= 1 && n <= 400) bytes.push_back({n, i});
+            // Only ever cleared is no request; those written with more numbers first.
+            size_t numbers = 0;
+            for (uint8_t v : second.written[k]) numbers += v != 0 && v != 0xFF;
+            if (second.driverRead[k] && numbers && n <= 400) bytes.push_back({static_cast<uint32_t>(8 - std::min<size_t>(numbers, 8)) << 16 | n, i});
         }
     std::sort(bytes.begin(), bytes.end());
     if (bytes.size() > 16) bytes.resize(16);
 
     // 3. Once more, keeping the console as it is when each of those is called.
     std::vector<Way> ways;
-    for (const auto& s : starters) ways.push_back({true, s.second, {}, second.routines[s.second].arguments});
+    for (const auto& s : starters) {
+        const auto& arguments = second.routines[s.second].arguments;
+        for (int reg = 0; reg < 3; ++reg) {
+            // (The same numbers in another: most likely the same, copied.)
+            bool copy = false;
+            for (int other = 0; other < reg; ++other) copy = copy || arguments[static_cast<size_t>(other)] == arguments[static_cast<size_t>(reg)];
+            if (copy) continue;
+            Way w{true, s.second, {}, arguments[static_cast<size_t>(reg)]};
+            w.reg = reg;
+            ways.push_back(w);
+        }
+    }
     const size_t routines = ways.size();
     for (const auto& b : bytes)
         ways.push_back({false, static_cast<uint32_t>(b.second), {},
@@ -659,18 +795,18 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         int number;
     };
     std::vector<Found> found;
-    std::set<uint32_t> signatures;
+    std::set<uint32_t> signatures, openings;
     auto probeOwn = std::make_unique<GameBoy>();
     GameBoy& probe = *probeOwn;
     boot(probe, nullptr);
     std::map<const Way*, Heard> baseline;
-    for (const Way& w : ways)
-        if (!w.routine) {
-            // What the driver plays with the byte left as it was: not a new song, nor
-            // is what ends up the same after a moment (an effect over it).
-            const Heard h = listen(probe, w, -1);
-            baseline[&w] = h;
-        }
+    const auto sameAsBefore = [&](const Way& w, const Heard& h) {
+        const Heard& b = baseline[&w];
+        return h.lateSignature == b.lateSignature || h.goesOnAs(b);
+    };
+    // What the driver plays with the byte left as it was, or the routine not called: not a
+    // new song, nor is what ends up the same after a moment (an effect over it).
+    for (const Way& w : ways) baseline[&w] = listen(probe, w, -1);
     // A way's songs are numbered from a table: past its end, what the driver plays is
     // whatever follows it. So a way is given up after a few numbers in a row that play
     // next to nothing, once it has given songs.
@@ -683,7 +819,7 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         for (uint8_t n : w.asked) {
             if (n == 0) continue;  // asking for nothing, or a byte merely cleared
             const Heard h = listen(probe, w, n);
-            ok = ok || (h.song(mostNotes_) && (w.routine || h.lateSignature != baseline[&w].lateSignature));
+            ok = ok || (h.song(mostNotes_) && !sameAsBefore(w, h));
         }
         if (std::getenv("PLUMNIN_RIP_DEBUG")) {
             std::string asked;
@@ -712,8 +848,9 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
                 std::fprintf(stderr, "  %d via %s: ok %d, %d notes on %d channels\n", number, w.describe().c_str(), h.ok,
                              h.triggers, h.channels);
             if (!h.song(mostNotes_)) continue;
-            if (!w.routine && h.lateSignature == baseline[&w].lateSignature) continue;
-            if (!signatures.insert(h.signature).second) continue;
+            if (sameAsBefore(w, h)) continue;
+            // The same song again, or started a moment sooner or later.
+            if (!signatures.insert(h.signature).second || !openings.insert(h.opening).second) continue;
             found.push_back({&w, number});
             ++songsHere;
             if (std::getenv("PLUMNIN_RIP_DEBUG"))
@@ -728,22 +865,64 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         if (error) *error = tr("Se ha encontrado el controlador de sonido, pero no cómo pide el juego las canciones.");
         return false;
     }
-    std::map<const Way*, int> byWay;
-    for (const Found& f : found) ++byWay[f.way];
-    for (const auto& [w, n] : byWay) log += w->describe() + ": " + std::to_string(n) + " canciones\n";
 
     // 5. Each one recorded until it loops.
     if (progress_) progress_->steps = progress_->step + static_cast<int>(found.size());
+    // A song heard before, taken up somewhere along it (a way that starts no song of its
+    // own, just lets the one playing go on): some notes from its middle, played in that
+    // order in one recorded already.
+    std::vector<std::vector<uint32_t>> heard;
+    const auto again = [&](const std::vector<uint32_t>& notes) {
+        const size_t length = 48, from = notes.size() / 3;
+        if (notes.size() < from + length) return false;
+        // (On more than one channel: a beat of drums alone is in many.)
+        std::set<uint32_t> channels;
+        for (size_t i = from; i < from + length; ++i) channels.insert(notes[i] >> 16);
+        if (channels.size() < 2) return false;
+        for (size_t k = 0; k < heard.size(); ++k)
+            if (std::search(heard[k].begin(), heard[k].end(), notes.begin() + static_cast<long>(from),
+                            notes.begin() + static_cast<long>(from + length)) != heard[k].end()) {
+                if (std::getenv("PLUMNIN_RIP_DEBUG")) std::fprintf(stderr, "  as song %zu\n", k + 1);
+                return true;
+            }
+        return false;
+    };
+    std::map<const Way*, int> byWay;
+    std::vector<Take> takes;
     for (const Found& f : found) {
         if (cancelled()) return false;
-        GbSongRipper::Song song;
-        if (record(probe, *f.way, f.number, static_cast<int>(songs->size()) + 1, &song)) {
+        Take take;
+        if (record(probe, *f.way, f.number, &take)) {
+            const bool before = again(take.played);
             if (std::getenv("PLUMNIN_RIP_DEBUG"))
-                std::fprintf(stderr, "song %d: %.1f s, loop %.1f s\n", f.number, song.seconds, song.loopSeconds);
-            songs->push_back(std::move(song));
+                std::fprintf(stderr, "song %d: %s%.1f s, loop %d%s\n", f.number, before ? "heard before, " : "",
+                             static_cast<double>(take.end.samples) / 44100.0, take.looped, take.unfinished ? (take.inStep ? ", unfinished" : ", unfinished, out of step") : "");
+            if (!before) {
+                heard.push_back(take.played);
+                take.way = f.way;
+                take.played.clear();
+                takes.push_back(std::move(take));
+            }
         }
         step();
     }
+    // Songs never coming back to where they were, when the others do: the driver playing
+    // what is not a song (each channel going round on its own, out of step).
+    bool loops = false;
+    for (const Take& t : takes) loops = loops || t.looped;
+    for (Take& t : takes) {
+        if (loops && t.unfinished && !t.inStep) continue;
+        ++byWay[t.way];
+        GbSongRipper::Song song;
+        VgmWriter::Tag tag{trf("Canción %02d", static_cast<int>(songs->size()) + 1), title_, trf("Número %d del juego", t.number)};
+        song.number = t.number;
+        song.vgz = t.vgm->finish(tag, &t.end, t.looped ? &t.loop : nullptr);
+        song.seconds = static_cast<double>(t.end.samples) / 44100.0;
+        song.loopSeconds = t.looped ? static_cast<double>(t.end.samples - t.loop.samples) / 44100.0 : 0;
+        songs->push_back(std::move(song));
+        t.vgm.reset();
+    }
+    for (const auto& [w, n] : byWay) log += w->describe() + ": " + std::to_string(n) + " canciones\n";
     if (report) *report = log;
     return !songs->empty();
 }
