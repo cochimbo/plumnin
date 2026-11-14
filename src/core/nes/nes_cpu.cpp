@@ -98,6 +98,7 @@ void Nes::brk() {
     const uint16_t vector = nmi ? 0xFFFA : 0xFFFE;
     const uint8_t lo = read(vector);
     pc_ = static_cast<uint16_t>(lo | read(static_cast<uint16_t>(vector + 1)) << 8);
+    if (tracer_) tracer_->call(pc_, static_cast<uint16_t>(0x100 | sp_), true);
     // The handler's first instruction runs before any NMI.
     prevNeedNmi_ = false;
 }
@@ -114,6 +115,7 @@ void Nes::interrupt() {
     const uint16_t vector = nmi ? 0xFFFA : 0xFFFE;
     const uint8_t lo = read(vector);
     pc_ = static_cast<uint16_t>(lo | read(static_cast<uint16_t>(vector + 1)) << 8);
+    if (tracer_) tracer_->call(pc_, static_cast<uint16_t>(0x100 | sp_), true);
 }
 
 void Nes::adc(uint8_t v) {
@@ -170,9 +172,14 @@ void Nes::storeHigh(uint8_t index, uint8_t reg) {
 }
 
 void Nes::step() {
+    if (tracer_) tracer_->instruction(pc_, static_cast<uint16_t>(0x100 | sp_));
     execute(fetch());
     // Interrupts are seen as the lines were at the end of the instruction's
     // second-to-last cycle.
+    if (holdInterrupts_) {
+        needNmi_ = prevNeedNmi_ = false;
+        return;
+    }
     if (prevRunIrq_ || prevNeedNmi_) interrupt();
 }
 
@@ -227,6 +234,7 @@ void Nes::execute(uint8_t op) {
             push(static_cast<uint8_t>(pc_ >> 8));
             push(static_cast<uint8_t>(pc_));
             pc_ = static_cast<uint16_t>(lo | read(pc_) << 8);
+            if (tracer_) tracer_->call(pc_, static_cast<uint16_t>(0x100 | sp_), false);
             break;
         }
         case 0x21: case 0x25: case 0x29: case 0x2D: case 0x31: case 0x35: case 0x39: case 0x3D:

@@ -60,6 +60,16 @@ public:
     // The PRG ROM as banked now at 8000-FFFF (for the achievements' map and cheats).
     uint8_t prgByte(uint16_t address) const { return prg_[prgMap_[(address >> 13) & 3] + (address & 0x1FFF)]; }
 
+    // The PRG banks mapped now (not the mapper's registers that chose them).
+    struct Banks {
+        std::array<uint32_t, 4> prg{};
+        uint32_t ramOffset = 0;
+    };
+    Banks banks() const { return {prgMap_, ramOffset_}; }
+    void setBanks(const Banks& b) { prgMap_ = b.prg, ramOffset_ = b.ramOffset; }
+    // Which 8 KB bank of the PRG ROM is at `address` (8000-FFFF).
+    uint32_t prgBank(uint16_t address) const { return prgMap_[(address >> 13) & 3] / 0x2000; }
+
     void save(StateWriter& w) { io(w); saveExtra(w); }
     void load(StateReader& r) {
         io(r);

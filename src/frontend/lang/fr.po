@@ -902,8 +902,8 @@ msgstr "La SoundFont du synthétiseur"
 msgid "El VGM está cortado."
 msgstr "Le VGM est tronqué."
 
-msgid "El VGM no es de una Game Boy: no tiene su chip de sonido."
-msgstr "Ce VGM n'est pas celui d'une Game Boy : il n'a pas sa puce sonore."
+msgid "El VGM no es de una Game Boy ni de una NES: no tiene su chip de sonido."
+msgstr "Le VGM n'est ni d'une Game Boy ni d'une NES : il n'a pas sa puce sonore."
 
 msgid "El anfitrión está jugando a otro juego: abrid los dos el mismo (la misma ROM)."
 msgstr "L'hôte joue à un autre jeu : ouvrez tous les deux le même (la même ROM)."
@@ -2004,8 +2004,8 @@ msgstr "Cymbale ride 2"
 msgid "Platillo splash"
 msgstr "Cymbale splash"
 
-msgid "Por ahora, solo en los juegos de Game Boy y Game Boy Color."
-msgstr "Pour l'instant, seulement dans les jeux Game Boy et Game Boy Color."
+msgid "Por ahora, solo en los juegos de Game Boy, Game Boy Color y NES."
+msgstr "Pour l'instant, seulement dans les jeux Game Boy, Game Boy Color et NES."
 
 msgid "Por año"
 msgstr "Par année"

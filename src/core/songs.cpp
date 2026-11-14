@@ -1,50 +1,318 @@
-#include "gb_songs.h"
+#include "songs.h"
 
 #include <algorithm>
+#include <array>
 #include <bitset>
 #include <chrono>
 #include <cstdlib>
 #include <cstdio>
+#include <cstring>
 #include <functional>
 #include <map>
 #include <memory>
 #include <set>
 #include <unordered_map>
 
-#include "../i18n.h"
-#include "../vgm.h"
-#include "gb.h"
+#include "gb/gb.h"
+#include "i18n.h"
+#include "nes/nes.h"
+#include "vgm.h"
 
 namespace plumnin {
 
 namespace {
 
-constexpr double kClock = 4194304.0;
-// Where the driver returns to when it is called by itself: memory nothing runs from.
-constexpr uint16_t kTrap = 0xFEA0;
-
-// The memory a driver keeps its state in: work RAM, high RAM and the cartridge's RAM (some
-// keep it there), as 0..kRam-1.
+// The memory a driver may keep its state in, as 0..kRam-1 (each console maps its own).
 constexpr int kRam = 0x4080;
 using RamSet = std::bitset<kRam>;
-int ramIndex(uint16_t a) {
-    if (a >= 0xC000 && a < 0xE000) return a - 0xC000;
-    if (a >= 0xE000 && a < 0xFE00) return a - 0xE000;  // the same, seen again
-    if (a >= 0xFF80 && a < 0xFFFF) return 0x2000 + (a - 0xFF80);
-    if (a >= 0xA000 && a < 0xC000) return 0x2080 + (a - 0xA000);
-    return -1;
-}
-uint16_t ramAddress(int i) {
-    if (i < 0x2000) return static_cast<uint16_t>(0xC000 + i);
-    if (i < 0x2080) return static_cast<uint16_t>(0xFF80 + (i - 0x2000));
-    return static_cast<uint16_t>(0xA000 + (i - 0x2080));
-}
 
-// A routine of the game: its address with the ROM bank it was in (0xFFFF for RAM).
-uint32_t routineId(const GameBoy& gb, uint16_t a) {
-    const uint32_t bank = a < 0x4000 ? 0 : a < 0x8000 ? static_cast<uint32_t>(gb.romBank()) : 0xFFFF;
-    return bank << 16 | a;
-}
+// Tells the notes started from what is written to the sound chip.
+class NoteSpotter {
+public:
+    virtual ~NoteSpotter() = default;
+    // A write to the chip's register at `address`: true if it starts a note, on `channel`
+    // (0-3) at `pitch` (the chip's own number for it).
+    virtual bool write(uint16_t address, uint8_t value, int* channel, uint32_t* pitch) = 0;
+};
+
+// What Sacar canciones needs of a console: to run the game and watch it, and to run
+// pieces of its code by themselves.
+class Machine {
+public:
+    virtual ~Machine() = default;
+    virtual Console& console() = 0;
+    virtual double clockHz() const = 0;  // the sound clock's
+    virtual uint64_t soundClock() const = 0;
+    virtual void setTracer(CpuTracer* tracer) = 0;
+    // The memory: which of it is RAM a driver could keep its state in.
+    virtual int ramIndex(uint16_t address) const = 0;
+    virtual uint16_t ramAddress(int index) const = 0;
+    virtual bool onStack(uint16_t address, uint16_t sp) const = 0;
+    // A routine: its address with the bank it was in.
+    virtual uint32_t routineId(uint16_t address) const = 0;
+    virtual bool vector(uint16_t address) const = 0;  // where interrupts and restarts land
+    virtual uint8_t peek(uint16_t address) const = 0;
+    virtual void poke(uint16_t address, uint8_t value) = 0;
+    virtual bool chip(uint16_t address) const = 0;  // a register of the sound chip
+    virtual std::unique_ptr<NoteSpotter> notes() const = 0;
+    virtual bool channelsOn() const = 0;
+    // The three registers a routine may be given a number in.
+    virtual std::array<uint8_t, 3> arguments() const = 0;
+    virtual void setArgument(int reg, uint8_t value) = 0;
+    virtual char argumentName(int reg) const = 0;
+    // The banks mapped now, to run a routine with.
+    virtual std::vector<uint32_t> banks() const = 0;
+    // Calls `routine` with `banks`, nothing else of the game running: false if it does not
+    // come back.
+    virtual bool callAlone(uint16_t routine, const std::vector<uint32_t>& banks) = 0;
+    // Just as a routine was called: where it goes back to, and the stack then.
+    virtual void caller(uint16_t* back, uint16_t* sp) const = 0;
+    virtual uint16_t pc() const = 0;
+    virtual uint16_t sp() const = 0;
+    virtual void returnTo(uint16_t back, uint16_t sp) = 0;  // as if it had come back at once
+    virtual void step() = 0;           // an instruction, interrupts and all
+    virtual void interrupts(bool on) = 0;  // the game's own interrupts let in, or held off
+    virtual void idleSound(uint64_t clocks, bool chip) = 0;
+    virtual double frameRate() const { return const_cast<Machine*>(this)->console().refreshRate(); }
+};
+
+// The Game Boy and the Color.
+class GbMachine : public Machine {
+public:
+    GameBoy gb;
+    static constexpr uint16_t kTrap = 0xFEA0;  // where a routine called alone returns to: nothing runs there
+
+    Console& console() override { return gb; }
+    double clockHz() const override { return 4194304.0; }
+    uint64_t soundClock() const override { return gb.soundClock(); }
+    void setTracer(CpuTracer* tracer) override { gb.setTracer(tracer); }
+    // Work RAM (and its echo), high RAM, and the cartridge's RAM (some keep it there).
+    int ramIndex(uint16_t a) const override {
+        if (a >= 0xC000 && a < 0xE000) return a - 0xC000;
+        if (a >= 0xE000 && a < 0xFE00) return a - 0xE000;
+        if (a >= 0xFF80 && a < 0xFFFF) return 0x2000 + (a - 0xFF80);
+        if (a >= 0xA000 && a < 0xC000) return 0x2080 + (a - 0xA000);
+        return -1;
+    }
+    uint16_t ramAddress(int i) const override {
+        if (i < 0x2000) return static_cast<uint16_t>(0xC000 + i);
+        if (i < 0x2080) return static_cast<uint16_t>(0xFF80 + (i - 0x2000));
+        return static_cast<uint16_t>(0xA000 + (i - 0x2080));
+    }
+    bool onStack(uint16_t a, uint16_t sp) const override { return a + 3 >= sp && a <= sp + 1; }
+    uint32_t routineId(uint16_t a) const override {
+        const uint32_t bank = a < 0x4000 ? 0 : a < 0x8000 ? static_cast<uint32_t>(gb.romBank()) : 0xFFFF;
+        return bank << 16 | a;
+    }
+    bool vector(uint16_t a) const override { return a < 0x68; }
+    uint8_t peek(uint16_t a) const override { return gb.peek(a); }
+    void poke(uint16_t a, uint8_t v) override { gb.poke(a, v); }
+    bool chip(uint16_t a) const override { return a >= 0xFF10 && a < 0xFF40; }
+    std::unique_ptr<NoteSpotter> notes() const override {
+        // A note starts when a channel is triggered (bit 7 of NRx4).
+        struct Spotter : NoteSpotter {
+            uint8_t regs[0x30] = {};
+            bool write(uint16_t a, uint8_t v, int* channel, uint32_t* pitch) override {
+                const int r = a - 0xFF10;
+                regs[r] = v;
+                if (!((r == 0x04 || r == 0x09 || r == 0x0E || r == 0x13) && (v & 0x80))) return false;
+                *channel = r / 5;
+                *pitch = *channel == 3 ? regs[0x12] : static_cast<uint32_t>(regs[r - 1] | (v & 7) << 8);
+                return true;
+            }
+        };
+        return std::make_unique<Spotter>();
+    }
+    bool channelsOn() const override { return (gb.peek(0xFF26) & 0x0F) != 0; }
+    std::array<uint8_t, 3> arguments() const override {
+        const GameBoy::Cpu c = gb.cpu();
+        return {c.a, c.c, c.e};
+    }
+    void setArgument(int reg, uint8_t v) override {
+        GameBoy::Cpu c = gb.cpu();
+        (reg == 0 ? c.a : reg == 1 ? c.c : c.e) = v;
+        gb.setCpu(c);
+    }
+    char argumentName(int reg) const override { return "ACE"[reg]; }
+    std::vector<uint32_t> banks() const override {
+        const GameBoy::Banks b = gb.banks();
+        std::vector<uint32_t> out(sizeof b / sizeof(uint32_t) + 1);
+        std::memcpy(out.data(), &b, sizeof b);
+        return out;
+    }
+    bool callAlone(uint16_t routine, const std::vector<uint32_t>& banks) override {
+        GameBoy::Cpu c = gb.cpu();
+        const uint16_t sp = static_cast<uint16_t>(c.sp - 2);
+        gb.poke(sp, kTrap & 0xFF);
+        gb.poke(static_cast<uint16_t>(sp + 1), kTrap >> 8);
+        c.sp = sp;
+        c.pc = routine;
+        c.ime = false;
+        GameBoy::Banks b;
+        std::memcpy(&b, banks.data(), sizeof b);
+        gb.setBanks(b);
+        gb.setCpu(c);
+        // Nothing of the game's own runs meanwhile, even if the driver enables interrupts.
+        gb.setInterruptEnable(0);
+        gb.clearInterrupts();
+        for (int n = 0; n < 300000; ++n) {
+            const GameBoy::Cpu now = gb.cpu();
+            if (now.pc == kTrap && now.sp == static_cast<uint16_t>(sp + 2)) {
+                gb.setInterruptEnable(0);
+                return true;
+            }
+            gb.clearInterrupts();
+            gb.stepInstruction();
+        }
+        return false;
+    }
+    void caller(uint16_t* back, uint16_t* sp) const override {
+        const GameBoy::Cpu c = gb.cpu();
+        *back = static_cast<uint16_t>(gb.peek(c.sp) | gb.peek(static_cast<uint16_t>(c.sp + 1)) << 8);
+        *sp = static_cast<uint16_t>(c.sp + 2);
+    }
+    uint16_t pc() const override { return gb.cpu().pc; }
+    uint16_t sp() const override { return gb.cpu().sp; }
+    void returnTo(uint16_t back, uint16_t sp) override {
+        GameBoy::Cpu c = gb.cpu();
+        c.pc = back;
+        c.sp = sp;
+        gb.setCpu(c);
+    }
+    void step() override { gb.stepInstruction(); }
+    void interrupts(bool on) override {
+        if (!on) gb.setInterruptEnable(0);
+    }
+    void idleSound(uint64_t clocks, bool chip) override { gb.idleSound(clocks, chip); }
+};
+
+// The NES.
+class NesMachine : public Machine {
+public:
+    Nes nes;
+    static constexpr uint16_t kTrap = 0x4800;  // nothing runs there either
+
+    Console& console() override { return nes; }
+    double clockHz() const override { return nes.effectiveRegion() == Region::EuropePal ? 1662607.0 : 1789773.0; }
+    uint64_t soundClock() const override { return nes.soundClock(); }
+    void setTracer(CpuTracer* tracer) override { nes.setTracer(tracer); }
+    // The console's 2 KB of RAM (but the stack's page) and the cartridge's at 6000.
+    int ramIndex(uint16_t a) const override {
+        if (a < 0x2000) {
+            const int i = a & 0x7FF;
+            return i >= 0x100 && i < 0x200 ? -1 : i;
+        }
+        if (a >= 0x6000 && a < 0x8000) return 0x800 + (a - 0x6000);
+        return -1;
+    }
+    uint16_t ramAddress(int i) const override {
+        return static_cast<uint16_t>(i < 0x800 ? i : 0x6000 + (i - 0x800));
+    }
+    bool onStack(uint16_t, uint16_t) const override { return false; }  // (its page is left out)
+    uint32_t routineId(uint16_t a) const override {
+        const uint32_t bank = a >= 0x8000 ? nes.banks().prg[(a >> 13) & 3] / 0x2000 : a >= 0x6000 ? 0xFFFE : 0xFFFF;
+        return bank << 16 | a;
+    }
+    bool vector(uint16_t) const override { return false; }
+    uint8_t peek(uint16_t a) const override { return nes.peek(a); }
+    void poke(uint16_t a, uint8_t v) override { nes.poke(a, v); }
+    bool chip(uint16_t a) const override { return a >= 0x4000 && a < 0x4018 && a != 0x4014 && a != 0x4016; }
+    std::unique_ptr<NoteSpotter> notes() const override {
+        // A note starts when a channel's length is loaded (its last register written),
+        // when its pitch moves by more than a little (a semitone is 6%: vibrato and slides
+        // stay under), or when it comes back from silence.
+        struct Spotter : NoteSpotter {
+            uint8_t regs[0x18] = {};
+            uint32_t last[4] = {};
+            bool silent[4] = {true, true, true, true};
+            uint32_t period(int ch) const {
+                if (ch == 3) return regs[0x0E] & 0x0F;
+                return static_cast<uint32_t>(regs[ch * 4 + 2] | (regs[ch * 4 + 3] & 7) << 8);
+            }
+            bool quiet(int ch) const {
+                if (ch == 2) return (regs[0x08] & 0x7F) == 0;
+                const uint8_t v = regs[ch * 4];
+                return (v & 0x10) && (v & 0x0F) == 0;  // constant volume 0
+            }
+            bool write(uint16_t a, uint8_t v, int* channel, uint32_t* pitch) override {
+                const int r = a - 0x4000;
+                if (r >= 0x10) {
+                    regs[r] = v;
+                    return false;
+                }
+                regs[r] = v;
+                const int ch = r / 4;
+                const uint32_t p = period(ch);
+                bool start = (r & 3) == 3;
+                if (!start && !quiet(ch)) {
+                    if (silent[ch]) start = true;
+                    else if (ch == 3) start = (r == 0x0E && p != last[ch]);
+                    else start = (r & 3) == 2 && (p * 100 > last[ch] * 106 || p * 106 < last[ch] * 100);
+                }
+                silent[ch] = quiet(ch);
+                if (!start || silent[ch]) return false;
+                last[ch] = p;
+                *channel = ch;
+                *pitch = p;
+                return true;
+            }
+        };
+        return std::make_unique<Spotter>();
+    }
+    bool channelsOn() const override { return nes.channelsOn() != 0; }
+    std::array<uint8_t, 3> arguments() const override {
+        const Nes::Cpu c = nes.cpu();
+        return {c.a, c.x, c.y};
+    }
+    void setArgument(int reg, uint8_t v) override {
+        Nes::Cpu c = nes.cpu();
+        (reg == 0 ? c.a : reg == 1 ? c.x : c.y) = v;
+        nes.setCpu(c);
+    }
+    char argumentName(int reg) const override { return "AXY"[reg]; }
+    std::vector<uint32_t> banks() const override {
+        const nes::Mapper::Banks b = nes.banks();
+        return {b.prg[0], b.prg[1], b.prg[2], b.prg[3], b.ramOffset};
+    }
+    bool callAlone(uint16_t routine, const std::vector<uint32_t>& banks) override {
+        Nes::Cpu c = nes.cpu();
+        const uint8_t sp = c.sp;
+        // As JSR leaves it: the address before the one to go back to, high byte first.
+        const uint16_t back = kTrap - 1;
+        nes.poke(static_cast<uint16_t>(0x100 | sp), back >> 8);
+        nes.poke(static_cast<uint16_t>(0x100 | static_cast<uint8_t>(sp - 1)), back & 0xFF);
+        c.sp = static_cast<uint8_t>(sp - 2);
+        c.pc = routine;
+        c.p |= 0x04;
+        nes.setBanks({{banks[0], banks[1], banks[2], banks[3]}, banks[4]});
+        nes.setCpu(c);
+        nes.holdInterrupts(true);
+        for (int n = 0; n < 300000; ++n) {
+            const Nes::Cpu now = nes.cpu();
+            if (now.pc == kTrap && now.sp == sp) return true;
+            nes.stepInstruction();
+        }
+        return false;
+    }
+    void caller(uint16_t* back, uint16_t* sp) const override {
+        const Nes::Cpu c = nes.cpu();
+        const uint8_t lo = nes.peek(static_cast<uint16_t>(0x100 | static_cast<uint8_t>(c.sp + 1)));
+        const uint8_t hi = nes.peek(static_cast<uint16_t>(0x100 | static_cast<uint8_t>(c.sp + 2)));
+        *back = static_cast<uint16_t>((lo | hi << 8) + 1);
+        *sp = static_cast<uint16_t>(0x100 | static_cast<uint8_t>(c.sp + 2));
+    }
+    uint16_t pc() const override { return nes.cpu().pc; }
+    uint16_t sp() const override { return static_cast<uint16_t>(0x100 | nes.cpu().sp); }
+    void returnTo(uint16_t back, uint16_t sp) override {
+        Nes::Cpu c = nes.cpu();
+        c.pc = back;
+        c.sp = static_cast<uint8_t>(sp);
+        nes.setCpu(c);
+    }
+    void step() override { nes.stepInstruction(); }
+    void interrupts(bool on) override { nes.holdInterrupts(!on); }
+    void idleSound(uint64_t clocks, bool chip) override { nes.idleSound(clocks, chip); }
+};
 
 std::string hexId(uint32_t id) {
     char s[16];
@@ -65,9 +333,9 @@ struct Routine {
 
 // Watches the game run: which routines write the chip, and, once the driver is known,
 // what memory it reads and writes and what the rest of the game writes.
-class Watcher : public GameBoy::Tracer {
+class Watcher : public CpuTracer {
 public:
-    explicit Watcher(GameBoy& gb) : gb_(gb) {}
+    explicit Watcher(Machine& m) : m_(m), spotter_(m.notes()), clock_(m.clockHz()), frameClocks_(m.clockHz() / m.frameRate()) {}
 
     uint32_t driver = 0;
     bool trackMemory = false;
@@ -91,17 +359,17 @@ public:
     void call(uint16_t to, uint16_t sp, bool interrupt) override {
         sp_ = sp;
         while (!stack_.empty() && sp >= stack_.back().sp) pop();  // a routine jumped out of
-        const uint32_t id = routineId(gb_, to);
+        const uint32_t id = m_.routineId(to);
         Routine& r = routines[id];
-        if (!r.calls) r.firstClock = gb_.soundClock();
-        else if (gb_.soundClock() - r.lastClock < static_cast<uint64_t>(kClock / 200)) ++r.quickCalls;
-        r.lastClock = gb_.soundClock();
+        const uint64_t now = m_.soundClock();
+        if (!r.calls) r.firstClock = now;
+        else if (now - r.lastClock < static_cast<uint64_t>(clock_ / 200)) ++r.quickCalls;
+        r.lastClock = now;
         ++r.calls;
         if (trackMemory) {
-            const GameBoy::Cpu c = gb_.cpu();
-            int i = 0;
-            for (uint8_t v : {c.a, c.c, c.e})
-                if (r.arguments[static_cast<size_t>(i++)].size() < 12) r.arguments[static_cast<size_t>(i - 1)].insert(v);
+            const std::array<uint8_t, 3> args = m_.arguments();
+            for (size_t i = 0; i < 3; ++i)
+                if (r.arguments[i].size() < 12) r.arguments[i].insert(args[i]);
         }
         if (driver) {
             if (inDriver()) r.underDriver = true;
@@ -118,18 +386,21 @@ public:
         if (onCall) onCall(id, r.calls);
     }
     void access(uint16_t a, uint8_t v, bool write) override {
-        if (write && a >= 0xFF10 && a < 0xFF40) {
+        if (write && m_.chip(a)) {
             // (No more than so many a frame count: a game playing a sample writes the chip
             // thousands of times a second, and is no driver.)
             constexpr int kMostAFrame = 32;
-            const uint64_t frame = gb_.soundClock() / 70224;
+            const uint64_t now = m_.soundClock();
+            const uint64_t frame = static_cast<uint64_t>(static_cast<double>(now) / frameClocks_);
             if (frame != soundFrame_) soundFrame_ = frame, frameWrites_ = 0;
             if (++frameWrites_ <= kMostAFrame) ++soundWrites;
-            if ((a == 0xFF14 || a == 0xFF19 || a == 0xFF1E || a == 0xFF23) && (v & 0x80)) {
-                const uint64_t second = gb_.soundClock() / static_cast<uint64_t>(kClock);
+            int channel = 0;
+            uint32_t pitch = 0;
+            if (spotter_->write(a, v, &channel, &pitch)) {
+                const uint64_t second = static_cast<uint64_t>(static_cast<double>(now) / clock_);
                 if (second != noteSecond_) noteSecond_ = second, notesThisSecond_ = 0;
                 mostNotesPerSecond = std::max(mostNotesPerSecond, ++notesThisSecond_);
-                lastNote = gb_.soundClock();
+                lastNote = now;
             }
             uint32_t last = 0;
             for (const Frame& f : stack_)
@@ -142,10 +413,10 @@ public:
             return;
         }
         if (!trackMemory) return;
-        const int i = ramIndex(a);
+        const int i = m_.ramIndex(a);
         if (i < 0) return;
         // What a call or a push puts on the stack is not the driver's state.
-        if (a + 3 >= sp_ && a <= sp_ + 1) return;
+        if (m_.onStack(a, sp_)) return;
         const size_t k = static_cast<size_t>(i);
         if (inDriver()) {
             (write ? driverWrote : driverRead).set(k);
@@ -175,7 +446,9 @@ private:
     void pop() {
         stack_.pop_back();
     }
-    GameBoy& gb_;
+    Machine& m_;
+    std::unique_ptr<NoteSpotter> spotter_;
+    double clock_, frameClocks_;
     std::array<uint8_t, kRam> pending_{};
     std::array<uint64_t, kRam> pendingCall_{};
     uint64_t driverCalls_ = 0;
@@ -198,8 +471,9 @@ private:
 };
 
 // Listens to what is written to the chip: the notes started, on which channels.
-class Listener : public GameBoy::Tracer {
+class Listener : public CpuTracer {
 public:
+    explicit Listener(const Machine& m) : m_(m), spotter_(m.notes()) {}
     int triggers = 0;
     uint8_t channels = 0;
     uint32_t signature = 2166136261u;
@@ -214,16 +488,14 @@ public:
     void instruction(uint16_t, uint16_t) override {}
     void call(uint16_t, uint16_t, bool) override {}
     void access(uint16_t a, uint8_t v, bool write) override {
-        if (!write || a < 0xFF10 || a >= 0xFF40) return;
+        if (!write || !m_.chip(a)) return;
         ++writes;
-        const int r = a - 0xFF10;
-        writeHash = (writeHash ^ (static_cast<uint64_t>(r) << 8 | v)) * 1099511628211ull;
-        regs_[r] = v;
-        if ((r == 0x04 || r == 0x09 || r == 0x0E || r == 0x13) && (v & 0x80)) {
-            const int ch = r / 5;
+        writeHash = (writeHash ^ (static_cast<uint64_t>(a) << 8 | v)) * 1099511628211ull;
+        int ch = 0;
+        uint32_t pitch = 0;
+        if (spotter_->write(a, v, &ch, &pitch)) {
             ++triggers;
             channels = static_cast<uint8_t>(channels | 1 << ch);
-            const uint32_t pitch = ch == 3 ? regs_[0x12] : static_cast<uint32_t>(regs_[r - 1] | (v & 7) << 8);
             if (started.size() < 64) started.push_back(static_cast<uint32_t>(ch) << 16 | pitch);
             if (late) ++lateNotes[static_cast<uint32_t>(ch) << 16 | pitch];
             for (uint32_t x : {static_cast<uint32_t>(ch), pitch & 0xFF, pitch >> 8}) {
@@ -240,53 +512,31 @@ public:
     }
 
 private:
-    uint8_t regs_[0x30] = {};
+    const Machine& m_;
+    std::unique_ptr<NoteSpotter> spotter_;
 };
 
 // The driver run by itself: its routine called as often as the game calls it, with the
 // banks it runs with, and nothing else of the game running.
 struct Driver {
     uint32_t routine = 0;
-    GameBoy::Banks banks;
+    std::vector<uint32_t> banks;
     double rate = 60;  // calls a second
     RamSet state;      // the memory it reads back, which decides what it plays next
 
     // One call. False if it did not come back.
-    bool call(GameBoy& gb) const {
-        GameBoy::Cpu c = gb.cpu();
-        const uint16_t sp = static_cast<uint16_t>(c.sp - 2);
-        gb.poke(sp, kTrap & 0xFF);
-        gb.poke(static_cast<uint16_t>(sp + 1), kTrap >> 8);
-        c.sp = sp;
-        c.pc = static_cast<uint16_t>(routine);
-        c.ime = false;
-        gb.setBanks(banks);
-        gb.setCpu(c);
-        // Nothing of the game's own runs meanwhile, even if the driver enables interrupts.
-        gb.setInterruptEnable(0);
-        gb.clearInterrupts();
-        for (int n = 0; n < 300000; ++n) {
-            const GameBoy::Cpu now = gb.cpu();
-            if (now.pc == kTrap && now.sp == static_cast<uint16_t>(sp + 2)) {
-                gb.setInterruptEnable(0);
-                return true;
-            }
-            gb.clearInterrupts();
-            gb.stepInstruction();
-        }
-        return false;
-    }
+    bool call(Machine& m) const { return m.callAlone(static_cast<uint16_t>(routine), banks); }
     // Calls it, then lets the chip run until the next call is due.
-    bool tick(GameBoy& gb, uint64_t& next, bool chip) const {
-        if (!call(gb)) return false;
-        next += static_cast<uint64_t>(kClock / rate);
-        if (gb.soundClock() < next) gb.idleSound(next - gb.soundClock(), chip);
+    bool tick(Machine& m, uint64_t& next, bool chip) const {
+        if (!call(m)) return false;
+        next += static_cast<uint64_t>(m.clockHz() / rate);
+        if (m.soundClock() < next) m.idleSound(next - m.soundClock(), chip);
         return true;
     }
-    uint64_t stateHash(const GameBoy& gb) const {
+    uint64_t stateHash(const Machine& m) const {
         uint64_t h = 1469598103934665603ull;
         for (int i = 0; i < kRam; ++i)
-            if (state[static_cast<size_t>(i)]) h = (h ^ gb.peek(ramAddress(i))) * 1099511628211ull;
+            if (state[static_cast<size_t>(i)]) h = (h ^ m.peek(m.ramAddress(i))) * 1099511628211ull;
         return h;
     }
 };
@@ -300,10 +550,10 @@ struct Way {
     bool whilePlaying = false;   // a byte, with the driver playing what the game asked last
     int reg = 0;                 // a routine: which it is asked in, A, C or E
     bool guessed = false;        // a byte only written and read, not seen taken as a request
-    std::string describe() const {
+    std::string describe(const Machine& m) const {
         char s[64];
-        if (routine) std::snprintf(s, sizeof s, "rutina %s (%c)", hexId(id).c_str(), "ACE"[reg]);
-        else std::snprintf(s, sizeof s, "byte %04X%s", ramAddress(static_cast<int>(id)), whilePlaying ? "*" : "");
+        if (routine) std::snprintf(s, sizeof s, "rutina %s (%c)", hexId(id).c_str(), m.argumentName(reg));
+        else std::snprintf(s, sizeof s, "byte %04X%s", m.ramAddress(static_cast<int>(id)), whilePlaying ? "*" : "");
         return s;
     }
 };
@@ -337,21 +587,27 @@ class Ripper {
 public:
     std::set<uint32_t> skip;  // routines not to take for the driver (tried already)
     uint32_t driverTaken = 0;  // the one taken, once it was
-    Ripper(const std::vector<uint8_t>& rom, const GbSongRipper::Options& o, GbSongRipper::Progress* p)
-        : rom_(rom), options_(o), progress_(p) {}
+    Ripper(ConsoleSystem system, const std::vector<uint8_t>& rom, const SongRipper::Options& o, SongRipper::Progress* p)
+        : system_(system), rom_(rom), options_(o), progress_(p) {}
 
-    bool run(std::vector<GbSongRipper::Song>* songs, std::string* error, std::string* report);
+    bool run(std::vector<SongRipper::Song>* songs, std::string* error, std::string* report);
 
 private:
-    bool boot(GameBoy& gb, std::string* error) {
-        if (!gb.loadRomData(rom_, error)) return false;
-        gb.setSampleRate(44100);
-        return true;
+    // A console of its own, the game in it.
+    std::unique_ptr<Machine> boot(std::string* error) {
+        std::unique_ptr<Machine> m;
+        if (system_ == ConsoleSystem::Nes) m = std::make_unique<NesMachine>();
+        else m = std::make_unique<GbMachine>();
+        if (!m->console().loadRomData(rom_, error)) return nullptr;
+        m->console().setSampleRate(44100);
+        if (!m_) m_ = m.get();
+        return m;
     }
     // Runs the game from power on for the time it is watched.
-    void watch(GameBoy& gb, Watcher& w) {
-        gb.setTracer(&w);
-        const int frames = static_cast<int>(options_.traceSeconds * gb.refreshRate());
+    void watch(Machine& m, Watcher& w) {
+        Console& c = m.console();
+        m.setTracer(&w);
+        const int frames = static_cast<int>(options_.traceSeconds * c.refreshRate());
         for (int i = 0; i < frames && !cancelled(); ++i) {
             // Past the title screen, where many games are silent: Start, then A, now
             // and then for the first seconds, the same on every run.
@@ -359,11 +615,11 @@ private:
             const int second = i / 60, frame = i % 60;
             pad.start = second < 20 && second % 4 == 3 && frame < 6;
             pad.a = second < 20 && second % 4 == 1 && frame < 6;
-            gb.setPads(pad, PadState{});
-            gb.runFrame();
-            gb.audio().clearSamples();
+            c.setPads(pad, PadState{});
+            c.runFrame();
+            c.audio().clearSamples();
         }
-        gb.setTracer(nullptr);
+        m.setTracer(nullptr);
     }
     bool cancelled() const { return progress_ && progress_->cancel.load(); }
     void step() {
@@ -375,55 +631,51 @@ private:
     std::chrono::steady_clock::time_point start_ = std::chrono::steady_clock::now();
 
     // From `way`'s state, asks for song `number`: returns false if that could not be done.
-    bool ask(GameBoy& gb, const Way& way, int number) {
+    bool ask(Machine& m, const Way& way, int number) {
         std::string error;
-        if (!gb.loadState(way.state, &error)) return false;
+        if (!m.console().loadState(way.state, &error)) return false;
         if (!way.routine) {
-            if (number >= 0) gb.poke(ramAddress(static_cast<int>(way.id)), static_cast<uint8_t>(number));
-            gb.setInterruptEnable(0);
+            if (number >= 0) m.poke(m.ramAddress(static_cast<int>(way.id)), static_cast<uint8_t>(number));
+            m.interrupts(false);
             return true;
         }
-        GameBoy::Cpu c = gb.cpu();
-        const uint16_t back = static_cast<uint16_t>(gb.peek(c.sp) | gb.peek(static_cast<uint16_t>(c.sp + 1)) << 8);
-        const uint16_t sp = static_cast<uint16_t>(c.sp + 2);
+        uint16_t back = 0, sp = 0;
+        m.caller(&back, &sp);
         if (number < 0) {  // not called at all: as if it came back at once
-            c.pc = back;
-            c.sp = sp;
-            gb.setCpu(c);
-            gb.setInterruptEnable(0);
+            m.returnTo(back, sp);
+            m.interrupts(false);
             return true;
         }
         // The rest as the game had them: some give the bank of the song in another.
-        (way.reg == 0 ? c.a : way.reg == 1 ? c.c : c.e) = static_cast<uint8_t>(number);
-        gb.setCpu(c);
+        m.setArgument(way.reg, static_cast<uint8_t>(number));
         // The routine runs as in the game, interrupts and all, until it returns.
+        m.interrupts(true);
         for (int n = 0; n < 2000000; ++n) {
-            const GameBoy::Cpu now = gb.cpu();
-            if (now.pc == back && now.sp == sp) {
-                gb.setInterruptEnable(0);
+            if (m.pc() == back && m.sp() == sp) {
+                m.interrupts(false);
                 return true;
             }
-            gb.stepInstruction();
+            m.step();
         }
         return false;
     }
 
-    Heard listen(GameBoy& gb, const Way& way, int number) {
+    Heard listen(Machine& m, const Way& way, int number) {
         Heard h;
-        if (!ask(gb, way, number)) return h;
-        Listener l;
-        gb.setTracer(&l);
-        uint64_t next = gb.soundClock();
+        if (!ask(m, way, number)) return h;
+        Listener l(m);
+        m.setTracer(&l);
+        uint64_t next = m.soundClock();
         const int ticks = static_cast<int>(options_.probeSeconds * driver_.rate);
         bool ok = true;
         int early = 0;
         for (int t = 0; t < ticks && ok; ++t) {
             if (t == static_cast<int>(1.5 * driver_.rate)) early = l.triggers, l.late = true;
-            ok = driver_.tick(gb, next, false);
+            ok = driver_.tick(m, next, false);
             // Nothing in the first second: nothing at all, most likely.
             if (t == static_cast<int>(driver_.rate) && l.triggers == 0) break;
         }
-        gb.setTracer(nullptr);
+        m.setTracer(nullptr);
         h.ok = ok;
         h.triggers = l.triggers;
         h.late = early ? l.triggers - early : 0;
@@ -447,11 +699,13 @@ private:
         const Way* way = nullptr;
         std::vector<uint32_t> played;  // the notes it plays, in order, and those of its loop once more
     };
-    bool record(GameBoy& gb, const Way& way, int number, Take* take);
+    bool record(Machine& m, const Way& way, int number, Take* take);
 
+    ConsoleSystem system_;
+    Machine* m_ = nullptr;  // the first one booted: for describing what is found
     std::vector<uint8_t> rom_;
-    GbSongRipper::Options options_;
-    GbSongRipper::Progress* progress_;
+    SongRipper::Options options_;
+    SongRipper::Progress* progress_;
     Driver driver_;
     std::string title_;
     int mostNotes_ = 120;  // in a probe, from how many the game's music has
@@ -524,15 +778,15 @@ bool repeatsLoosely(const std::vector<Note>& notes, int ticks, int shortest, int
     return false;
 }
 
-bool Ripper::record(GameBoy& gb, const Way& way, int number, Take* take) {
+bool Ripper::record(Machine& gb, const Way& way, int number, Take* take) {
     std::string error;
-    if (!gb.loadState(way.state, &error)) return false;
+    if (!gb.console().loadState(way.state, &error)) return false;
     take->vgm = std::make_unique<VgmWriter>();
     VgmWriter& vgm = *take->vgm;
-    gb.recordMusic(&vgm);
+    gb.console().recordMusic(&vgm);
     // The state is loaded again by ask(): the recording starts with the chip as it is.
     if (!ask(gb, way, number)) {
-        gb.recordMusic(nullptr);
+        gb.console().recordMusic(nullptr);
         return false;
     }
     uint64_t next = gb.soundClock();
@@ -540,7 +794,7 @@ bool Ripper::record(GameBoy& gb, const Way& way, int number, Take* take) {
     const int minLoop = static_cast<int>(2 * driver_.rate);
     std::vector<VgmWriter::Mark> marks;
     std::unordered_map<uint64_t, int> seen;
-    Listener l;
+    Listener l(gb);
     gb.setTracer(&l);
     int lastSound = 0, loopFrom = -1, end = -1;
     uint64_t triggers = 0;
@@ -576,7 +830,7 @@ bool Ripper::record(GameBoy& gb, const Way& way, int number, Take* take) {
         if (static_cast<uint64_t>(l.triggers) != triggers) triggers = static_cast<uint64_t>(l.triggers), lastSound = t;
         // Silent for long, with every channel off (or for longer, with them on and
         // nothing to play): it has ended.
-        if ((t - lastSound > static_cast<int>(4 * driver_.rate) && (gb.peek(0xFF26) & 0x0F) == 0) ||
+        if ((t - lastSound > static_cast<int>(4 * driver_.rate) && !gb.channelsOn()) ||
             t - lastSound > static_cast<int>(8 * driver_.rate)) {
             end = std::min(t, lastSound + static_cast<int>(1.5 * driver_.rate));
             break;
@@ -584,7 +838,7 @@ bool Ripper::record(GameBoy& gb, const Way& way, int number, Take* take) {
         if (cancelled()) break;
     }
     gb.setTracer(nullptr);
-    gb.recordMusic(nullptr);
+    gb.console().recordMusic(nullptr);
     // Back where it was with no note in between: it ended, and stays silent.
     if (loopFrom >= 0 && notes[static_cast<size_t>(loopFrom)] == notes[static_cast<size_t>(end)]) {
         end = std::min(end, lastSound + static_cast<int>(1.5 * driver_.rate));
@@ -623,15 +877,16 @@ bool Ripper::record(GameBoy& gb, const Way& way, int number, Take* take) {
     return true;
 }
 
-bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std::string* report) {
+bool Ripper::run(std::vector<SongRipper::Song>* songs, std::string* error, std::string* report) {
     std::string log;
     // 1. Who writes the chip: the driver is the routine under which nearly all of it is
     // written, called often, that runs the least.
     // (On the heap, as everything big here: this runs on a thread of its own.)
-    auto gbOwn = std::make_unique<GameBoy>();
-    GameBoy& gb = *gbOwn;
-    if (!boot(gb, error)) return false;
-    title_ = gb.title();
+    auto gbOwn = boot(error);
+    if (!gbOwn) return false;
+    Machine& gb = *gbOwn;
+    title_ = gb.console().title();
+    const double kClock = gb.clockHz();
     if (progress_) progress_->steps = 3 + 256;
     auto firstOwn = std::make_unique<Watcher>(gb);
     Watcher& first = *firstOwn;
@@ -688,9 +943,8 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
     log += "controlador: " + hexId(driver) + ", " + std::to_string(static_cast<int>(driver_.rate + 0.5)) + " veces por segundo\n";
 
     // 2. Again, now knowing the driver: what memory is its own, and who else writes it.
-    auto gb2Own = std::make_unique<GameBoy>();
-    GameBoy& gb2 = *gb2Own;
-    boot(gb2, nullptr);
+    auto gb2Own = boot(nullptr);
+    Machine& gb2 = *gb2Own;
     auto secondOwn = std::make_unique<Watcher>(gb2);
     Watcher& second = *secondOwn;
     second.driver = driver;
@@ -702,7 +956,7 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
     const Routine& d = second.routines[driver];
     std::vector<std::pair<double, uint32_t>> starters;
     for (const auto& [id, r] : second.routines) {
-        if (id == driver || r.underDriver || r.aboveDriver || r.calls > 64 || (id & 0xFFFF) < 0x68) continue;
+        if (id == driver || r.underDriver || r.aboveDriver || r.calls > 64 || gb2.vector(static_cast<uint16_t>(id))) continue;
         if ((r.wrote & second.driverWrote).count() < 2) continue;
         starters.push_back({static_cast<double>(r.instructions) / static_cast<double>(r.calls), id});
     }
@@ -719,12 +973,12 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
             if (second.driverRead[k] && second.outsideWrites[k] && std::getenv("PLUMNIN_RIP_DEBUG")[0] == '2') {
                 std::string vals;
                 for (uint8_t v : second.written[k]) vals += " " + std::to_string(v);
-                std::fprintf(stderr, "  input %04X: written %u:%s, driver writes %d\n", ramAddress(i), second.outsideWrites[k], vals.c_str(), (int)second.driverWrote[k]);
+                std::fprintf(stderr, "  input %04X: written %u:%s, driver writes %d\n", m_->ramAddress(i), second.outsideWrites[k], vals.c_str(), (int)second.driverWrote[k]);
             }
         }
         for (int i = 0; i < kRam; ++i)
             if (second.consumed[static_cast<size_t>(i)])
-                std::fprintf(stderr, "  consumed %04X: %u, written %u, read %d\n", ramAddress(i), second.consumed[static_cast<size_t>(i)],
+                std::fprintf(stderr, "  consumed %04X: %u, written %u, read %d\n", m_->ramAddress(i), second.consumed[static_cast<size_t>(i)],
                              second.outsideWrites[static_cast<size_t>(i)], static_cast<int>(second.driverRead[static_cast<size_t>(i)]));
     }
     std::sort(starters.begin(), starters.end());
@@ -773,9 +1027,8 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         ways.push_back(w);
     }
     {
-        auto gb3Own = std::make_unique<GameBoy>();
-        GameBoy& gb3 = *gb3Own;
-        boot(gb3, nullptr);
+        auto gb3Own = boot(nullptr);
+        Machine& gb3 = *gb3Own;
         auto thirdOwn = std::make_unique<Watcher>(gb3);
         Watcher& third = *thirdOwn;
         third.driver = driver;
@@ -787,15 +1040,15 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         third.onCall = [&](uint32_t id, uint64_t calls) {
             if (calls == 1)
                 for (size_t i = 0; i < routines; ++i)
-                    if (ways[i].id == id) gb3.saveState(ways[i].state, true);
+                    if (ways[i].id == id) gb3.console().saveState(ways[i].state, true);
             if (id != driver) return;
             // (Silent after it has played something: before, it may not be ready.)
             const bool quiet = calls >= 30 && third.lastNote > 0 &&
                                gb3.soundClock() - third.lastNote > static_cast<uint64_t>(kClock);
-            if (quiet && silentState.empty()) gb3.saveState(silentState, true);
+            if (quiet && silentState.empty()) gb3.console().saveState(silentState, true);
             // (Now and then as well: saving a state can shift the run by a few calls.)
             if (calls == driverCall || (calls <= driverCall && calls % 64 == 0)) {
-                gb3.saveState(lateState, true);
+                gb3.console().saveState(lateState, true);
                 driver_.banks = gb3.banks();
             }
         };
@@ -824,9 +1077,8 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
     };
     std::vector<Found> found;
     std::set<uint32_t> signatures, openings;
-    auto probeOwn = std::make_unique<GameBoy>();
-    GameBoy& probe = *probeOwn;
-    boot(probe, nullptr);
+    auto probeOwn = boot(nullptr);
+    Machine& probe = *probeOwn;
     std::map<const Way*, Heard> baseline;
     const auto sameAsBefore = [&](const Way& w, const Heard& h) {
         const Heard& b = baseline[&w];
@@ -855,7 +1107,7 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         if (std::getenv("PLUMNIN_RIP_DEBUG")) {
             std::string asked;
             for (uint8_t n : w.asked) asked += " " + std::to_string(n);
-            std::fprintf(stderr, "%s asked%s: %s\n", w.describe().c_str(), asked.c_str(), ok ? "real" : "-");
+            std::fprintf(stderr, "%s asked%s: %s\n", w.describe(*m_).c_str(), asked.c_str(), ok ? "real" : "-");
         }
         // A byte asked for with the driver silent is the same byte while it plays.
         if (ok && w.whilePlaying)
@@ -877,11 +1129,13 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         for (const Way* way : real) {
             const Way& w = *way;
             auto& [songsHere, dead] = tally[&w];
-            if (songsHere >= 2 && dead >= 4) continue;
+            // (But the bits one by one: some drivers take a bit for each song.)
+            const bool bit = (number & (number - 1)) == 0;
+            if (songsHere >= 2 && dead >= 4 && !bit) continue;
             const Heard h = listen(probe, w, number);
             dead = h.song(mostNotes_) ? 0 : dead + 1;
             if (std::getenv("PLUMNIN_RIP_DEBUG") && number < 40 && !w.routine)
-                std::fprintf(stderr, "  %d via %s: ok %d, %d notes on %d channels\n", number, w.describe().c_str(), h.ok,
+                std::fprintf(stderr, "  %d via %s: ok %d, %d notes on %d channels\n", number, w.describe(*m_).c_str(), h.ok,
                              h.triggers, h.channels);
             if (!h.song(mostNotes_)) continue;
             if (sameAsBefore(w, h)) continue;
@@ -890,7 +1144,7 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
             found.push_back({&w, number});
             ++songsHere;
             if (std::getenv("PLUMNIN_RIP_DEBUG"))
-                std::fprintf(stderr, "found %d via %s: %d notes on %d channels\n", number, w.describe().c_str(), h.triggers,
+                std::fprintf(stderr, "found %d via %s: %d notes on %d channels\n", number, w.describe(*m_).c_str(), h.triggers,
                              h.channels);
             if (progress_) ++progress_->found;
             break;
@@ -938,7 +1192,7 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
             if (!before && !(take.unfinished && !take.inStep)) {
                 heard.push_back(std::move(take.played));
                 ++byWay[f.way];
-                GbSongRipper::Song song;
+                SongRipper::Song song;
                 VgmWriter::Tag tag{trf("Canción %02d", static_cast<int>(songs->size()) + 1), title_,
                                    trf("Número %d del juego", f.number)};
                 song.number = f.number;
@@ -950,15 +1204,24 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         }
         step();
     }
-    for (const auto& [w, n] : byWay) log += w->describe() + ": " + std::to_string(n) + " canciones\n";
+    for (const auto& [w, n] : byWay) log += w->describe(*m_) + ": " + std::to_string(n) + " canciones\n";
     if (report) *report = log;
     return !songs->empty();
 }
 
 }  // namespace
 
-bool GbSongRipper::run(const std::vector<uint8_t>& rom, const Options& options, Progress* progress,
+bool SongRipper::supported(ConsoleSystem s) {
+    return s == ConsoleSystem::GameBoy || s == ConsoleSystem::GameBoyColor || s == ConsoleSystem::Nes;
+}
+
+bool SongRipper::run(const std::vector<uint8_t>& rom, const Options& options, Progress* progress,
                        std::vector<Song>* songs, std::string* error, std::string* report) {
+    const ConsoleSystem system = detectSystemFromData(rom);
+    if (!supported(system)) {
+        if (error) *error = tr("Por ahora, solo en los juegos de Game Boy, Game Boy Color y NES.");
+        return false;
+    }
     // A driver that, run by itself, plays nothing the game asks: some need what calls them
     // (a flag it sets, the bank it keeps). Then the next one, up to three.
     std::set<uint32_t> skip;
@@ -968,7 +1231,7 @@ bool GbSongRipper::run(const std::vector<uint8_t>& rom, const Options& options, 
         songs->clear();
         if (error) error->clear();
         if (progress) progress->step = 0;
-        Ripper r(rom, options, progress);
+        Ripper r(system, rom, options, progress);
         r.skip = skip;
         ok = r.run(songs, error, report);
         if (attempt == 0 && error) firstError = *error;

@@ -421,20 +421,19 @@ void InstrumentEditor::finishRip() {
 void InstrumentEditor::drawSongs(SynthMusic& synth, bool on, Console* console, int chipPercent) {
     ImGui::TextWrapped("%s", tr("Las canciones del juego, para oírlas sin jugar: el juego espera mientras suena una. Con el "
                                 "sintetizador puesto suenan con él, y en Instrumentos puedes cambiar los suyos mientras suenan."));
-    const bool gameBoy = console && (console->system() == ConsoleSystem::GameBoy ||
-                                     console->system() == ConsoleSystem::GameBoyColor);
+    const bool rippable = console && SongRipper::supported(console->system());
     const bool ripping = ripThread_.joinable();
 
     // Sacar canciones.
     if (ripping) {
-        const GbSongRipper::Progress& p = *ripProgress_;
+        const SongRipper::Progress& p = *ripProgress_;
         const float fraction = static_cast<float>(p.step.load()) / static_cast<float>(std::max(1, p.steps.load()));
         const std::string label = trf("%d canciones encontradas", p.found.load());
         ImGui::ProgressBar(fraction, ImVec2(300, 0), label.c_str());
         ImGui::SameLine();
         if (ImGui::Button(tr("Cancelar"))) ripProgress_->cancel = true;
     } else {
-        ImGui::BeginDisabled(!gameBoy || recording_);
+        ImGui::BeginDisabled(!rippable || recording_);
         if (ImGui::Button(tr("Sacar canciones de la ROM"))) {
             std::vector<uint8_t> rom;
             std::string name, error;
@@ -443,13 +442,13 @@ void InstrumentEditor::drawSongs(SynthMusic& synth, bool on, Console* console, i
             } else {
                 stopSong();
                 message_.clear();
-                ripProgress_ = std::make_unique<GbSongRipper::Progress>();
+                ripProgress_ = std::make_unique<SongRipper::Progress>();
                 ripGame_ = game_;
                 ripDone_ = false;
-                GbSongRipper::Progress* progress = ripProgress_.get();
+                SongRipper::Progress* progress = ripProgress_.get();
                 ripThread_ = std::thread([this, rom = std::move(rom), progress] {
                     std::string e;
-                    ripOk_ = GbSongRipper::run(rom, {}, progress, &ripSongs_, &e);
+                    ripOk_ = SongRipper::run(rom, {}, progress, &ripSongs_, &e);
                     ripError_ = e;
                     ripDone_ = true;
                 });
@@ -457,9 +456,9 @@ void InstrumentEditor::drawSongs(SynthMusic& synth, bool on, Console* console, i
         }
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", gameBoy ? tr("Busca cómo pide el juego su música y graba cada canción con su bucle. "
+            ImGui::SetTooltip("%s", rippable ? tr("Busca cómo pide el juego su música y graba cada canción con su bucle. "
                                                  "Suele tardar menos de un minuto, y en algunos juegos unos pocos.")
-                                            : tr("Por ahora, solo en los juegos de Game Boy y Game Boy Color."));
+                                            : tr("Por ahora, solo en los juegos de Game Boy, Game Boy Color y NES."));
     }
     ImGui::SameLine();
     if (recording_) {
@@ -528,7 +527,7 @@ void InstrumentEditor::drawSongs(SynthMusic& synth, bool on, Console* console, i
         ImGui::EndTable();
     }
     if (songs_.empty())
-        ImGui::TextDisabled("%s", gameBoy ? tr("Todavía no hay canciones: sácalas de la ROM o graba la música jugando.")
+        ImGui::TextDisabled("%s", rippable ? tr("Todavía no hay canciones: sácalas de la ROM o graba la música jugando.")
                                           : tr("Todavía no hay canciones."));
 }
 

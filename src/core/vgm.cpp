@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "gb/gb_apu.h"
+#include "nes/nes_apu.h"
 #include "i18n.h"
 #include "miniz.h"
 #include "synth_music.h"
@@ -136,6 +137,7 @@ size_t commandLength(uint8_t c) {
 // Recording
 
 void VgmWriter::begin(const uint8_t* regs, uint64_t clock, double clockHz) {
+    nes_ = false;
     data_.clear();
     samples_ = 0;
     start_ = clock;
@@ -158,6 +160,41 @@ void VgmWriter::begin(const uint8_t* regs, uint64_t clock, double clockHz) {
     }
 }
 
+void VgmWriter::nesBegin(const uint8_t* regs, const uint8_t* memory, uint64_t clock, double clockHz) {
+    data_.clear();
+    samples_ = 0;
+    start_ = clock;
+    clockHz_ = clockHz;
+    recording_ = true;
+    nes_ = true;
+    // The samples' memory first, as a data block, then the registers: the channels on,
+    // the frame counter's mode, each register, and the channels on again (writing the
+    // last of a channel's registers restarts it, which a channel that is off ignores).
+    constexpr uint32_t kSize = 0x4000;
+    data_.insert(data_.end(), {0x67, 0x66, 0xC2});
+    append32(data_, kSize + 2);
+    data_.push_back(0x00);
+    data_.push_back(0xC0);
+    data_.insert(data_.end(), memory, memory + kSize);
+    auto put = [&](int reg, uint8_t v) {
+        data_.push_back(0xB4);
+        data_.push_back(static_cast<uint8_t>(reg));
+        data_.push_back(v);
+    };
+    put(0x15, 0x00);
+    put(0x17, regs[0x17]);
+    for (int r = 0x00; r < 0x14; ++r) put(r, regs[r]);
+    put(0x15, regs[0x15] & 0x0F);
+}
+
+void VgmWriter::nesWrite(int reg, uint8_t value, uint64_t clock) {
+    if (!recording_ || !nes_ || reg < 0 || reg >= 0x18 || reg == 0x14 || reg == 0x16) return;
+    wait(clock);
+    data_.push_back(0xB4);
+    data_.push_back(static_cast<uint8_t>(reg));
+    data_.push_back(value);
+}
+
 void VgmWriter::wait(uint64_t clock) {
     const uint64_t target = clock > start_ ? static_cast<uint64_t>(static_cast<double>(clock - start_) * kTickRate / clockHz_) : 0;
     while (samples_ < target) {
@@ -174,7 +211,7 @@ void VgmWriter::wait(uint64_t clock) {
 }
 
 void VgmWriter::gbWrite(int reg, uint8_t value, uint64_t clock) {
-    if (!recording_ || reg < 0 || reg >= 0x30) return;
+    if (!recording_ || nes_ || reg < 0 || reg >= 0x30) return;
     wait(clock);
     data_.push_back(0xB3);
     data_.push_back(static_cast<uint8_t>(reg));
@@ -199,7 +236,7 @@ std::vector<uint8_t> VgmWriter::finish(const Tag& tag, const Mark* end, const Ma
     put32(file, 0x18, static_cast<uint32_t>(samples_));
     put32(file, 0x24, 60);
     put32(file, 0x34, 0x100 - 0x34);
-    put32(file, 0x80, static_cast<uint32_t>(kGbClock));
+    put32(file, nes_ ? 0x84 : 0x80, nes_ ? static_cast<uint32_t>(std::lround(clockHz_)) : static_cast<uint32_t>(kGbClock));
     if (loop) {
         put32(file, 0x1C, static_cast<uint32_t>(0x100 + loop->bytes - 0x1C));
         put32(file, 0x20, static_cast<uint32_t>(samples_ - loop->samples));
@@ -208,7 +245,7 @@ std::vector<uint8_t> VgmWriter::finish(const Tag& tag, const Mark* end, const Ma
     file.push_back(0x66);
     put32(file, 0x14, static_cast<uint32_t>(file.size() - 0x14));
     std::vector<uint8_t> gd3;
-    for (const std::string& s : {tag.title, std::string(), tag.game, std::string(), std::string("Nintendo Game Boy"),
+    for (const std::string& s : {tag.title, std::string(), tag.game, std::string(), std::string(nes_ ? "Nintendo Entertainment System" : "Nintendo Game Boy"),
                                  std::string(), std::string(), std::string(), std::string(), std::string("plumnin"),
                                  tag.notes})
         appendUtf16(gd3, s);
@@ -233,7 +270,8 @@ bool VgmFile::parse(std::vector<uint8_t> bytes, std::string* error) {
     if (d.size() < 0x40 || std::memcmp(d.data(), "Vgm ", 4) != 0) return fail(tr("No es un archivo VGM."));
     const uint32_t version = get32(d, 0x08);
     gbClock = version >= 0x161 ? get32(d, 0x80) & 0x3FFFFFFF : 0;
-    if (!gbClock) return fail(tr("El VGM no es de una Game Boy: no tiene su chip de sonido."));
+    nesClock = version >= 0x161 && !gbClock ? get32(d, 0x84) & 0x3FFFFFFF : 0;
+    if (!gbClock && !nesClock) return fail(tr("El VGM no es de una Game Boy ni de una NES: no tiene su chip de sonido."));
     start = version >= 0x150 && get32(d, 0x34) ? 0x34 + get32(d, 0x34) : 0x40;
     if (start >= d.size()) return fail(tr("El VGM está cortado."));
     samples = get32(d, 0x18);
@@ -256,7 +294,7 @@ bool VgmFile::parse(std::vector<uint8_t> bytes, std::string* error) {
 // ---------------------------------------------------------------------------------
 // Playing
 
-VgmPlayer::VgmPlayer() : apu_(std::make_unique<gb::Apu>()) {}
+VgmPlayer::VgmPlayer() : apu_(std::make_unique<gb::Apu>()), nesApu_(std::make_unique<nes::Apu>()) {}
 
 VgmPlayer::~VgmPlayer() = default;
 
@@ -266,6 +304,9 @@ void VgmPlayer::load(VgmFile file) {
 }
 
 void VgmPlayer::restart() {
+    nesApu_->power(false);
+    nesMemory_.assign(0x10000, 0);
+    nesCycles_ = nesPoll_ = 0;
     apu_->reset(false);
     // The boot ROM's state is not the file's: everything silent until it writes.
     apu_->write(0xFF26, 0x00);
@@ -284,7 +325,30 @@ void VgmPlayer::setSynth(SynthMusic* synth, int chipPercent) {
     }
     synth_ = synth;
     chipPercent_ = std::clamp(chipPercent, 0, 100);
-    if (!synth_) apu_->setChannelGains(~0u, 0, 100);
+    if (!synth_) {
+        apu_->setChannelGains(~0u, 0, 100);
+        nesApu_->setChannelGains(~0u, 0, 100);
+    }
+}
+
+void VgmPlayer::runNes(uint64_t cycles) {
+    const double hz = file_.nesClock;
+    for (uint64_t i = 0; i < cycles; ++i) {
+        nesApu_->clock(nesCycles_);
+        // The samples the delta modulation channel asks for, from what the file put in memory.
+        if (nesApu_->takeDmcRequest()) nesApu_->dmcFill(nesMemory_[nesApu_->dmcAddress()]);
+        nesApu_->takeDmcAbort();
+        ++nesCycles_;
+        if (synth_ && nesCycles_ - nesPoll_ >= 3728) {
+            nesPoll_ = nesCycles_;
+            for (int ch = 0; ch < 4; ++ch) {
+                SynthMusic::VoiceState s;
+                nesApu_->musicVoice(ch, hz, s);
+                synth_->update(ch, s, nesCycles_);
+            }
+            nesApu_->setChannelGains(synth_->chipVoices(), synth_->silentVoices(), chipPercent_);
+        }
+    }
 }
 
 void VgmPlayer::runChip(uint64_t cycles) {
@@ -315,6 +379,11 @@ void VgmPlayer::runChip(uint64_t cycles) {
 void VgmPlayer::runTo(uint64_t tick) {
     const std::vector<uint8_t>& d = file_.data;
     auto chipTo = [&](uint64_t t) {
+        if (file_.nesClock) {
+            const uint64_t target = static_cast<uint64_t>(static_cast<double>(t) * file_.nesClock / kTickRate);
+            if (target > nesCycles_) runNes(target - nesCycles_);
+            return;
+        }
         const uint64_t target = static_cast<uint64_t>(static_cast<double>(t) * kGbClock / kTickRate);
         if (target > cycles_) runChip(target - cycles_);
     };
@@ -345,13 +414,23 @@ void VgmPlayer::runTo(uint64_t tick) {
         } else if (c == 0x66) {
             if (file_.loop) at_ = file_.loop;
             else finished_ = true;
-        } else if (c == 0x67 && at_ + 5 < d.size()) {  // a data block: skipped
-            at_ += 2;
-            at_ += get32(d, at_) + 4;
+        } else if (c == 0x67 && at_ + 5 < d.size()) {  // a data block: the NES's samples, or skipped
+            const uint8_t type = d[at_ + 1];
+            const uint32_t size = get32(d, at_ + 2);
+            const size_t body = at_ + 6;
+            if (type == 0xC2 && size >= 2 && body + size <= d.size()) {
+                const size_t address = d[body] | d[body + 1] << 8;
+                for (size_t i = 2; i < size && address + i - 2 < nesMemory_.size(); ++i) nesMemory_[address + i - 2] = d[body + i];
+            }
+            at_ = body + size;
         } else if (c == 0xB3 && at_ + 1 < d.size()) {
             const uint8_t reg = d[at_], value = d[at_ + 1];
             at_ += 2;
             if (!(reg & 0x80)) apu_->write(static_cast<uint16_t>(0xFF10 + (reg & 0x7F)), value);
+        } else if (c == 0xB4 && at_ + 1 < d.size()) {
+            const uint8_t reg = d[at_], value = d[at_ + 1];
+            at_ += 2;
+            if (reg < 0x18) nesApu_->write(static_cast<uint16_t>(0x4000 + reg), value, nesCycles_);
         } else {
             at_ += commandLength(c);
         }
@@ -360,16 +439,19 @@ void VgmPlayer::runTo(uint64_t tick) {
 }
 
 void VgmPlayer::play(double seconds, double rate, std::vector<int16_t>& out) {
+    const bool nes = file_.nesClock != 0;
     apu_->setSampleRate(rate);
+    nesApu_->setSampleRate(rate);
     const size_t before = out.size() / 2;
     if (synth_) {
-        synth_->setClock(kGbClock);
-        synth_->beginFrame(cycles_);
+        synth_->setClock(nes ? file_.nesClock : kGbClock);
+        synth_->beginFrame(nes ? nesCycles_ : cycles_);
     }
     const uint64_t from = ticks_;
     runTo(ticks_ + static_cast<uint64_t>(std::lround(seconds * kTickRate)));
-    apu_->takeSamples(out);
-    if (synth_) synth_->endFrame(cycles_, out, before, rate);
+    if (nes) nesApu_->takeSamples(out);
+    else apu_->takeSamples(out);
+    if (synth_) synth_->endFrame(nes ? nesCycles_ : cycles_, out, before, rate);
     // The chip's outputs jump from nothing to their resting level as it is switched on,
     // which the console's capacitor takes a moment to absorb: a fade in of the first
     // 50 ms instead of a click.

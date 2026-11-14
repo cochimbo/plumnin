@@ -87,7 +87,7 @@ add_library(plumnin_core STATIC
   src/core/system.cpp
   src/core/synth_music.cpp
   src/core/vgm.cpp
-  src/core/gb/gb_songs.cpp
+  src/core/songs.cpp
   src/core/cheats.cpp
   src/core/rewind.cpp
   src/core/netplay.cpp

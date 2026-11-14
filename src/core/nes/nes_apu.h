@@ -23,6 +23,10 @@ public:
     uint8_t readStatus(uint64_t cycle);  // 4015
     uint8_t peekStatus() const;
     void write(uint16_t address, uint8_t value, uint64_t cycle);
+    // The last values written to 4000-4017, for a recording to start from.
+    void registers(uint8_t* out) const {
+        for (int i = 0; i < 0x18; ++i) out[i] = regs_[i];
+    }
     bool irq() const { return frameIrq_ || dmcIrq_; }
 
     // The DMC wants a byte: the processor halts to fetch it and hands it over.
@@ -73,6 +77,7 @@ public:
     }
 
 private:
+    uint8_t regs_[0x18] = {};
     struct Envelope {
         bool constant = false;
         uint8_t volume = 0;

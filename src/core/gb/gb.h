@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../console.h"
+#include "../cpu_tracer.h"
 #include "gb_apu.h"
 #include "gb_cart.h"
 #include "gb_ppu.h"
@@ -59,19 +60,9 @@ public:
     bool hitBreakpoint() const { return breakpoint_; }
     uint8_t peek(uint16_t address) const;
 
-    // Sacar canciones (gb_songs.cpp) watches the processor through a tracer, and runs
-    // pieces of the game's code on their own with what follows.
-    class Tracer {
-    public:
-        virtual ~Tracer() = default;
-        // Before each instruction.
-        virtual void instruction(uint16_t pc, uint16_t sp) = 0;
-        // A CALL or RST taken, or an interrupt served: `to` is where it went, `sp` the
-        // stack with the return address on it.
-        virtual void call(uint16_t to, uint16_t sp, bool interrupt) = 0;
-        // A read or write by the processor.
-        virtual void access(uint16_t address, uint8_t value, bool write) = 0;
-    };
+    // Sacar canciones (songs.cpp) watches the processor through a tracer, and runs pieces
+    // of the game's code on their own with what follows.
+    using Tracer = CpuTracer;
     void setTracer(Tracer* tracer) { tracer_ = tracer; }
     struct Cpu {
         uint8_t a = 0, f = 0, b = 0, c = 0, d = 0, e = 0, h = 0, l = 0;
