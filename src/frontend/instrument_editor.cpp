@@ -138,7 +138,8 @@ void InstrumentEditor::draw(SynthMusic& synth, const std::string& game, bool on,
     }
     if (ImGui::BeginTabBar("pestañas")) {
         if (ImGui::BeginTabItem(tr("Instrumentos"))) {
-            drawInstruments(synth, on);
+            if (console) drawInstruments(synth, on);
+            else ImGui::TextWrapped("%s", tr("Juega a este juego para ver sus instrumentos: aparecen aquí a medida que suenan."));
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem(tr("Canciones"))) {
@@ -445,7 +446,7 @@ void InstrumentEditor::finishRip() {
 void InstrumentEditor::drawSongs(SynthMusic& synth, bool on, Console* console, int chipPercent) {
     ImGui::TextWrapped("%s", tr("Las canciones del juego, para oírlas sin jugar: el juego espera mientras suena una. Con el "
                                 "sintetizador puesto suenan con él, y en Instrumentos puedes cambiar los suyos mientras suenan."));
-    const bool rippable = console && SongRipper::supported(console->system());
+    const bool rippable = SongRipper::supported(console ? console->system() : detectSystem(game_));
     const bool ripping = ripThread_.joinable();
 
     // Sacar canciones.

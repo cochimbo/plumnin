@@ -309,6 +309,8 @@ private:
     std::string includedSoundfont_, soundfontFolder_;
     SynthMusic* synth_ = nullptr;
     InstrumentEditor editor_;
+    std::string editorGame_;     // the game the editor was opened for from the library (empty: the one running)
+    std::string editorRunning_;  // the game running when it was
     BrowseFor browseFor_ = BrowseFor::Game;
     std::string coverImageFor_;  // the game (its path) whose cover image is being chosen
     bool openRequested_ = false;
@@ -351,7 +353,7 @@ private:
         // the filtered list, the item chosen with the pad or the keys, and a request to open it.
         // Jugar, Trucos, Opciones de este juego, Buscar en ScreenScraper por nombre, Carátula desde imagen,
         // Medios de ScreenScraper
-        static constexpr int kItems = 6;
+        static constexpr int kItems = 7;
         int menuGame = -1;
         int menuItem = 0;
         bool openMenu = false;
