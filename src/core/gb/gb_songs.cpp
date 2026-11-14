@@ -23,15 +23,22 @@ constexpr double kClock = 4194304.0;
 // Where the driver returns to when it is called by itself: memory nothing runs from.
 constexpr uint16_t kTrap = 0xFEA0;
 
-// The memory a driver keeps its state in: work RAM and high RAM, as 0..kRam-1.
-constexpr int kRam = 0x2080;
+// The memory a driver keeps its state in: work RAM, high RAM and the cartridge's RAM (some
+// keep it there), as 0..kRam-1.
+constexpr int kRam = 0x4080;
 using RamSet = std::bitset<kRam>;
 int ramIndex(uint16_t a) {
     if (a >= 0xC000 && a < 0xE000) return a - 0xC000;
+    if (a >= 0xE000 && a < 0xFE00) return a - 0xE000;  // the same, seen again
     if (a >= 0xFF80 && a < 0xFFFF) return 0x2000 + (a - 0xFF80);
+    if (a >= 0xA000 && a < 0xC000) return 0x2080 + (a - 0xA000);
     return -1;
 }
-uint16_t ramAddress(int i) { return static_cast<uint16_t>(i < 0x2000 ? 0xC000 + i : 0xFF80 + (i - 0x2000)); }
+uint16_t ramAddress(int i) {
+    if (i < 0x2000) return static_cast<uint16_t>(0xC000 + i);
+    if (i < 0x2080) return static_cast<uint16_t>(0xFF80 + (i - 0x2000));
+    return static_cast<uint16_t>(0xA000 + (i - 0x2080));
+}
 
 // A routine of the game: its address with the ROM bank it was in (0xFFFF for RAM).
 uint32_t routineId(const GameBoy& gb, uint16_t a) {
@@ -49,6 +56,8 @@ struct Routine {
     uint64_t calls = 0, instructions = 0, sound = 0;
     uint64_t firstClock = 0, lastClock = 0;
     uint64_t quickCalls = 0;  // within 1/200 s of the one before
+    uint64_t soundFrame = 0;  // the frame it last wrote the chip in, and how often
+    int frameWrites = 0;
     bool underDriver = false, aboveDriver = false;
     RamSet wrote;  // outside the driver
     std::array<std::set<uint8_t>, 3> arguments;  // A, C and E as it was called
@@ -110,7 +119,12 @@ public:
     }
     void access(uint16_t a, uint8_t v, bool write) override {
         if (write && a >= 0xFF10 && a < 0xFF40) {
-            ++soundWrites;
+            // (No more than so many a frame count: a game playing a sample writes the chip
+            // thousands of times a second, and is no driver.)
+            constexpr int kMostAFrame = 32;
+            const uint64_t frame = gb_.soundClock() / 70224;
+            if (frame != soundFrame_) soundFrame_ = frame, frameWrites_ = 0;
+            if (++frameWrites_ <= kMostAFrame) ++soundWrites;
             if ((a == 0xFF14 || a == 0xFF19 || a == 0xFF1E || a == 0xFF23) && (v & 0x80)) {
                 const uint64_t second = gb_.soundClock() / static_cast<uint64_t>(kClock);
                 if (second != noteSecond_) noteSecond_ = second, notesThisSecond_ = 0;
@@ -119,7 +133,12 @@ public:
             }
             uint32_t last = 0;
             for (const Frame& f : stack_)
-                if (f.id != last) ++f.routine->sound, last = f.id;
+                if (f.id != last) {
+                    Routine& r = *f.routine;
+                    if (r.soundFrame != frame) r.soundFrame = frame, r.frameWrites = 0;
+                    if (++r.frameWrites <= kMostAFrame) ++r.sound;
+                    last = f.id;
+                }
             return;
         }
         if (!trackMemory) return;
@@ -161,6 +180,8 @@ private:
     std::array<uint64_t, kRam> pendingCall_{};
     uint64_t driverCalls_ = 0;
     uint64_t noteSecond_ = 0;
+    uint64_t soundFrame_ = ~0ull;
+    int frameWrites_ = 0;
     int notesThisSecond_ = 0;
     std::vector<Frame> stack_;
     // The driver is running: it is on the stack, and no interrupt came in over it (some
@@ -313,6 +334,8 @@ struct Heard {
 
 class Ripper {
 public:
+    std::set<uint32_t> skip;  // routines not to take for the driver (tried already)
+    uint32_t driverTaken = 0;  // the one taken, once it was
     Ripper(const std::vector<uint8_t>& rom, const GbSongRipper::Options& o, GbSongRipper::Progress* p)
         : rom_(rom), options_(o), progress_(p) {}
 
@@ -624,7 +647,7 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
     uint64_t most = 0;
     double best = 0;
     for (const auto& [id, r] : first.routines) {
-        if (r.calls < 30 || r.sound * 10 < first.soundWrites * 4) continue;
+        if (r.calls < 30 || r.sound * 10 < first.soundWrites * 4 || skip.count(id)) continue;
         const double seconds = static_cast<double>(r.lastClock - r.firstClock) / kClock;
         const double rate = seconds > 0 ? static_cast<double>(r.calls - 1) / seconds : 0;
         if (rate < 20) continue;
@@ -632,7 +655,7 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         if (std::getenv("PLUMNIN_RIP_DEBUG"))
             std::fprintf(stderr, "candidate %s: rate %.1f, %llu quick\n", hexId(id).c_str(), rate,
                          static_cast<unsigned long long>(r.quickCalls));
-        if (r.quickCalls * 10 > r.calls) continue;  // (a few, when the game lags)
+        if (r.quickCalls * 4 > r.calls) continue;  // (a few, when the game lags)
         const double cost = static_cast<double>(r.instructions) / static_cast<double>(r.calls);
         // As much as the most, give or take a twentieth, and the least work for it.
         const bool more = r.sound * 20 > most * 21, asMuch = r.sound * 21 >= most * 20;
@@ -659,6 +682,7 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         return false;
     }
     driver_.routine = driver;
+    driverTaken = driver;
     mostNotes_ = std::max(120, static_cast<int>(1.5 * first.mostNotesPerSecond * options_.probeSeconds));
     log += "controlador: " + hexId(driver) + ", " + std::to_string(static_cast<int>(driver_.rate + 0.5)) + " veces por segundo\n";
 
@@ -820,6 +844,9 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
             if (n == 0) continue;  // asking for nothing, or a byte merely cleared
             const Heard h = listen(probe, w, n);
             ok = ok || (h.song(mostNotes_) && !sameAsBefore(w, h));
+            if (std::getenv("PLUMNIN_RIP_DEBUG") && std::getenv("PLUMNIN_RIP_DEBUG")[0] == '2')
+                std::fprintf(stderr, "    %d: ok %d, %d notes (%d late) on %d channels, same %d\n", n, h.ok, h.triggers, h.late,
+                             h.channels, static_cast<int>(sameAsBefore(w, h)));
         }
         if (std::getenv("PLUMNIN_RIP_DEBUG")) {
             std::string asked;
@@ -931,9 +958,23 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
 
 bool GbSongRipper::run(const std::vector<uint8_t>& rom, const Options& options, Progress* progress,
                        std::vector<Song>* songs, std::string* error, std::string* report) {
-    songs->clear();
-    Ripper r(rom, options, progress);
-    const bool ok = r.run(songs, error, report);
+    // A driver that, run by itself, plays nothing the game asks: some need what calls them
+    // (a flag it sets, the bank it keeps). Then the next one, up to three.
+    std::set<uint32_t> skip;
+    std::string firstError;
+    bool ok = false;
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        songs->clear();
+        if (error) error->clear();
+        if (progress) progress->step = 0;
+        Ripper r(rom, options, progress);
+        r.skip = skip;
+        ok = r.run(songs, error, report);
+        if (attempt == 0 && error) firstError = *error;
+        if (ok || !r.driverTaken || (progress && progress->cancel)) break;
+        skip.insert(r.driverTaken);
+    }
+    if (!ok && error && !firstError.empty()) *error = firstError;
     if (!ok && error && error->empty() && progress && progress->cancel) *error = tr("Cancelado.");
     return ok;
 }
