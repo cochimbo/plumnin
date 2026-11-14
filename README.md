@@ -131,9 +131,10 @@ The plan, in order:
 2. Game Boy and Game Boy Color. (done)
 3. NES. (done)
 4. Super Nintendo. (done; of the cartridges' chips, the NEC DSPs, the Super FX, the SA-1, the S-DD1, the OBC1, the Cx4 and the SPC7110)
+5. In the future, the light guns: the NES Zapper and the SNES Super Scope.
 
 What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIOS, the
-32X, the light guns, and the library's 3D shelf with the consoles' models) is not here.
+32X, Sega's light guns, and the library's 3D shelf with the consoles' models) is not here.
 
 ## Building
 
