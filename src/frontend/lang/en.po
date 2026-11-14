@@ -1684,6 +1684,12 @@ msgstr "Sample without a note"
 msgid "Música"
 msgstr "Music"
 
+msgid "Música sacada: %d canciones, en el Editor de instrumentos."
+msgstr "Music taken out: %d songs, in the Instrument editor."
+
+msgid "Música sacada: %d canción, en el Editor de instrumentos."
+msgstr "Music taken out: %d song, in the Instrument editor."
+
 msgid "Música y baile"
 msgstr "Music and dance"
 

@@ -84,7 +84,7 @@ Output
   --wav FILE            the whole run's sound (44100 Hz stereo)
   --synth SF2           the music through the synthesizer, on this SoundFont
   --synth-chip PERCENT  how loud the chip's own sound stays under it (default 0)
-  --rip-songs DIR       Sacar canciones: every song of the game (Game Boy and Color),
+  --rip-songs DIR       Sacar canciones: every song of the game (Game Boy, Color and NES),
                         each to DIR as a .vgz with its loop, then exit
   --vgm FILE            the run's music as a VGM (gzip-compressed, .vgz), as the
                         instrument editor records it (Game Boy, Color and NES)

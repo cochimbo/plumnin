@@ -1131,7 +1131,9 @@ bool Ripper::run(std::vector<SongRipper::Song>* songs, std::string* error, std::
             auto& [songsHere, dead] = tally[&w];
             // (But the bits one by one: some drivers take a bit for each song.)
             const bool bit = (number & (number - 1)) == 0;
-            if (songsHere >= 2 && dead >= 4 && !bit) continue;
+            // (Nor a number the game itself asked for: past some effects, its songs.)
+            const bool asked = std::find(w.asked.begin(), w.asked.end(), number) != w.asked.end();
+            if (songsHere >= 2 && dead >= 4 && !bit && !asked) continue;
             const Heard h = listen(probe, w, number);
             dead = h.song(mostNotes_) ? 0 : dead + 1;
             if (std::getenv("PLUMNIN_RIP_DEBUG") && number < 40 && !w.routine)
@@ -1169,12 +1171,23 @@ bool Ripper::run(std::vector<SongRipper::Song>* songs, std::string* error, std::
         std::set<uint32_t> channels;
         for (size_t i = from; i < from + length; ++i) channels.insert(notes[i] >> 16);
         if (channels.size() < 2) return false;
-        for (size_t k = 0; k < heard.size(); ++k)
-            if (std::search(heard[k].begin(), heard[k].end(), notes.begin() + static_cast<long>(from),
-                            notes.begin() + static_cast<long>(from + length)) != heard[k].end()) {
+        std::set<uint32_t> mine;
+        for (uint32_t n : notes) mine.insert(n >> 16);
+        for (size_t k = 0; k < heard.size(); ++k) {
+            // (Only those channels of it, when it has more: the same song started on a
+            // later channel plays the rest without the first.)
+            std::set<uint32_t> its;
+            for (uint32_t n : heard[k]) its.insert(n >> 16);
+            const bool fewer = mine.size() < its.size() && std::includes(its.begin(), its.end(), mine.begin(), mine.end());
+            std::vector<uint32_t> those;
+            for (uint32_t n : heard[k])
+                if (!fewer || channels.count(n >> 16)) those.push_back(n);
+            if (std::search(those.begin(), those.end(), notes.begin() + static_cast<long>(from),
+                            notes.begin() + static_cast<long>(from + length)) != those.end()) {
                 if (std::getenv("PLUMNIN_RIP_DEBUG")) std::fprintf(stderr, "  as song %zu\n", k + 1);
                 return true;
             }
+        }
         return false;
     };
     std::map<const Way*, int> byWay;

@@ -1684,6 +1684,12 @@ msgstr "Amostra sem nota"
 msgid "Música"
 msgstr "Música"
 
+msgid "Música sacada: %d canciones, en el Editor de instrumentos."
+msgstr "Música extraída: %d canções, no Editor de instrumentos."
+
+msgid "Música sacada: %d canción, en el Editor de instrumentos."
+msgstr "Música extraída: %d canção, no Editor de instrumentos."
+
 msgid "Música y baile"
 msgstr "Música e dança"
 

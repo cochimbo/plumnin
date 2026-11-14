@@ -317,8 +317,32 @@ std::string InstrumentEditor::tracksFor(const std::string& folder, const std::st
     return folder + "tracks/" + std::filesystem::u8path(game).stem().u8string() + "/";
 }
 
+int InstrumentEditor::songsIn(const std::string& folder) {
+    int n = 0;
+    std::error_code ec;
+    for (std::filesystem::directory_iterator it(std::filesystem::u8path(folder), ec), end; !ec && it != end; it.increment(ec)) {
+        std::string ext = it->path().extension().u8string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if ((ext == ".vgm" || ext == ".vgz") && it->is_regular_file(ec)) ++n;
+    }
+    return n;
+}
+
+const std::map<std::string, int>& InstrumentEditor::gamesWithMusic() {
+    if (musicSeen_ == musicVersion_) return withMusic_;
+    musicSeen_ = musicVersion_;
+    withMusic_.clear();
+    std::error_code ec;
+    for (std::filesystem::directory_iterator it(std::filesystem::u8path(folder_ + "tracks/"), ec), end; !ec && it != end;
+         it.increment(ec))
+        if (it->is_directory(ec))
+            if (const int n = songsIn(it->path().u8string())) withMusic_[it->path().filename().u8string()] = n;
+    return withMusic_;
+}
+
 void InstrumentEditor::scanSongs() {
     scanned_ = true;
+    ++musicVersion_;
     songs_.clear();
     const std::string dir = tracksFor(folder_, game_);
     std::error_code ec;

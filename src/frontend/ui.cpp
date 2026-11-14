@@ -91,6 +91,19 @@ bool widescreenControls(int& left, int& right) {
     return changed;
 }
 
+// An eighth note in a `size` square at `at`: a filled head, a stem and its flag (the
+// fonts may not have the glyph).
+void drawMusicNote(ImDrawList* draw, ImVec2 at, float size, ImU32 colour) {
+    const float r = size * 0.2f;
+    const ImVec2 head(at.x + size * 0.38f, at.y + size * 0.78f);
+    draw->AddEllipseFilled(head, ImVec2(r * 1.25f, r), colour, -0.4f);
+    const float stemX = head.x + r * 1.05f;
+    const float top = at.y + size * 0.08f;
+    draw->AddLine(ImVec2(stemX, head.y - r * 0.3f), ImVec2(stemX, top), colour, std::max(1.0f, size * 0.09f));
+    draw->AddBezierQuadratic(ImVec2(stemX, top), ImVec2(stemX + size * 0.38f, top + size * 0.2f),
+                             ImVec2(stemX + size * 0.22f, top + size * 0.5f), colour, std::max(1.0f, size * 0.09f));
+}
+
 // Back to the default look of the pseudo-3D (the effect itself stays on or off).
 void reset3D(RenderOptions& r) {
     const RenderOptions defaults;
@@ -2451,6 +2464,7 @@ void Ui::drawLibraryGrid(const std::vector<size_t>& visible) {
     const float avail = ImGui::GetContentRegionAvail().x;
     const int cols = std::max(1, static_cast<int>((avail + style.ItemSpacing.x) / (card.x + style.ItemSpacing.x)));
     libraryView_.columns = cols;
+    const std::map<std::string, int>& withMusic = editor_.gamesWithMusic();
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const ImRect inner = ImGui::GetCurrentWindow()->InnerRect;
     theme::libraryBackground(inner.Min, inner.Max);
@@ -2485,6 +2499,13 @@ void Ui::drawLibraryGrid(const std::vector<size_t>& visible) {
             const ImVec2 size = ImGui::CalcTextSize(label);
             draw->AddText(ImVec2(box.x + (coverW - size.x) * 0.5f, box.y + (coverH - size.y) * 0.5f),
                           IM_COL32(140, 146, 160, 255), label);
+        }
+        // A note at the top left: its music has been taken out (Sacar canciones).
+        if (withMusic.count(g.stem)) {
+            const float s = std::clamp(coverW * 0.16f, 16.0f, 26.0f);
+            const ImVec2 b0(box.x + 4, box.y + 4);
+            draw->AddRectFilled(b0, ImVec2(b0.x + s, b0.y + s), IM_COL32(20, 20, 24, 210), 4.0f);
+            drawMusicNote(draw, ImVec2(b0.x + s * 0.15f, b0.y + s * 0.1f), s * 0.8f, IM_COL32(255, 214, 90, 255));
         }
         // On the "Todos" tab, a badge on each cover says which console.
         if (settings_.librarySystem < 0) {
@@ -2683,6 +2704,17 @@ void Ui::drawLibraryDetails(const std::vector<size_t>& visible) {
 
     ImGui::Spacing();
     ImGui::SeparatorText(tr("Descripción"));
+    if (const auto music = editor_.gamesWithMusic().find(g.stem); music != editor_.gamesWithMusic().end()) {
+        const int songs = music->second;
+        const float s = ImGui::GetTextLineHeight();
+        drawMusicNote(ImGui::GetWindowDrawList(), ImGui::GetCursorScreenPos(), s, IM_COL32(255, 214, 90, 255));
+        ImGui::Dummy(ImVec2(s, s));
+        ImGui::SameLine();
+        ImGui::TextWrapped("%s", trf(songs == 1 ? N_("Música sacada: %d canción, en el Editor de instrumentos.")
+                                               : N_("Música sacada: %d canciones, en el Editor de instrumentos."),
+                                     songs).c_str());
+        ImGui::Spacing();
+    }
     if (sheet.busy) {
         ImGui::TextDisabled("...");
         return;
