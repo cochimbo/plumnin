@@ -20,6 +20,9 @@ public:
     uint8_t read(uint16_t address) const;
     void write(uint16_t address, uint8_t value);
 
+    // The registers FF10-FF3F as last written, the wave RAM included, for a recording.
+    void registers(uint8_t out[0x30]) const;
+
     void setSampleRate(double hz) { cyclesPerSample_ = 4194304.0 / hz; }
     // Moves what was made since the last call to `out`, interleaved stereo.
     void takeSamples(std::vector<int16_t>& out) {

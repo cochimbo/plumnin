@@ -254,6 +254,14 @@ bool Console::stateThumbnail(const std::vector<uint8_t>& state, std::vector<uint
     return false;
 }
 
+bool Console::recordMusic(VgmWriter* recorder) {
+    if (recorder && !musicRecordable()) return false;
+    if (recorder_) endMusicRecording(*recorder_);
+    recorder_ = recorder;
+    if (recorder_) beginMusicRecording(*recorder_);
+    return true;
+}
+
 void Console::setSynth(SynthMusic* synth, int chipPercent) {
     if (!synthSupported()) synth = nullptr;
     if (synth != synth_) {
@@ -283,11 +291,14 @@ bool Console::runAhead(int frames) {
     // The frames ahead are not heard, nor are their notes played.
     SynthMusic* synth = synth_;
     synth_ = nullptr;
+    VgmWriter* recorder = recorder_;
+    recorder_ = nullptr;
     for (int i = 1; i <= frames; ++i) {
         drawing_ = i == frames;  // only the last picture is seen
         runFrame();
     }
     synth_ = synth;
+    recorder_ = recorder;
     drawing_ = drawing;
     // The frames to come are run again for real, and heard then.
     audio_.clearSamples();

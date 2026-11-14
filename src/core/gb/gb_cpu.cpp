@@ -144,6 +144,7 @@ void GameBoy::interrupt() {
         pc_ = static_cast<uint16_t>(0x40 + bit * 8);
     }
     tick();
+    if (tracer_) tracer_->call(pc_, sp_, true);
 }
 
 void GameBoy::step() {
@@ -176,6 +177,7 @@ void GameBoy::step() {
         eiDelay_ = false;
         ime_ = true;
     }
+    if (tracer_) tracer_->instruction(pc_, sp_);
     execute(fetch());
 }
 
@@ -343,6 +345,7 @@ void GameBoy::execute(uint8_t op) {
                 tick();
                 push(pc_);
                 pc_ = to;
+                if (tracer_) tracer_->call(pc_, sp_, false);
             }
             return;
         }
@@ -355,6 +358,7 @@ void GameBoy::execute(uint8_t op) {
             tick();
             push(pc_);
             pc_ = op & 0x38;
+            if (tracer_) tracer_->call(pc_, sp_, false);
             return;
         case 0xC9: pc_ = pop(), tick(); return;
         case 0xD9: pc_ = pop(), tick(), ime_ = true; return;
@@ -364,6 +368,7 @@ void GameBoy::execute(uint8_t op) {
             tick();
             push(pc_);
             pc_ = to;
+            if (tracer_) tracer_->call(pc_, sp_, false);
             return;
         }
         case 0xE0: {

@@ -114,6 +114,21 @@ there is:
   kit or **Original (the chip)** is chosen. **Hear only this one** silences the rest, on
   the chip too, and **Suggestion** goes back to the rules. It is heard at once and saved
   per game in `sound/<game>.ini`, in plumsg's format.
+  Its **Songs** tab has the game's music as VGM files (`sound/tracks/<game>/`), to hear
+  without playing: the game waits while one plays, through the synthesizer when it is
+  on, so its instruments can be changed as it plays. **Record the game's music** saves
+  what plays while you play. On the Game Boy and Color, **Extract songs from the ROM**
+  finds them all by itself: it runs the game for a while watching the processor, finds
+  the sound driver (the routine called a few dozen times a second under which the chip
+  is written) and how the game asks it for a song (a routine called with its number, or
+  a byte the driver reads and clears), keeps the ways that play a song with a number the
+  game itself asked for, then asks for every number with only the driver running and
+  records each song until the driver comes back to where it was, which is its loop.
+  Tetris gives its 17 songs in a few seconds, Link's Awakening its 94 in a minute and a
+  half; not every game's way of asking is found yet (Mega Man II's and Pokémon
+  Crystal's, for two). `plumnin-headless game.gb --rip-songs DIR` does it without a
+  window, `--vgm FILE` records a run, and a `.vgm` or `.vgz` given instead of a game is
+  played to `--wav`.
 - The 2D and pseudo-3D views, with the xBR and Anime4K upscalers and the scanline and
   CRT filters.
 - Netplay over UDP with rollback.

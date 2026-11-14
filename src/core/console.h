@@ -10,6 +10,7 @@
 #include "pad.h"
 #include "state_io.h"
 #include "synth_music.h"
+#include "vgm.h"
 #include "system.h"
 #include "video_frame.h"
 
@@ -111,6 +112,13 @@ public:
     void setSynth(SynthMusic* synth, int chipPercent);
     SynthMusic* synth() const { return synth_; }
     virtual bool synthSupported() const { return false; }
+    // Records the music: from now on every write to the sound chip goes to `recorder`
+    // (not owned; null stops, marking the end at now), which begins with the chip as it
+    // is. Only for the
+    // consoles whose chip a VGM can hold (musicRecordable()); false for the rest.
+    bool recordMusic(VgmWriter* recorder);
+    VgmWriter* musicRecorder() const { return recorder_; }
+    virtual bool musicRecordable() const { return false; }
 
     // The cartridge's battery-backed memory, if it has any.
     virtual bool hasSaveData() const { return false; }
@@ -188,6 +196,11 @@ protected:
 
     AudioOut audio_;
     SynthMusic* synth_ = nullptr;
+    VgmWriter* recorder_ = nullptr;
+    // Starts `recorder` with the chip's registers as they are.
+    virtual void beginMusicRecording(VgmWriter& recorder) { (void)recorder; }
+    // Brings `recorder` up to now, the waits included.
+    virtual void endMusicRecording(VgmWriter& recorder) { (void)recorder; }
     int synthPercent_ = 100;
     uint32_t chipFull_ = 0, chipSilent_ = 0;
     bool chipSet_ = false;

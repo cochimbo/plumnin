@@ -59,6 +59,66 @@ public:
     bool hitBreakpoint() const { return breakpoint_; }
     uint8_t peek(uint16_t address) const;
 
+    // Sacar canciones (gb_songs.cpp) watches the processor through a tracer, and runs
+    // pieces of the game's code on their own with what follows.
+    class Tracer {
+    public:
+        virtual ~Tracer() = default;
+        // Before each instruction.
+        virtual void instruction(uint16_t pc, uint16_t sp) = 0;
+        // A CALL or RST taken, or an interrupt served: `to` is where it went, `sp` the
+        // stack with the return address on it.
+        virtual void call(uint16_t to, uint16_t sp, bool interrupt) = 0;
+        // A read or write by the processor.
+        virtual void access(uint16_t address, uint8_t value, bool write) = 0;
+    };
+    void setTracer(Tracer* tracer) { tracer_ = tracer; }
+    struct Cpu {
+        uint8_t a = 0, f = 0, b = 0, c = 0, d = 0, e = 0, h = 0, l = 0;
+        uint16_t sp = 0, pc = 0;
+        bool ime = false;
+    };
+    Cpu cpu() const { return {a_, f_, b_, c_, d_, e_, h_, l_, sp_, pc_, ime_}; }
+    // Also wakes it from HALT or STOP.
+    void setCpu(const Cpu& c) {
+        a_ = c.a, f_ = c.f, b_ = c.b, c_ = c.c, d_ = c.d, e_ = c.e, h_ = c.h, l_ = c.l, sp_ = c.sp, pc_ = c.pc;
+        ime_ = c.ime;
+        halted_ = stopped_ = eiDelay_ = haltBug_ = false;
+    }
+    // The banks mapped now: the cartridge's, and the Color's work RAM's.
+    struct Banks {
+        gb::Cartridge::Banks cart;
+        uint8_t wram = 1;
+    };
+    Banks banks() const { return {cart_.banks(), wramBank_}; }
+    void setBanks(const Banks& b) {
+        cart_.setBanks(b.cart);
+        wramBank_ = b.wram;
+    }
+    size_t romBank() const { return cart_.romBankNumber(); }
+    size_t romSize() const { return cart_.romSize(); }
+    // One instruction, or an interrupt served.
+    void stepInstruction() { step(); }
+    // `dots` of the sound chip's clock with nothing else running: only the sound chip
+    // (or not even it, for listening to what is written to it).
+    void idleSound(uint64_t dots, bool chip) {
+        if (!chip) {
+            soundClock_ += dots;
+            return;
+        }
+        for (uint64_t i = 0; i < dots; i += 4) {
+            apu_.run(4);
+            soundClock_ += 4;
+            if (soundClock_ % 8192 < 4) apu_.frameSequencerClock();
+        }
+    }
+    void poke(uint16_t address, uint8_t value) { busWrite(address, value); }
+    uint8_t interruptEnable() const { return ie_; }
+    void setInterruptEnable(uint8_t v) { ie_ = v; }
+    void clearInterrupts() { if_ &= 0xE0; }
+    uint64_t soundClock() const { return soundClock_; }
+    bool doubleSpeed() const { return doubleSpeed_; }
+
     static CheatDecoder decoder();
     static const char* cheatFormats();
 
@@ -72,10 +132,13 @@ private:
     void tick();
     uint8_t read(uint16_t address) {
         tick();
-        return busRead(address);
+        const uint8_t v = busRead(address);
+        if (tracer_) tracer_->access(address, v, false);
+        return v;
     }
     void write(uint16_t address, uint8_t value) {
         tick();
+        if (tracer_) tracer_->access(address, value, true);
         busWrite(address, value);
     }
     uint8_t busRead(uint16_t address) const;
@@ -116,6 +179,9 @@ private:
     uint8_t dec(uint8_t v);
     uint8_t cb(int op, uint8_t v);
     bool condition(int cc) const;
+    bool musicRecordable() const override { return true; }
+    void beginMusicRecording(VgmWriter& recorder) override;
+    void endMusicRecording(VgmWriter& recorder) override { recorder.mark(soundClock_); }
     void setChipVoices(uint32_t full, uint32_t silent, int percent) override { apu_.setChannelGains(full, silent, percent); }
     // Hands the synthesizer what each sound channel is doing.
     void pollMusic();
@@ -154,6 +220,10 @@ private:
     bool hdmaActive_ = false;
 
     uint64_t cycles_ = 0;  // M-cycles since power on
+    // The sound chip's clock (4194304 Hz, at both speeds) since power on, for the music;
+    // not part of the state, so that it only goes forward.
+    uint64_t soundClock_ = 0;
+    Tracer* tracer_ = nullptr;
     std::string serial_;
     std::vector<CheatPatch> romCheats_, ramCheats_;
 };

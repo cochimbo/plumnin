@@ -1150,6 +1150,7 @@ int main(int argc, char** argv) {
         uiState.romLoaded = app->romLoaded;
         uiState.romPath = app->romPath;
         uiState.synthOn = app->console && app->console->synth();
+        uiState.console = app->console.get();
         uiState.paused = paused;
         uiState.slowMotion = slowMotion;
         uiState.fps = &fpsCounter;
@@ -1330,6 +1331,15 @@ int main(int argc, char** argv) {
                                                                                : tr("Red: conectando");
             }
             pacer.reset();
+        }
+        // A song of the instrument editor: the game waits while it plays.
+        else if (ui->songPlaying()) {
+            turnTarget = 60;
+            for (int n = pacer.framesForTick(1.0); n > 0; --n) {
+                std::vector<int16_t> out;
+                ui->playSong(1.0 / 60.0, audio->rate(), out);
+                audio->push(out, settings.volume, settings.mute || capturing);
+            }
         }
         // The game waits while the states menu, the library or the file browser is open.
         else if (app->romLoaded && !paused && !padMenuOpen) {
