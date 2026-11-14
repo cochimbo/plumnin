@@ -299,6 +299,7 @@ struct Way {
     std::set<uint8_t> asked;     // the numbers the game itself asked for this way
     bool whilePlaying = false;   // a byte, with the driver playing what the game asked last
     int reg = 0;                 // a routine: which it is asked in, A, C or E
+    bool guessed = false;        // a byte only written and read, not seen taken as a request
     std::string describe() const {
         char s[64];
         if (routine) std::snprintf(s, sizeof s, "rutina %s (%c)", hexId(id).c_str(), "ACE"[reg]);
@@ -765,9 +766,12 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         }
     }
     const size_t routines = ways.size();
-    for (const auto& b : bytes)
-        ways.push_back({false, static_cast<uint32_t>(b.second), {},
-                        asked ? second.requests[static_cast<size_t>(b.second)] : second.written[static_cast<size_t>(b.second)]});
+    for (const auto& b : bytes) {
+        Way w{false, static_cast<uint32_t>(b.second), {},
+              asked ? second.requests[static_cast<size_t>(b.second)] : second.written[static_cast<size_t>(b.second)]};
+        w.guessed = !asked;
+        ways.push_back(w);
+    }
     {
         auto gb3Own = std::make_unique<GameBoy>();
         GameBoy& gb3 = *gb3Own;
@@ -859,6 +863,11 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
                 if (!r->routine && r->id == w.id) ok = false;
         if (ok) real.push_back(&w);
     }
+    // A byte guessed at, when a routine works: some part of what the driver is playing
+    // (where a channel reads from), playing anything at all.
+    bool routineWorks = false;
+    for (const Way* w : real) routineWorks = routineWorks || w->routine;
+    if (routineWorks) real.erase(std::remove_if(real.begin(), real.end(), [](const Way* w) { return w->guessed; }), real.end());
     // None: what the others play would be anything but the game's songs.
     if (real.empty()) {
         if (error) *error = tr("Se ha encontrado el controlador de sonido, pero no cómo pide el juego las canciones.");
@@ -915,7 +924,6 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
         return false;
     };
     std::map<const Way*, int> byWay;
-    std::vector<Take> takes;
     for (const Found& f : found) {
         if (cancelled()) return false;
         Take take;
@@ -923,31 +931,24 @@ bool Ripper::run(std::vector<GbSongRipper::Song>* songs, std::string* error, std
             const bool before = again(take.played);
             if (std::getenv("PLUMNIN_RIP_DEBUG"))
                 std::fprintf(stderr, "song %d: %s%.1f s, loop %d%s\n", f.number, before ? "heard before, " : "",
-                             static_cast<double>(take.end.samples) / 44100.0, take.looped, take.unfinished ? (take.inStep ? ", unfinished" : ", unfinished, out of step") : "");
-            if (!before) {
-                heard.push_back(take.played);
-                take.way = f.way;
-                take.played.clear();
-                takes.push_back(std::move(take));
+                             static_cast<double>(take.end.samples) / 44100.0, take.looped,
+                             take.unfinished ? (take.inStep ? ", unfinished" : ", unfinished, out of step") : "");
+            // Never coming back to where it was, each channel going round on its own: the
+            // driver playing what is not a song.
+            if (!before && !(take.unfinished && !take.inStep)) {
+                heard.push_back(std::move(take.played));
+                ++byWay[f.way];
+                GbSongRipper::Song song;
+                VgmWriter::Tag tag{trf("Canción %02d", static_cast<int>(songs->size()) + 1), title_,
+                                   trf("Número %d del juego", f.number)};
+                song.number = f.number;
+                song.vgz = take.vgm->finish(tag, &take.end, take.looped ? &take.loop : nullptr);
+                song.seconds = static_cast<double>(take.end.samples) / 44100.0;
+                song.loopSeconds = take.looped ? static_cast<double>(take.end.samples - take.loop.samples) / 44100.0 : 0;
+                songs->push_back(std::move(song));
             }
         }
         step();
-    }
-    // Songs never coming back to where they were, when the others do: the driver playing
-    // what is not a song (each channel going round on its own, out of step).
-    bool loops = false;
-    for (const Take& t : takes) loops = loops || t.looped;
-    for (Take& t : takes) {
-        if (loops && t.unfinished && !t.inStep) continue;
-        ++byWay[t.way];
-        GbSongRipper::Song song;
-        VgmWriter::Tag tag{trf("Canción %02d", static_cast<int>(songs->size()) + 1), title_, trf("Número %d del juego", t.number)};
-        song.number = t.number;
-        song.vgz = t.vgm->finish(tag, &t.end, t.looped ? &t.loop : nullptr);
-        song.seconds = static_cast<double>(t.end.samples) / 44100.0;
-        song.loopSeconds = t.looped ? static_cast<double>(t.end.samples - t.loop.samples) / 44100.0 : 0;
-        songs->push_back(std::move(song));
-        t.vgm.reset();
     }
     for (const auto& [w, n] : byWay) log += w->describe() + ": " + std::to_string(n) + " canciones\n";
     if (report) *report = log;
