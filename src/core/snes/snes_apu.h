@@ -49,6 +49,9 @@ public:
         for (Voice& v : voices_) {
             ar(v.buffer, v.bufferPos, v.interpPos, v.brrAddr, v.brrOffset, v.konDelay, v.envMode, v.env, v.hiddenEnv);
         }
+        // What the synthesizer was told of each voice's sample is the RAM's as it was: after
+        // a state is loaded, looked at again in the new one.
+        voiceSample_.fill(nullptr);
     }
 
 private:

@@ -982,6 +982,19 @@ void InstrumentEditor::finishRip() {
         return;
     }
     const std::string dir = tracksFor(folder_, ripGame_);
+    // The songs of an earlier Sacar canciones go: those it finds now replace them (a
+    // song more or less, or found otherwise, and the old ones would linger in the list).
+    {
+        std::error_code ec;
+        std::vector<fs::path> old;
+        for (fs::directory_iterator it(fs::u8path(dir), ec), end; !ec && it != end; it.increment(ec)) {
+            const std::string name = it->path().filename().u8string();
+            for (const char* ext : {".spc", ".vgz"})
+                for (int n = 1; n < 1000; ++n)
+                    if (name == trf("Canción %02d", n) + ext) old.push_back(it->path());
+        }
+        for (const fs::path& p : old) fs::remove(p, ec);
+    }
     int saved = 0;
     for (size_t i = 0; i < ripSongs_.size(); ++i) {
         const std::string path =
@@ -990,8 +1003,12 @@ void InstrumentEditor::finishRip() {
         if (writeBytes(path, v.data(), v.size())) ++saved;
     }
     ripSongs_.clear();
-    // The sound effects' instruments: they keep the chip's sound.
-    if (!ripEffects_.empty()) {
+    // The sound effects' instruments: they keep the chip's sound. (None found: the old
+    // list goes, it was of other instruments.)
+    if (ripEffects_.empty()) {
+        std::error_code ec;
+        fs::remove(fs::u8path(folder_ + stem(ripGame_) + ".effects"), ec);
+    } else {
         std::string text = "; " + trf("Los efectos de sonido de %s (huellas de instrumentos), de Sacar canciones.",
                                       stem(ripGame_).c_str()) + "\n";
         char line[16];
@@ -1006,7 +1023,13 @@ void InstrumentEditor::finishRip() {
     if (ripGame_ == game_) {
         ++effectsVersion_;
         listTracks();
-        if (!tracks_.empty() && track_.path.empty()) loadTrack(tracks_.front());
+        // The song open may be one just written over (or gone): opened again from the disk.
+        const Track open = track_;
+        track_ = Track{};
+        player_.load(VgmFile{});
+        const auto same = std::find(tracks_.begin(), tracks_.end(), open);
+        if (same != tracks_.end()) loadTrack(*same);
+        else if (!tracks_.empty()) loadTrack(tracks_.front());
     } else {
         ++musicVersion_;
     }

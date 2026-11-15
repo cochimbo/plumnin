@@ -886,6 +886,12 @@ int main(int argc, char** argv) {
         }
         bool loaded = false;
         ui->notify(app->loadState(slot, &loaded));
+        // The synthesizer's choices and the sound effects as they are on disk now: Sacar
+        // canciones may have found others since the game was opened.
+        if (loaded && app->console && app->console->synth()) {
+            synth->setAssignments(InstrumentEditor::load(soundDir, app->romPath));
+            synth->setSoundEffects(InstrumentEditor::effectsFor(soundDir, app->romPath), settings.effectsOriginal);
+        }
         std::vector<uint8_t> progress;
         if (loaded && !readFile(app->progressPath(slot), progress)) progress.clear();
         if (loaded) achievements.loadProgress(progress);
