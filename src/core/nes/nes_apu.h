@@ -26,6 +26,11 @@ public:
     // The last values written to 4000-4017, for a recording to start from.
     void registers(uint8_t* out) const {
         for (int i = 0; i < 0x18; ++i) out[i] = regs_[i];
+        // The channels on as they are, not as the last write to 4015 said: the same unless
+        // that write was in another run of the game (a state loaded since, as Sacar
+        // canciones does all the time), and a recording that starts them all off is silent.
+        out[0x15] = static_cast<uint8_t>((regs_[0x15] & 0xF0) | (pulse_[0].enabled ? 1 : 0) | (pulse_[1].enabled ? 2 : 0) |
+                                         (tri_.enabled ? 4 : 0) | (noise_.enabled ? 8 : 0));
     }
     bool irq() const { return frameIrq_ || dmcIrq_; }
 
@@ -74,6 +79,12 @@ public:
            dmc_.startDelay, dmc_.disableDelay);
         ar(pal_, fiveStep_, irqInhibit_, frameIrq_, dmcIrq_, frameCycle_, frameStep_, newMode_, writeDelay_,
            blockTick_, last4017_, dmcRequest_, dmcAbort_, acc_, accCycles_, sampleClock_, dc_);
+    }
+    // What was last written to each register, for a recording to start from (a block of its
+    // own, so that states saved before it still load).
+    template <class Ar>
+    void registerState(Ar& ar) {
+        ar(regs_);
     }
 
 private:

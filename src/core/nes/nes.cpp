@@ -489,6 +489,7 @@ void Nes::saveBlocks(StateBlocks& blocks) {
     blocks.add("NSMM", [&](StateWriter& w) { w(ram_, openBus_, strobe_, shift_); });
     blocks.add("NSPP", [&](StateWriter& w) { ppu_.state(w); });
     blocks.add("NSAP", [&](StateWriter& w) { apu_.state(w); });
+    blocks.add("NSAR", [&](StateWriter& w) { apu_.registerState(w); });
     blocks.add("NSCT", [&](StateWriter& w) { cart_->save(w); });
 }
 
@@ -504,6 +505,8 @@ bool Nes::loadBlock(uint32_t id, StateReader& r) {
         ppu_.state(r);
     } else if (id == fourcc("NSAP")) {
         apu_.state(r);
+    } else if (id == fourcc("NSAR")) {
+        apu_.registerState(r);
     } else if (id == fourcc("NSCT")) {
         cart_->load(r);
     }
