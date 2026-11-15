@@ -392,6 +392,13 @@ SynthMusic::Assignment SynthMusic::suggest(const Traits& t, const Heard& heard) 
             // by how long the game holds it.
             // (Before four notes, only a very short one: a short note with a clear pitch may yet be
             // a piano, and a melody's first notes taken for a bass drum come out as a roll.)
+            // A very short dark one with a pitch is a tom or a bongo, however many notes the
+            // game plays it on (Super Mario World's, Yoshi's drums): no tune is played on a
+            // knock, and as a marimba or a piano it is a tune where there was none.
+            if (t.pitched && !t.looped && t.seconds < 0.15 && t.brightness < 0.06) {
+                a.drum = median >= 55 ? 60 : median >= 45 ? 64 : 45;
+                break;
+            }
             const bool drum = !t.pitched || (!t.looped && t.seconds < 0.35 &&
                                              (heard.notes < 4 ? t.seconds < 0.15 : heard.distinct() <= 2));
             if (drum) {
