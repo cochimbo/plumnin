@@ -1850,6 +1850,9 @@ msgstr "Non officiels"
 msgid "No se encuentra \"%s\"."
 msgstr "\"%s\" est introuvable."
 
+msgid "No se ha encontrado cómo pide el juego sus canciones."
+msgstr "La façon dont le jeu demande ses morceaux n'a pas été trouvée."
+
 msgid "No se ha encontrado el controlador de sonido del juego."
 msgstr "Le pilote son du jeu est introuvable."
 
@@ -2148,9 +2151,6 @@ msgstr "Cymbale splash"
 
 msgid "Por ahora, solo en los juegos de Game Boy, Game Boy Color, NES y Super Nintendo."
 msgstr "Pour l'instant, uniquement dans les jeux Game Boy, Game Boy Color, NES et Super Nintendo."
-
-msgid "No se ha encontrado cómo pide el juego sus canciones."
-msgstr "La façon dont le jeu demande ses morceaux n'a pas été trouvée."
 
 msgid "Por año"
 msgstr "Par année"
@@ -2993,6 +2993,9 @@ msgstr "la ROM NES n’a pas de PRG"
 
 msgid "la ROM es demasiado pequeña para ser de Game Boy"
 msgstr "la ROM est trop petite pour être une ROM Game Boy"
+
+msgid "la que sonó en el juego (%zu)"
+msgstr "celle entendue dans le jeu (%zu)"
 
 msgid "ninguno"
 msgstr "aucun"

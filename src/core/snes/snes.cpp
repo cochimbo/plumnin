@@ -582,7 +582,12 @@ void Snes::runDma(uint8_t channels) {
             if (toA) {
                 const uint8_t v = bRead(reg);
                 mdr_ = v;
-                busWrite(address, v);
+                // (Nor can it write the B bus, nor the DMA's own registers, through the A
+                // bus: a game run astray would start a DMA from inside another.)
+                const uint32_t bank = address >> 16;
+                const uint16_t a = static_cast<uint16_t>(address);
+                if ((bank & 0x40) || !((a & 0xFF00) == 0x2100 || (a >= 0x4300 && a < 0x4380) || a == 0x420B || a == 0x420C))
+                    busWrite(address, v);
             } else {
                 const uint8_t v = dmaRead(address);
                 mdr_ = v;

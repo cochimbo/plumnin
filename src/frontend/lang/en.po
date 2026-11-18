@@ -1850,6 +1850,9 @@ msgstr "Unofficial"
 msgid "No se encuentra \"%s\"."
 msgstr "\"%s\" cannot be found."
 
+msgid "No se ha encontrado cómo pide el juego sus canciones."
+msgstr "The way the game asks for its songs was not found."
+
 msgid "No se ha encontrado el controlador de sonido del juego."
 msgstr "The game's sound driver was not found."
 
@@ -2148,9 +2151,6 @@ msgstr "Splash cymbal"
 
 msgid "Por ahora, solo en los juegos de Game Boy, Game Boy Color, NES y Super Nintendo."
 msgstr "For now, only in Game Boy, Game Boy Color, NES and Super Nintendo games."
-
-msgid "No se ha encontrado cómo pide el juego sus canciones."
-msgstr "The way the game asks for its songs was not found."
 
 msgid "Por año"
 msgstr "By year"
@@ -2993,6 +2993,9 @@ msgstr "the NES ROM has no PRG"
 
 msgid "la ROM es demasiado pequeña para ser de Game Boy"
 msgstr "the ROM is too small to be a Game Boy one"
+
+msgid "la que sonó en el juego (%zu)"
+msgstr "the one heard in the game (%zu)"
 
 msgid "ninguno"
 msgstr "none"

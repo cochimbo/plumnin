@@ -1850,6 +1850,9 @@ msgstr "Não oficiais"
 msgid "No se encuentra \"%s\"."
 msgstr "Não foi possível encontrar \"%s\"."
 
+msgid "No se ha encontrado cómo pide el juego sus canciones."
+msgstr "Não se encontrou como o jogo pede as suas músicas."
+
 msgid "No se ha encontrado el controlador de sonido del juego."
 msgstr "O driver de som do jogo não foi encontrado."
 
@@ -2148,9 +2151,6 @@ msgstr "Prato splash"
 
 msgid "Por ahora, solo en los juegos de Game Boy, Game Boy Color, NES y Super Nintendo."
 msgstr "Por enquanto, só nos jogos de Game Boy, Game Boy Color, NES e Super Nintendo."
-
-msgid "No se ha encontrado cómo pide el juego sus canciones."
-msgstr "Não se encontrou como o jogo pede as suas músicas."
 
 msgid "Por año"
 msgstr "Por ano"
@@ -2993,6 +2993,9 @@ msgstr "a ROM de NES não tem PRG"
 
 msgid "la ROM es demasiado pequeña para ser de Game Boy"
 msgstr "a ROM é pequena demais para ser de Game Boy"
+
+msgid "la que sonó en el juego (%zu)"
+msgstr "a que tocou no jogo (%zu)"
 
 msgid "ninguno"
 msgstr "nenhum"
