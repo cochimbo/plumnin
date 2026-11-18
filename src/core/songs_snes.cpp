@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <deque>
 #include <iterator>
 #include <map>
@@ -38,6 +39,8 @@ constexpr size_t kMaxOnsets = 32;  // moments music began, kept from the trace
 constexpr int kMaxStarts = 6;    // moments a byte that asks for songs is tried from
 constexpr int kDeadNumbers = 24;  // numbers in a row with no new song before giving up
 constexpr int kEffectWindow = 90;     // frames a sound effect is listened to
+constexpr double kJingleSeconds = 5;
+constexpr size_t kMaxUploads = 96;       // songs looked for in the ROM, at most  // what stops sooner is a jingle or a sound effect
 constexpr size_t kMaxEffectWays = 4;  // bytes taken for the ways of asking for them, at most
 constexpr int kEffectNumbers = 96;    // numbers tried on each
 constexpr int kDeadEffects = 12;      // in a row with nothing added, once some did
@@ -98,6 +101,20 @@ struct Heard {
         for (size_t v = 0; v < 8; ++v) n += lines[v] != o.lines[v];
         return n;
     }
+    // Other music than `o`: three voices changed or more, and fewer than half of those
+    // playing still play what they played (an effect over the music leaves the voices it
+    // does not take as they were).
+    int same(const Heard& o) const {
+        int n = 0;
+        for (size_t v = 0; v < 8; ++v) n += !lines[v].empty() && lines[v] == o.lines[v];
+        return n;
+    }
+    int playing() const {
+        int n = 0;
+        for (const auto& line : lines) n += !line.empty();
+        return n;
+    }
+    bool otherThan(const Heard& o) const { return differs(o) >= 3 && same(o) * 2 < std::max(playing(), o.playing()); }
 };
 
 Heard judge(const std::vector<KeyOn>& keys, uint32_t from, uint32_t to) {
@@ -121,6 +138,14 @@ Heard judge(const std::vector<KeyOn>& keys, uint32_t from, uint32_t to) {
     return h;
 }
 
+// A block of the ROM a game copies into the sound processor's memory as it is (the
+// standard loader's format: its length, where it goes, its bytes).
+struct Block {
+    uint32_t from = 0;  // in the ROM, past the header
+    uint16_t length = 0, to = 0;
+};
+using Upload = std::vector<Block>;
+
 // A byte of the work RAM the game sent to a port: where, the value, the frame it was
 // written (and the console just before that frame) and the frame it was sent.
 struct Asked {
@@ -132,6 +157,9 @@ struct Asked {
     // game read just before it loaded a song into the sound processor (games that keep one
     // song there at a time ask for it so, not with a number at the ports).
     bool poke = false;
+    // Copied into the sound processor as the state is loaded, just after the game loaded
+    // other music there: what it plays then is that music.
+    std::shared_ptr<const Upload> upload;
 };
 
 class SnesRipper {
@@ -156,7 +184,7 @@ private:
     // twice, or to its end), and what it is wherever it was started. False if too short.
     // `instruments` gets those of its notes.
     bool measure(const std::vector<uint8_t>& spc, double* seconds, uint64_t* identity, std::string* log,
-                 std::set<uint32_t>* instruments);
+                 std::set<uint32_t>* instruments, double* ends);
 
     const std::vector<uint8_t>& rom_;
     SongRipper::Options options_;
@@ -167,6 +195,18 @@ private:
     // song was loaded): the songs the game played itself, for when no way of asking for
     // them is found.
     std::vector<std::vector<uint8_t>> onsets_;
+    // Songs loaded as blocks of the ROM: where those the game loaded go, the ROM offsets of
+    // their headers, and the moments just after each load (past the driver's own).
+    std::set<uint16_t> blockTargets_;
+    std::set<uint32_t> blockHeaders_;  // of those loaded past the driver's own
+    std::vector<Asked> loadEnds_;
+    // The other songs in the ROM as the game keeps those, each with a moment to play it from.
+    std::vector<Asked> uploads() const;
+    const uint8_t* romData() const { return rom_.data() + (rom_.size() % 1024 == 512 ? 512 : 0); }
+    size_t romSize() const { return rom_.size() - (rom_.size() % 1024 == 512 ? 512 : 0); }
+    // What a load copied into the sound processor (`before`, its memory as it began) found
+    // in the ROM, block by block.
+    void findBlocks(const std::array<uint8_t, 0x10000>& before, const std::array<uint8_t, 0x10000>& after, bool song);
 };
 
 void SnesRipper::trace() {
@@ -216,7 +256,10 @@ void SnesRipper::trace() {
     bool loaded = false;  // a song loaded, its first note not heard yet
     std::vector<uint8_t> previous = s.musicSnapshot({}, 0);
     const int frames = static_cast<int>(std::max(options_.traceSeconds, 80.0) * 60);
+    auto aramBefore = std::make_unique<std::array<uint8_t, 0x10000>>();
+    auto aramFrame = std::make_unique<std::array<uint8_t, 0x10000>>();
     for (int f = 0; f < frames && !cancelled(); ++f) {
+        *aramFrame = s.apu().ram();
         auto state = std::make_shared<std::vector<uint8_t>>();
         s.saveState(*state, true);
         ring.push_back(std::move(state));
@@ -238,6 +281,7 @@ void SnesRipper::trace() {
         // over, they are asked for from the frame it began.
         const uint32_t now = static_cast<uint32_t>(s.frames());
         // (Not the first: the driver itself, loaded as the game starts.)
+        if (portWrites > 64 && !loading) *aramBefore = *aramFrame;
         if (portWrites > 64 && !loading && !ring.empty() && ++bursts > 1) {
             std::set<uint32_t> seen;
             for (auto it = beforeLoad.rbegin(); it != beforeLoad.rend() && seen.size() < kLoadReads; ++it)
@@ -257,7 +301,11 @@ void SnesRipper::trace() {
             lastNote = now;
         }
         previous = s.musicSnapshot({}, 0);
-        if (loading && portWrites <= 64) loaded = true;
+        if (loading && portWrites <= 64) {
+            loaded = true;
+            findBlocks(*aramBefore, s.apu().ram(), bursts > 1);
+            if (bursts > 1 && loadEnds_.size() < 4) loadEnds_.push_back({0, 0, now - 1, now - 1, ring.back()});
+        }
         loading = portWrites > 64;
         if (!loading && !loads.empty()) {
             for (Asked& a : loads) {
@@ -273,12 +321,126 @@ void SnesRipper::trace() {
     if (asked_.size() > static_cast<size_t>(kMaxTests)) asked_.resize(kMaxTests);
 }
 
+void SnesRipper::findBlocks(const std::array<uint8_t, 0x10000>& before, const std::array<uint8_t, 0x10000>& after,
+                            bool song) {
+    const uint8_t* rom = romData();
+    const size_t size = romSize();
+    // A block's header at `h` in the ROM: whether the memory holds its bytes now.
+    const auto loaded = [&](size_t h) {
+        if (h + 4 > size) return false;
+        const uint32_t length = rom[h] | rom[h + 1] << 8, dest = rom[h + 2] | rom[h + 3] << 8;
+        if (length == 0 || dest + length > 0x10000 || h + 4 + length > size) return false;
+        size_t same = 0;
+        for (uint32_t i = 0; i < length; ++i) same += rom[h + 4 + i] == after[dest + i];
+        return same * 32 >= length * 31ull;
+    };
+    const auto take = [&](size_t h) {
+        blockTargets_.insert(static_cast<uint16_t>(rom[h + 2] | rom[h + 3] << 8));
+        if (song) blockHeaders_.insert(static_cast<uint32_t>(h));
+    };
+    // The stretches changed, the longest first.
+    std::vector<std::pair<uint32_t, uint32_t>> spans;
+    for (uint32_t i = 0; i < 0x10000;) {
+        if (after[i] == before[i]) {
+            ++i;
+            continue;
+        }
+        const uint32_t from = i;
+        uint32_t last = i;
+        for (; i < 0x10000 && i - last < 32; ++i)
+            if (after[i] != before[i]) last = i;
+        if (last + 1 - from >= 16) spans.push_back({from, last + 1});
+    }
+    std::sort(spans.begin(), spans.end(),
+              [](const auto& x, const auto& y) { return x.second - x.first > y.second - y.first; });
+    if (spans.size() > 8) spans.resize(8);
+    std::set<size_t> found;
+    for (const auto& [from, to] : spans) {
+        const size_t n = std::min<size_t>(32, to - from);
+        const uint8_t* it = std::search(rom, rom + size, after.data() + from, after.data() + from + n);
+        if (it == rom + size) continue;
+        const size_t o = static_cast<size_t>(it - rom);
+        // Its header, maybe a few bytes before (those that were there already).
+        for (uint32_t k = 0; k <= 64 && k <= from && o >= k + 4; ++k) {
+            const size_t h = o - k - 4;
+            if ((rom[h + 2] | rom[h + 3] << 8) != from - k || !loaded(h)) continue;
+            found.insert(h);
+            break;
+        }
+    }
+    // And the blocks loaded with them, after and before (unchanged ones too).
+    for (size_t h : found) {
+        for (size_t p = h; loaded(p); p += 4 + (rom[p] | rom[p + 1] << 8)) take(p);
+        for (size_t p = h; p >= 5;) {
+            size_t q = 0;
+            for (size_t length = 1; length <= 0xFFFF && length + 4 <= p; ++length)
+                if ((rom[p - length - 4] | rom[p - length - 3] << 8) == length && loaded(p - length - 4)) {
+                    q = p - length - 4;
+                    break;
+                }
+            if (!q) break;
+            take(q);
+            p = q;
+        }
+    }
+}
+
+std::vector<Asked> SnesRipper::uploads() const {
+    std::vector<Asked> out;
+    if (blockHeaders_.empty() || loadEnds_.empty()) return out;
+    const uint8_t* rom = romData();
+    const size_t size = romSize();
+    // Every run of blocks to where the game's go, ended as the loader's are (a length of
+    // zero), the longest for each end.
+    struct Run {
+        size_t start;
+        Upload blocks;
+    };
+    std::map<size_t, Run> runs;
+    for (size_t o = 0; o + 4 <= size; ++o) {
+        Upload blocks;
+        size_t p = o;
+        bool ended = false;
+        while (p + 4 <= size && blocks.size() < 16) {
+            const uint32_t length = rom[p] | rom[p + 1] << 8, dest = rom[p + 2] | rom[p + 3] << 8;
+            if (length == 0) {
+                ended = true;
+                break;
+            }
+            if (!blockTargets_.count(static_cast<uint16_t>(dest)) || dest + length > 0x10000 || p + 4 + length > size) break;
+            blocks.push_back({static_cast<uint32_t>(p + 4), static_cast<uint16_t>(length), static_cast<uint16_t>(dest)});
+            p += 4 + length;
+        }
+        if (!ended || blocks.empty()) continue;
+        size_t total = 0;
+        for (const Block& b : blocks) total += b.length;
+        if (total < 64) continue;
+        auto r = runs.find(p);
+        if (r == runs.end() || r->second.blocks.size() < blocks.size()) runs[p] = {o, std::move(blocks)};
+    }
+    // Those like the game's: ending where one it loaded ends (its song, past its samples).
+    std::set<uint16_t> lasts;
+    for (const auto& [end, r] : runs)
+        for (const Block& b : r.blocks)
+            if (blockHeaders_.count(b.from - 4)) lasts.insert(r.blocks.back().to);
+    for (const auto& [end, r] : runs) {
+        if (!lasts.count(r.blocks.back().to) || out.size() >= kMaxUploads) continue;
+        Asked a = loadEnds_.front();
+        a.index = static_cast<uint32_t>(r.start);
+        a.upload = std::make_shared<const Upload>(r.blocks);
+        out.push_back(std::move(a));
+    }
+    return out;
+}
+
 void SnesRipper::listen(const Asked& a, int number, std::vector<KeyOn>* keys, std::vector<std::vector<uint8_t>>* spcs,
                         int window) {
     Snes& s = *snes_;
     s.loadState(*a.state, nullptr);
     if (a.poke && number >= 0) s.setWramByte(a.index, static_cast<uint8_t>(number));
-    bool done = number < 0 || a.poke;
+    if (a.upload)
+        for (const Block& b : *a.upload) std::memcpy(s.apu().ram().data() + b.to, romData() + b.from, b.length);
+    bool done = number < 0 || a.poke || a.upload;
     s.wramWatch = [&](uint32_t i, uint8_t& v) {
         if (!done && i == a.index && v == a.value) {
             v = static_cast<uint8_t>(number);
@@ -299,7 +461,7 @@ void SnesRipper::listen(const Asked& a, int number, std::vector<KeyOn>* keys, st
 }
 
 bool SnesRipper::measure(const std::vector<uint8_t>& spc, double* seconds, uint64_t* identity, std::string* log,
-                         std::set<uint32_t>* instruments) {
+                         std::set<uint32_t>* instruments, double* ends) {
     snes::Apu apu;
     apu.setMasterRate(1024000.0);  // a clock of the main processor's is one of the SPC700's
     if (!apu.loadSpc(spc)) return false;
@@ -375,6 +537,7 @@ bool SnesRipper::measure(const std::vector<uint8_t>& spc, double* seconds, uint6
     uint64_t h = 1469598103934665603ull;
     for (uint32_t x : body) h = (h ^ x) * 1099511628211ull;
     *identity = h;
+    if (ends) *ends = end;
     if (log) {
         char line[128];
         std::snprintf(line, sizeof line, "%zu notes, intro %.1f s, loop %.1f s, end %.1f s", notes.size(), loopStart,
@@ -415,11 +578,11 @@ bool SnesRipper::run(std::vector<SongRipper::Song>* songs, std::string* error, s
         const int other = a.value > 1 ? a.value - 1 : a.value + 1;
         listen(a, other, &k1, nullptr);
         const Heard after = judge(k1, a.sent, a.sent + kWindow);
-        const bool way = after.music() && (!before.music() || after.differs(before) >= 3);
+        const bool way = after.music() && (!before.music() || after.otherThan(before));
         if (debug)
-            std::fprintf(stderr, "%05X = %02X (written %u, sent %u): %d notes, music %d | %02X: %d notes, music %d%s\n",
+            std::fprintf(stderr, "%05X = %02X (written %u, sent %u): %d notes, music %d | %02X: %d notes, music %d, %d voices differ, %d same of %d%s\n",
                          a.index, a.value, a.written, a.sent, before.notes, before.music(), other, after.notes,
-                         after.music(), way ? ", asks for songs" : "");
+                         after.music(), after.differs(before), after.same(before), after.playing(), way ? ", asks for songs" : "");
         if (way) ways.insert(a.index);
     }
     // The other bytes the game sends that add a few notes to what plays, with no music of
@@ -437,7 +600,7 @@ bool SnesRipper::run(std::vector<SongRipper::Song>* songs, std::string* error, s
             listen(a, 0, &quiet, nullptr, kEffectWindow);
             listen(a, -1, &own, nullptr, kEffectWindow);
             const Heard h = judge(own, a.sent, a.sent + kEffectWindow), q = judge(quiet, a.sent, a.sent + kEffectWindow);
-            const bool effect = !added(own, quiet, a.sent).empty() && h.differs(q) <= 2;
+            const bool effect = !added(own, quiet, a.sent).empty() && !h.otherThan(q);
             if (debug)
                 std::fprintf(stderr, "%05X = %02X: %zu instruments added%s\n", a.index, a.value, added(own, quiet, a.sent).size(),
                              effect ? ", asks for sound effects" : "");
@@ -468,7 +631,7 @@ bool SnesRipper::run(std::vector<SongRipper::Song>* songs, std::string* error, s
             std::vector<KeyOn> k;
             listen(*a, n, &k, nullptr);
             const Heard h = judge(k, a->sent, a->sent + kWindow);
-            if (!h.music() || (before.music() && h.differs(before) < 3)) {
+            if (!h.music() || (before.music() && !h.otherThan(before))) {
                 if (!found.empty()) ++dead;
                 continue;
             }
@@ -485,44 +648,59 @@ bool SnesRipper::run(std::vector<SongRipper::Song>* songs, std::string* error, s
     std::set<uint64_t> identities;
     std::map<uint32_t, int> music;  // the instruments the songs play, and in how many
     if (progress_) progress_->found = 0;
-    // A song kept, unless heard before.
-    const auto keep = [&](const std::vector<uint8_t>& spc, int number, const std::string& where) {
+    // A song heard: how long it lasts, what it is and the instruments it plays.
+    struct Candidate {
+        std::vector<uint8_t> spc;
+        int number = -1;
+        std::string where, how;
         double seconds = 0;
+        bool ends = false;
         uint64_t identity = 0;
-        std::string how;
         std::set<uint32_t> instruments;
-        if (!measure(spc, &seconds, &identity, &how, &instruments)) return;
-        if (!identities.insert(identity).second) {
-            if (debug) std::fprintf(stderr, "  %s: heard before\n", where.c_str());
+    };
+    const auto hear = [&](std::vector<uint8_t> spc, int number, const std::string& where, Candidate* c) {
+        double end = 0;
+        if (!measure(spc, &c->seconds, &c->identity, &c->how, &c->instruments, &end)) return false;
+        c->spc = std::move(spc);
+        c->number = number;
+        c->where = where;
+        c->ends = end > 0;
+        return true;
+    };
+    // A song kept, unless heard before.
+    const auto keep = [&](const Candidate& c) {
+        if (!identities.insert(c.identity).second) {
+            if (debug) std::fprintf(stderr, "  %s: heard before\n", c.where.c_str());
             return;
         }
-        for (uint32_t fp : instruments) ++music[fp];
+        for (uint32_t fp : c.instruments) ++music[fp];
         snes::Apu apu;
         apu.setMasterRate(1024000.0);
-        apu.loadSpc(spc);
+        apu.loadSpc(c.spc);
         SongRipper::Song song;
-        song.number = number;
+        song.number = c.number;
         song.spc = true;
         song.vgz = apu.saveSpc(trf("Canción %02d", static_cast<int>(songs->size()) + 1), snes_->title(),
-                               static_cast<int>(std::lround(seconds)));
-        song.seconds = seconds;
+                               static_cast<int>(std::lround(c.seconds)));
+        song.seconds = c.seconds;
         songs->push_back(std::move(song));
         if (progress_) ++progress_->found;
         char line[200];
-        std::snprintf(line, sizeof line, "Canción %02d: %s, %s\n", static_cast<int>(songs->size()), where.c_str(), how.c_str());
+        std::snprintf(line, sizeof line, "Canción %02d: %s, %s\n", static_cast<int>(songs->size()), c.where.c_str(),
+                      c.how.c_str());
         log += line;
         if (debug) std::fprintf(stderr, "%s", line);
     };
     // No way of asking for them found (a game that loads each song into the sound
     // processor as it needs it, and asks for it otherwise): those the game played itself.
     if (ways.empty()) {
-        for (size_t i = 0; i < onsets_.size() && !cancelled(); ++i)
-            keep(onsets_[i], -1, trf("la que sonó en el juego (%zu)", i + 1));
-        if (songs->empty()) {
-            if (error) *error = tr("No se ha encontrado cómo pide el juego sus canciones.");
-            return false;
+        for (size_t i = 0; i < onsets_.size() && !cancelled(); ++i) {
+            Candidate c;
+            if (hear(onsets_[i], -1, trf("la que sonó en el juego (%zu)", i + 1), &c)) keep(c);
         }
     }
+    std::map<uint32_t, std::vector<Candidate>> heard;  // by way
+    std::map<uint32_t, const Asked*> wayAsked;
     for (const Found& f : found) {
         if (cancelled()) return false;
         step();
@@ -539,7 +717,57 @@ bool SnesRipper::run(std::vector<SongRipper::Song>* songs, std::string* error, s
         if (onset < 0 || at < 0 || at >= static_cast<long>(spcs.size())) continue;
         char where[64];
         std::snprintf(where, sizeof where, "número %d en %05X", f.number, f.from->index);
-        keep(spcs[static_cast<size_t>(at)], f.number, where);
+        Candidate c;
+        if (!hear(std::move(spcs[static_cast<size_t>(at)]), f.number, where, &c)) continue;
+        heard[f.from->index].push_back(std::move(c));
+        wayAsked.emplace(f.from->index, f.from);
+    }
+    // A way most of whose numbers play a moment and stop asks for sound effects, not
+    // songs (Mega Man X's 0B76): a game's jingles are a few of its songs, not most.
+    for (auto& [index, list] : heard) {
+        size_t short_ = 0;
+        for (const Candidate& c : list) short_ += c.ends && c.seconds < kJingleSeconds;
+        if (list.size() >= 4 && short_ * 2 > list.size()) {
+            char line[160];
+            std::snprintf(line, sizeof line, "%05X: %zu de %zu números suenan menos de %.0f s, son efectos\n", index,
+                          short_, list.size(), kJingleSeconds);
+            log += line;
+            if (debug) std::fprintf(stderr, "%s", line);
+            if (effectWays.size() < kMaxEffectWays) effectWays.push_back(wayAsked[index]);
+            continue;
+        }
+        for (const Candidate& c : list) keep(c);
+    }
+    // The songs in the ROM as those the game loaded: each copied into the sound processor
+    // just after the game loaded one, and played as the game plays that.
+    const std::vector<Asked> more = uploads();
+    if (debug) std::fprintf(stderr, "%zu block targets, %zu headers seen, %zu loads, %zu songs in the ROM\n",
+                            blockTargets_.size(), blockHeaders_.size(), loadEnds_.size(), more.size());
+    if (debug) {
+        for (uint16_t t : blockTargets_) std::fprintf(stderr, " target %04X\n", t);
+        for (uint32_t h : blockHeaders_) std::fprintf(stderr, " header %06X\n", h);
+        for (const Asked& u : more) {
+            std::fprintf(stderr, " run %06X:", u.index);
+            for (const Block& b : *u.upload) std::fprintf(stderr, " %04X+%u", b.to, b.length);
+            std::fprintf(stderr, "\n");
+        }
+    }
+    for (const Asked& u : more) {
+        if (cancelled()) return false;
+        std::vector<KeyOn> keys;
+        std::vector<std::vector<uint8_t>> spcs;
+        listen(u, -1, &keys, &spcs);
+        long onset = -1;
+        for (const KeyOn& k : keys)
+            if (k.frame >= u.sent) {
+                onset = static_cast<long>(k.frame);
+                break;
+            }
+        const long at = onset - static_cast<long>(u.written) - 1;
+        if (onset < 0 || at < 0 || at >= static_cast<long>(spcs.size())) continue;
+        if (!judge(keys, u.sent, u.sent + kWindow).music()) continue;
+        Candidate c;
+        if (hear(std::move(spcs[static_cast<size_t>(at)]), -1, trf("la de %06X en la ROM", u.index), &c)) keep(c);
     }
     // 5. The sound effects: every number of the ways the game asks for them, over what
     // plays anyway (most drivers play their effects over the music, taking a voice or
@@ -557,7 +785,7 @@ bool SnesRipper::run(std::vector<SongRipper::Song>* songs, std::string* error, s
                 const std::set<uint32_t> its = added(k, quiet, a->sent);
                 // (Not what starts other music: a song, or a number past the effects' table.)
                 const Heard h = judge(k, a->sent, a->sent + kEffectWindow), q = judge(quiet, a->sent, a->sent + kEffectWindow);
-                if (its.empty() || h.differs(q) > 2) {
+                if (its.empty() || h.otherThan(q)) {
                     if (heard) ++dead;
                     continue;
                 }

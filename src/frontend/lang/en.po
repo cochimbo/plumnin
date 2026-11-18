@@ -2994,6 +2994,9 @@ msgstr "the NES ROM has no PRG"
 msgid "la ROM es demasiado pequeña para ser de Game Boy"
 msgstr "the ROM is too small to be a Game Boy one"
 
+msgid "la de %06X en la ROM"
+msgstr "the one at %06X in the ROM"
+
 msgid "la que sonó en el juego (%zu)"
 msgstr "the one heard in the game (%zu)"
 
