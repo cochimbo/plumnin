@@ -40,7 +40,8 @@ constexpr int kMaxStarts = 6;    // moments a byte that asks for songs is tried 
 constexpr int kDeadNumbers = 24;  // numbers in a row with no new song before giving up
 constexpr int kEffectWindow = 90;     // frames a sound effect is listened to
 constexpr double kJingleSeconds = 5;
-constexpr size_t kMaxUploads = 96;       // songs looked for in the ROM, at most  // what stops sooner is a jingle or a sound effect
+constexpr size_t kMaxUploads = 96;
+constexpr size_t kMaxLoads = 16;          // moments just after a load kept       // songs looked for in the ROM, at most  // what stops sooner is a jingle or a sound effect
 constexpr size_t kMaxEffectWays = 4;  // bytes taken for the ways of asking for them, at most
 constexpr int kEffectNumbers = 96;    // numbers tried on each
 constexpr int kDeadEffects = 12;      // in a row with nothing added, once some did
@@ -200,13 +201,16 @@ private:
     std::set<uint16_t> blockTargets_;
     std::set<uint32_t> blockHeaders_;  // of those loaded past the driver's own
     std::vector<Asked> loadEnds_;
+    std::vector<std::set<uint16_t>> loadTargets_;  // where each of those loads went
     // The other songs in the ROM as the game keeps those, each with a moment to play it from.
     std::vector<Asked> uploads() const;
     const uint8_t* romData() const { return rom_.data() + (rom_.size() % 1024 == 512 ? 512 : 0); }
     size_t romSize() const { return rom_.size() - (rom_.size() % 1024 == 512 ? 512 : 0); }
     // What a load copied into the sound processor (`before`, its memory as it began) found
     // in the ROM, block by block.
-    void findBlocks(const std::array<uint8_t, 0x10000>& before, const std::array<uint8_t, 0x10000>& after, bool song);
+    // Returns where they went.
+    std::set<uint16_t> findBlocks(const std::array<uint8_t, 0x10000>& before, const std::array<uint8_t, 0x10000>& after,
+                                  bool song);
 };
 
 void SnesRipper::trace() {
@@ -303,8 +307,11 @@ void SnesRipper::trace() {
         previous = s.musicSnapshot({}, 0);
         if (loading && portWrites <= 64) {
             loaded = true;
-            findBlocks(*aramBefore, s.apu().ram(), bursts > 1);
-            if (bursts > 1 && loadEnds_.size() < 4) loadEnds_.push_back({0, 0, now - 1, now - 1, ring.back()});
+            std::set<uint16_t> targets = findBlocks(*aramBefore, s.apu().ram(), bursts > 1);
+            if (bursts > 1 && loadEnds_.size() < kMaxLoads) {
+                loadEnds_.push_back({0, 0, now - 1, now - 1, ring.back()});
+                loadTargets_.push_back(std::move(targets));
+            }
         }
         loading = portWrites > 64;
         if (!loading && !loads.empty()) {
@@ -321,8 +328,9 @@ void SnesRipper::trace() {
     if (asked_.size() > static_cast<size_t>(kMaxTests)) asked_.resize(kMaxTests);
 }
 
-void SnesRipper::findBlocks(const std::array<uint8_t, 0x10000>& before, const std::array<uint8_t, 0x10000>& after,
-                            bool song) {
+std::set<uint16_t> SnesRipper::findBlocks(const std::array<uint8_t, 0x10000>& before,
+                                          const std::array<uint8_t, 0x10000>& after, bool song) {
+    std::set<uint16_t> targets;
     const uint8_t* rom = romData();
     const size_t size = romSize();
     // A block's header at `h` in the ROM: whether the memory holds its bytes now.
@@ -336,6 +344,7 @@ void SnesRipper::findBlocks(const std::array<uint8_t, 0x10000>& before, const st
     };
     const auto take = [&](size_t h) {
         blockTargets_.insert(static_cast<uint16_t>(rom[h + 2] | rom[h + 3] << 8));
+        targets.insert(static_cast<uint16_t>(rom[h + 2] | rom[h + 3] << 8));
         if (song) blockHeaders_.insert(static_cast<uint32_t>(h));
     };
     // The stretches changed, the longest first.
@@ -383,6 +392,7 @@ void SnesRipper::findBlocks(const std::array<uint8_t, 0x10000>& before, const st
             p = q;
         }
     }
+    return targets;
 }
 
 std::vector<Asked> SnesRipper::uploads() const {
@@ -425,7 +435,12 @@ std::vector<Asked> SnesRipper::uploads() const {
             if (blockHeaders_.count(b.from - 4)) lasts.insert(r.blocks.back().to);
     for (const auto& [end, r] : runs) {
         if (!lasts.count(r.blocks.back().to) || out.size() >= kMaxUploads) continue;
-        Asked a = loadEnds_.front();
+        // From just after a load of the game's to where its song goes (else it may load its
+        // own there after): Kirby Super Star loads its samples, then each song.
+        size_t from = 0;
+        while (from + 1 < loadEnds_.size() && !loadTargets_[from].count(r.blocks.back().to)) ++from;
+        if (!loadTargets_[from].count(r.blocks.back().to)) from = 0;
+        Asked a = loadEnds_[from];
         a.index = static_cast<uint32_t>(r.start);
         a.upload = std::make_shared<const Upload>(r.blocks);
         out.push_back(std::move(a));
@@ -764,6 +779,10 @@ bool SnesRipper::run(std::vector<SongRipper::Song>* songs, std::string* error, s
                 break;
             }
         const long at = onset - static_cast<long>(u.written) - 1;
+        if (debug) {
+            const Heard h = judge(keys, u.sent, u.sent + kWindow);
+            std::fprintf(stderr, " run %06X: onset %ld, %d notes on %d voices, %d late\n", u.index, onset, h.notes, h.voices, h.late);
+        }
         if (onset < 0 || at < 0 || at >= static_cast<long>(spcs.size())) continue;
         if (!judge(keys, u.sent, u.sent + kWindow).music()) continue;
         Candidate c;
