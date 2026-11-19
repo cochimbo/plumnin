@@ -3018,6 +3018,9 @@ msgstr "note"
 msgid "notas"
 msgstr "notes"
 
+msgid "número %d en el puerto %d"
+msgstr "number %d at port %d"
+
 msgid "palabra"
 msgstr "word"
 
