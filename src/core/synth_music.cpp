@@ -395,7 +395,10 @@ SynthMusic::Assignment SynthMusic::suggest(const Traits& t, const Heard& heard) 
             // A very short dark one with a pitch is a tom or a bongo, however many notes the
             // game plays it on (Super Mario World's, Yoshi's drums): no tune is played on a
             // knock, and as a marimba or a piano it is a tune where there was none.
-            if (t.pitched && !t.looped && t.seconds < 0.15 && t.brightness < 0.06) {
+            // (A little brighter too, played within a few notes: Donkey Kong Country's jungle
+            // drums, on four notes, came out as a bass.)
+            if (t.pitched && !t.looped && t.seconds < 0.15 &&
+                (t.brightness < 0.06 || (t.brightness < 0.1 && heard.notes >= 4 && heard.span() <= 5))) {
                 a.drum = median >= 55 ? 60 : median >= 45 ? 64 : 45;
                 break;
             }

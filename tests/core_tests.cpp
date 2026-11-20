@@ -2667,6 +2667,12 @@ void testSnesSynth() {
     for (int n = 0; n < 40; ++n) tune.add(60 + n % 15);
     check(SynthMusic::suggest(rough, tune).drum < 0 && SynthMusic::suggest(rough, tune).program == 62,
           "snes rules: a rough sound the game plays on many notes is a tune (Star Fox's brass)");
+    SynthMusic::Traits conga = t;
+    conga.looped = false, conga.seconds = 0.067, conga.brightness = 0.063;
+    SynthMusic::Heard congas;
+    for (int n = 0; n < 40; ++n) congas.add(44 + n % 4);
+    check(SynthMusic::suggest(conga, congas).drum >= 35,
+          "snes rules: a short dark knock on four notes is a drum, not a bass (Donkey Kong Country's)");
     SynthMusic::Heard hit;
     for (int n = 0; n < 40; ++n) hit.add(60 + n % 3);
     check(SynthMusic::suggest(rough, hit).drum >= 35, "snes rules: on two or three notes, a drum");
