@@ -433,6 +433,15 @@ void Dsp::musicVoice(int i, SynthMusic::VoiceState& out) {
     out.fingerprint = SynthMusic::fingerprint(Kind::Sample, SynthMusic::hash(envelope, 2, m.fingerprint));
     out.traits = &m.traits;
     out.note = m.hz > 0 ? SynthMusic::noteOf(m.hz * pitch / 4096.0) : 60;
+    // A sound with no clear pitch by the period that repeats least badly: the notes the
+    // game plays it on, should it play it as a tune. (Moved by octaves into the notes
+    // heard: a drum goes on sounding whatever its note.)
+    if (m.hz <= 0 && m.traits.roughHz > 0 && pitch > 0) {
+        double rough = SynthMusic::noteOf(m.traits.roughHz * pitch / 4096.0);
+        while (rough > 0 && rough <= 12) rough += 12;
+        while (rough >= 120) rough -= 12;
+        if (rough > 12) out.note = rough;
+    }
     if (pitch == 0) out.sounding = false;
 }
 

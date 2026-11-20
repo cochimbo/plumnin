@@ -2661,6 +2661,15 @@ void testSnesSynth() {
     check(SynthMusic::suggest(hiss, hats).drum == 42, "snes rules: a short looped noise is a hi-hat");
     hats.heldSeconds = 20;
     check(SynthMusic::suggest(hiss, hats).drum == 49, "snes rules: a long one a crash");
+    SynthMusic::Traits rough = hiss;
+    rough.looped = false, rough.seconds = 0.08, rough.roughHz = 1000;
+    SynthMusic::Heard tune;
+    for (int n = 0; n < 40; ++n) tune.add(60 + n % 15);
+    check(SynthMusic::suggest(rough, tune).drum < 0 && SynthMusic::suggest(rough, tune).program == 62,
+          "snes rules: a rough sound the game plays on many notes is a tune (Star Fox's brass)");
+    SynthMusic::Heard hit;
+    for (int n = 0; n < 40; ++n) hit.add(60 + n % 3);
+    check(SynthMusic::suggest(rough, hit).drum >= 35, "snes rules: on two or three notes, a drum");
 }
 
 int main() {

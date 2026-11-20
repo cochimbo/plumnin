@@ -697,7 +697,9 @@ bool SnesRipper::run(std::vector<SongRipper::Song>* songs, std::string* error, s
     snes_->setSampleRate(44100);
     snes_->setDrawing(false);
     {
-        const unsigned cores = std::clamp(std::thread::hardware_concurrency(), 1u, 8u);
+        // (PLUMNIN_RIP_THREADS sets how many, for the tests: the songs are the same.)
+        const char* threads = std::getenv("PLUMNIN_RIP_THREADS");
+        const unsigned cores = std::clamp(threads ? static_cast<unsigned>(std::atoi(threads)) : std::thread::hardware_concurrency(), 1u, 8u);
         for (unsigned i = 1; i < cores; ++i) {
             auto c = std::make_unique<Snes>();
             if (!c->loadRomData(rom_, nullptr)) break;

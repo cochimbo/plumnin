@@ -108,6 +108,10 @@ public:
         // Of its harmonics above the fundamental, how much are the odd ones (0..1): a
         // clarinet's, a square's, are nearly all odd.
         double odd = 0.5;
+        // Without a pitch, the period that repeats least badly (0 if nothing does): the
+        // note of a sound too rough for one, should the game play it as a tune (Star Fox's
+        // brass in Corneria).
+        double roughHz = 0;
     };
     static Assignment suggest(const Traits& traits, const Heard& heard);
     // What a sample sounds like: its traits, and the frequency of its note when played at
@@ -197,6 +201,10 @@ public:
     void allNotesOff();
     // Forgets the game's instruments as the rules heard them: for another game.
     void forget();
+    // The instruments as another hearing had them, for the rules from the next note: the
+    // editor's of a whole song, before it plays it (a game may play one sample as a drum
+    // in a song and as a bass in another, Star Fox's in Corneria and in its menu).
+    void learn(const std::map<uint32_t, Seen>& heard);
 
     // What it sent, for the tests: one line per event.
     void setLog(std::vector<std::string>* log) { log_ = log; }

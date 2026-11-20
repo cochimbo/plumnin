@@ -309,7 +309,10 @@ bool InstrumentEditor::loadTrack(const Track& track) {
     message_.clear();
     track_ = track;
     trackSeen_ = VgmPlayer::instruments(file);  // every instrument in it, before playing
-    synth_.clearSeen();
+    // The rules by this song alone, as heard whole: from its first note, and not by how
+    // other songs played its samples.
+    synth_.forget();
+    synth_.learn(trackSeen_);
     player_.load(std::move(file));
     player_.setLoop(loop_);
     soloInstrument_ = 0;

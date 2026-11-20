@@ -399,6 +399,14 @@ SynthMusic::Assignment SynthMusic::suggest(const Traits& t, const Heard& heard) 
                 a.drum = median >= 55 ? 60 : median >= 45 ? 64 : 45;
                 break;
             }
+            // One with no clear pitch that the game plays on many notes, over an octave or
+            // more, is a tune all the same, of a rough sound: a bass, a brass, not a hi-hat
+            // (Star Fox's in Corneria). (Not a click too short to hold a note.)
+            if (!t.pitched && t.roughHz > 0 && t.seconds >= 0.05 && heard.notes >= 8 && heard.distinct() >= 10 &&
+                heard.span() >= 12) {
+                a.program = median < 48 ? 38 : t.brightness > 0.3 ? 62 : t.looped ? 48 : 12;
+                break;
+            }
             const bool drum = !t.pitched || (!t.looped && t.seconds < 0.35 &&
                                              (heard.notes < 4 ? t.seconds < 0.15 : heard.distinct() <= 2));
             if (drum) {
@@ -602,6 +610,14 @@ void SynthMusic::forget() {
     rules_.clear();
     seen_.clear();
     updateChipVoices();
+}
+
+void SynthMusic::learn(const std::map<uint32_t, Seen>& heard) {
+    for (const auto& [fp, s] : heard) {
+        Rule& rule = rules_[fp];
+        rule.traits = s.traits;
+        rule.heard = s.heard;
+    }
 }
 
 int SynthMusic::velocity(const Voice& v, double amplitude) {
@@ -814,6 +830,8 @@ double SynthMusic::analyzeSample(const int16_t* pcm, size_t count, size_t loopSt
                 if (den > 0) lag += 0.5 * (a - c) / den;
             }
             hz = rate / lag;
+        } else if (best && bestValue < 0.8) {
+            t.roughHz = rate / static_cast<double>(best);
         }
     }
     t.pitched = hz > 0;
