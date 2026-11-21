@@ -17,7 +17,8 @@ constexpr float kRad = kPi / 180.0f;
 constexpr float kBoxW = 1.0f, kBoxH = 1.4f, kBoxD = 0.2f, kWall = 0.02f;
 constexpr float kFloorY = -kBoxH / 2;   // the boxes stand on the floor
 constexpr float kConsoleZ = 1.6f;       // the console sits on the floor in front of them
-constexpr float kLidOpen = 165.0f;      // degrees, all the way open
+constexpr float kCard = 0.006f;         // the cardboard's thickness
+constexpr float kFlapOpen = 115.0f;     // degrees, the end flap all the way open
 constexpr float kFov = 34.0f;           // degrees, top to bottom
 // The shelf behind: the boxes' middle, their spacing, and its boards.
 constexpr float kShelfZ = -1.6f, kSpacing = kBoxD + 0.012f;
@@ -196,6 +197,7 @@ Quat normalized(const Quat& q) {
 
 Quat quatX(float degrees) { return {std::cos(degrees * kRad / 2), std::sin(degrees * kRad / 2), 0, 0}; }
 Quat quatY(float degrees) { return {std::cos(degrees * kRad / 2), 0, std::sin(degrees * kRad / 2), 0}; }
+Quat quatZ(float degrees) { return {std::cos(degrees * kRad / 2), 0, 0, std::sin(degrees * kRad / 2)}; }
 
 // From `a` (t = 0) to `b` (t = 1) the short way round.
 Quat towards(const Quat& a, Quat b, float t) {
@@ -671,7 +673,7 @@ void BoxShelf::setManual(std::vector<Page> pages) {
 }
 
 void BoxShelf::manualPages(int* first, int* last) const {
-    // The cover for the lid; around the pages open, the next ones and those before.
+    // The cover for the box; around the pages open, the next ones and those before.
     if (state_ != State::ManualOut && state_ != State::Reading && state_ != State::ManualBack) {
         *first = 0;
         *last = 0;
@@ -887,7 +889,7 @@ void BoxShelf::camera(Vec3* eye, Vec3* target) const {
 
 void BoxShelf::manualSize(float* w, float* h) const {
     *h = held_.h * 0.88f;
-    // As its pages are once they are known; until then, as the lid.
+    // As its pages are once they are known; until then, as the box.
     float aspect = held_.w * 0.86f / *h;
     if (!pages_.empty() && pages_[0].width > 0 && pages_[0].height > 0)
         aspect = std::clamp(static_cast<float>(pages_[0].width) / static_cast<float>(pages_[0].height), 0.4f, 2.0f);
@@ -946,26 +948,45 @@ BoxShelf::Mat4 BoxShelf::heldBox() const {
     // cover; aside to the left once its cartridge is out.
     const Vec3 s = shelfSpot(selected_);
     const float t1 = smooth(take_ / 0.4f), t2 = smooth((take_ - 0.3f) / 0.7f);
-    const Vec3 out{s.x, s.y, kShelfZ + 1.1f}, front{stageX_ - 0.35f * smooth(open_), 0.1f, 0};
+    // An NES one, too tall to slide its holder out upwards in view, is first tipped onto
+    // its side, its top end to the right.
+    const float aside = system_ == ConsoleSystem::Nes ? 0.55f : 0.35f;
+    const Vec3 out{s.x, s.y, kShelfZ + 1.1f}, front{stageX_ - aside * smooth(open_), 0.1f, 0};
     const Vec3 a{lerp(s.x, out.x, t1), lerp(s.y, out.y, t1), lerp(s.z, out.z, t1)};
     const Vec3 p{lerp(a.x, front.x, t2), lerp(a.y, front.y, t2), lerp(a.z, front.z, t2)};
-    return translate(p.x, p.y, p.z) * rotateY(90 * (1 - t2)) * rotation(boxTurn_);
+    return translate(p.x, p.y, p.z) * rotateY(90 * (1 - t2)) * rotation(boxTurn_) * rotateZ(-90 * tipped());
 }
 
+float BoxShelf::tipped() const { return system_ == ConsoleSystem::Nes ? smooth(open_ / 0.15f) : 0.0f; }
+
 BoxShelf::Mat4 BoxShelf::heldCartridge() const {
-    // Lifted out of the box and up in front of it, facing the viewer.
+    // Pulled out of its holder through the open end, then up in front of the box, facing
+    // the viewer.
     const Mat4 in = cartridgeInBox(heldBox(), system_, held_);
-    const float s = smooth((open_ - 0.35f) / 0.65f);
+    const float s = smooth((open_ - 0.65f) / 0.35f);
     if (s <= 0) return in;
     const Vec3 out{stageX_ + 0.45f, 0.1f, 1.3f};
     const Vec3 p{lerp(in[12], out.x, s), lerp(in[13], out.y, s) + std::sin(s * kPi) * 0.25f, lerp(in[14], out.z, s)};
-    return translate(p.x, p.y, p.z) * rotation(towards(kNoTurn, cartTurn_, s));
+    // From lying as the box does to the way it is turned.
+    const Quat from = boxTurn_ * quatZ(-90 * tipped());
+    return translate(p.x, p.y, p.z) * rotation(towards(from, cartTurn_, s));
 }
 
+bool BoxShelf::opensAtSide(ConsoleSystem s, const Size& size) { return s == ConsoleSystem::Snes && size.w > size.h; }
+
+float BoxShelf::trayOut() const { return smooth((open_ - 0.3f) / 0.25f); }
+
 BoxShelf::Mat4 BoxShelf::cartridgeInBox(const Mat4& box, ConsoleSystem s, const Size& size) const {
-    // The cartridge lies in the lower half, its label to the front and its contacts down.
+    // It stands in the holder in front of the manual, its label to the front, its contacts
+    // down and its top a little below the open end; the holder slides out with it, then it
+    // is pulled out the rest of the way.
     const CartridgeShape c = cartridgeShape(s);
-    return box * translate(0, -size.h / 2 + kWall + 0.1f + c.h / 2, -size.d / 2 + kWall + 0.006f + c.d / 2);
+    const bool side = opensAtSide(s, size);
+    const float length = side ? size.w : size.h, along = side ? c.w : c.h;
+    const float tray = trayOut() * length * 0.4f, pull = smooth((open_ - 0.5f) / 0.2f) * along * 0.75f;
+    const float at = length / 2 - kCard - 0.03f - along / 2 + tray + pull;  // its middle along the way out
+    const float z = -size.d / 2 + kCard + 0.012f + kCard + c.d / 2;
+    return box * (side ? translate(at, 0, z) : translate(0, at, z));
 }
 
 float BoxShelf::coverFront(int width, int height, ConsoleSystem system) {
@@ -1051,7 +1072,19 @@ void BoxShelf::addCartridge(const Item& item, const Mat4& place) {
     parts_.push_back(p);
 }
 
-BoxShelf::Mat4 BoxShelf::addBox(const std::vector<Item>& items, int index, const Mat4& place, float lid, bool withManual) {
+BoxShelf::Vec3 BoxShelf::boxColour(ConsoleSystem s) {
+    switch (s) {
+        case ConsoleSystem::GameBoyColor: return {0.85f, 0.83f, 0.78f};
+        case ConsoleSystem::Nes: return {0.07f, 0.07f, 0.08f};
+        case ConsoleSystem::Snes: return {0.09f, 0.09f, 0.1f};
+        default: return {0.82f, 0.8f, 0.75f};
+    }
+}
+
+BoxShelf::Mat4 BoxShelf::addBox(const std::vector<Item>& items, int index, const Mat4& place, float open, bool withManual) {
+    // A box of thin card, closed by a tuck flap at one end: the top of an NES or Game Boy
+    // one, the right end of a Super Nintendo one lying down. Open, the flap swings back,
+    // and the card holder inside, with the manual behind the cartridge, slides out a way.
     const Item& item = items[static_cast<size_t>(index)];
     const Size S = boxSize(item);
     const float bw = S.w, bh = S.h, bd = S.d;  // this box's own
@@ -1065,34 +1098,61 @@ BoxShelf::Mat4 BoxShelf::addBox(const std::vector<Item>& items, int index, const
         p.box = index;
         parts_.push_back(p);
     };
-    const Vec3 plastic{0.045f, 0.045f, 0.055f};
-    const float inner = bd - kWall;
-    // With a whole sleeve its back and spine go round the tray.
+    const Vec3 card = boxColour(item.system);
+    const float cardShine = 0.25f;
+    // With a whole sleeve its back and spine are printed on the box; else the spine takes
+    // the edge of the front next to it.
     const Sleeve cover = sleeve(item.width, item.height, item.system);
     const bool wrap = cover.spine[2] > cover.spine[0];
-    // The tray: its back and four walls, open at the front.
-    add(translate(0, 0, -bd / 2 + kWall / 2) * scale(bw, bh, kWall), plastic, 0.6f, wrap ? 1 << 5 : 0);
-    parts_.back().texRect = cover.back;
-    add(translate(-bw / 2 + kWall / 2, 0, -kWall / 2) * scale(kWall, bh, inner), plastic, 0.6f, wrap ? 1 << 1 : 0);
-    parts_.back().texRect = cover.spine;
-    add(translate(bw / 2 - kWall / 2, 0, -kWall / 2) * scale(kWall, bh, inner), plastic, 0.6f);
-    add(translate(0, bh / 2 - kWall / 2, -kWall / 2) * scale(bw - 2 * kWall, kWall, inner), plastic, 0.6f);
-    add(translate(0, -bh / 2 + kWall / 2, -kWall / 2) * scale(bw - 2 * kWall, kWall, inner), plastic, 0.6f);
-    // Without a cover the lid takes the console's colour.
-    Vec3 lidColour{0.6f, 0.6f, 0.57f};
-    switch (item.system) {
-        case ConsoleSystem::GameBoyColor: lidColour = {0.08f, 0.45f, 0.45f}; break;
-        case ConsoleSystem::Nes: lidColour = {0.2f, 0.2f, 0.22f}; break;
-        case ConsoleSystem::Snes: lidColour = {0.5f, 0.5f, 0.56f}; break;
-        default: break;
-    }
-    const Mat4 hinge = translate(-bw / 2, 0, bd / 2 - kWall / 2) * rotateY(-lid * kLidOpen);
-    add(hinge * translate(bw / 2, 0, 0) * scale(bw, bh, kWall), item.texture ? plastic : lidColour, 0.7f, 1 << 4);
+    const std::array<float, 4> spine =
+        wrap ? cover.spine
+             : std::array<float, 4>{cover.front[0], cover.front[1], cover.front[0] + (cover.front[2] - cover.front[0]) * bd / bw,
+                                    cover.front[3]};
+    const bool side = opensAtSide(item.system, S);
+    // The front, the back and the spine (left), then the other sides but the open end.
+    add(translate(0, 0, bd / 2 - kCard / 2) * scale(bw, bh, kCard), item.texture ? Vec3{1, 1, 1} : card, cardShine, 1 << 4);
     parts_.back().texRect = cover.front;
-    const Mat4 manual = hinge * translate(bw / 2, 0, -kWall / 2 - 0.004f);
-    if (lid <= 0.001f) return place * manual;
-    // Inside: the manual on the lid (its own cover once it is drawn), the holder and the game.
-    if (withManual) {
+    add(translate(0, 0, -bd / 2 + kCard / 2) * scale(bw, bh, kCard), card, cardShine, wrap ? 1 << 5 : 0);
+    parts_.back().texRect = cover.back;
+    add(translate(-bw / 2 + kCard / 2, 0, 0) * scale(kCard, bh, bd - 2 * kCard), card, cardShine, 1 << 1);
+    parts_.back().texRect = spine;
+    if (!side) add(translate(bw / 2 - kCard / 2, 0, 0) * scale(kCard, bh, bd - 2 * kCard), card, cardShine);
+    if (side) add(translate(0, bh / 2 - kCard / 2, 0) * scale(bw - 2 * kCard, kCard, bd - 2 * kCard), card, cardShine);
+    add(translate(0, -bh / 2 + kCard / 2, 0) * scale(bw - 2 * kCard, kCard, bd - 2 * kCard), card, cardShine);
+    // The open end, seen with the way out as +y: across it ew, along the way out length.
+    const float ew = side ? bh : bw, length = side ? bw : bh;
+    const Mat4 end = side ? translate(bw / 2, 0, 0) * rotateZ(-90) : translate(0, bh / 2, 0);
+    // The flap, on its fold at the back, and the tongue at its end tucked down inside the
+    // front; opening, the flap swings up and back and the tongue straightens.
+    const float f = smooth((open - 0.12f) / 0.2f);
+    const Mat4 flap = end * translate(0, -kCard / 2, -bd / 2 + kCard / 2) * rotateX(-kFlapOpen * f);
+    add(flap * translate(0, 0, bd / 2 - kCard / 2) * scale(ew, kCard, bd - kCard), card, cardShine);
+    const float tongue = std::min(0.12f, length * 0.12f);
+    add(flap * translate(0, 0, bd - 2 * kCard) * rotateX(lerp(90.0f, 20.0f, f)) * translate(0, 0, tongue / 2) *
+            scale(ew - 4 * kCard, kCard, tongue),
+        card, cardShine);
+    // The holder: a board at the back with a rail down each side and a ledge across the
+    // bottom, sliding out along the way out.
+    const float out = trayOut() * length * 0.4f;
+    const Vec3 holderColour = item.system == ConsoleSystem::Nes ? Vec3{0.1f, 0.1f, 0.11f} : Vec3{0.9f, 0.89f, 0.86f};
+    const float hw = ew - 2 * kCard - 0.004f, hl = length - 2 * kCard - 0.004f;
+    const float boardZ = -bd / 2 + kCard + 0.012f + kCard / 2;  // the manual lies behind it
+    const Mat4 holder = end * translate(0, -kCard - 0.002f - hl / 2 + out, 0);
+    const float railZ = (boardZ + bd / 2 - kCard - 0.002f) / 2, railD = bd / 2 - kCard - 0.002f - boardZ;
+    if (out > 0.0005f || open > 0.001f) {
+        add(holder * translate(0, 0, boardZ) * scale(hw, hl, kCard), holderColour, 0.15f);
+        const CartridgeShape c = cartridgeShape(item.system);
+        const float across = side ? c.h : c.w, rail = std::max(0.02f, (hw - across) / 2 - 0.004f);
+        add(holder * translate(-hw / 2 + rail / 2, 0, railZ) * scale(rail, hl, railD), holderColour, 0.15f);
+        add(holder * translate(hw / 2 - rail / 2, 0, railZ) * scale(rail, hl, railD), holderColour, 0.15f);
+        add(holder * translate(0, -hl / 2 + 0.015f, railZ) * scale(hw, 0.03f, railD), holderColour, 0.15f);
+    }
+    // The manual behind the board, its cover to the front, riding out with the holder.
+    const float mz = -bd / 2 + kCard + 0.006f;
+    const Mat4 manual = (side ? translate(bw / 2 - kCard - 0.002f - (bw - 2 * kCard) / 2 + out, 0, mz)
+                              : translate(0, bh / 2 - kCard - 0.002f - (bh - 2 * kCard) / 2 + out, mz)) *
+                        rotateY(180);
+    if (withManual && open > 0.001f) {
         add(manual * scale(bw * 0.86f, bh * 0.88f, 0.006f), {0.86f, 0.84f, 0.78f}, 0.1f, 1 << 5);
         parts_.back().texRect = cover.front;
         if (item.manual && index == selected_) {
@@ -1105,8 +1165,6 @@ BoxShelf::Mat4 BoxShelf::addBox(const std::vector<Item>& items, int index, const
             }
         }
     }
-    add(translate(0, 0, -bd / 2 + kWall + 0.003f) * scale(bw - 2 * kWall, bh - 2 * kWall, 0.006f),
-        {0.11f, 0.11f, 0.13f}, 0.3f);
     return place * manual;
 }
 
@@ -1175,8 +1233,8 @@ void BoxShelf::addShelfBox(const Item& item, int index, const Mat4& place) {
     const Size S = index < static_cast<int>(sizes_.size()) ? sizes_[static_cast<size_t>(index)] : Size{};
     const float bw = S.w, bd = S.d;
     p.model = place * scale(S.w, S.h, S.d);
-    p.colour = {0.045f, 0.045f, 0.055f};
-    p.shine = 0.6f;
+    p.colour = boxColour(item.system);
+    p.shine = 0.25f;
     p.box = index;
     if (item.texture) {
         const Sleeve cover = sleeve(item.width, item.height, item.system);
@@ -1246,13 +1304,12 @@ void BoxShelf::build(const std::vector<Item>& items, int selected) {
     if (state_ == State::Browse || selected < 0 || selected >= count_) return;
     const Item& item = items[static_cast<size_t>(selected)];
     const Mat4 box = heldBox();
-    const float lid = smooth(open_ / 0.6f);
     const bool reading = state_ == State::ManualOut || state_ == State::Reading || state_ == State::ManualBack;
-    const Mat4 lidManual = addBox(items, selected, box, lid, !reading);
+    const Mat4 boxManual = addBox(items, selected, box, open_, !reading);
     const bool ejecting = state_ == State::Ejecting || state_ == State::Inserted;
     if (!ejecting) {
-        if (lid > 0.001f) addCartridge(item, heldCartridge());
-        if (reading) addManual(item, lidManual);
+        if (open_ > 0.001f) addCartridge(item, heldCartridge());
+        if (reading) addManual(item, boxManual);
         return;
     }
     // The console comes up through the floor while the cartridge leaves the box.
@@ -1293,7 +1350,7 @@ void BoxShelf::build(const std::vector<Item>& items, int selected) {
     addCartridge(item, translate(p.x, p.y, p.z) * rotateY(spin) * rotation(cartTurn_) * rotateX(lay));
 }
 
-void BoxShelf::addManual(const Item& item, const Mat4& lidManual) {
+void BoxShelf::addManual(const Item& item, const Mat4& boxManual) {
     float pw, ph;
     manualSize(&pw, &ph);
     const Vec3 b = manualSpot();
@@ -1315,16 +1372,16 @@ void BoxShelf::addManual(const Item& item, const Mat4& lidManual) {
     };
     const float r = smooth(read_);
     if (state_ != State::Reading) {
-        // Closed, from the lid to the right of where its spine will be, its cover to the front.
+        // Closed, from the box to the right of where its spine will be, its cover to the front.
         const float lw = held_.w * 0.86f, lh = held_.h * 0.88f;
         const Vec3 to{b.x + pw / 2, b.y, b.z};
-        const Vec3 p{lerp(lidManual[12], to.x, r), lerp(lidManual[13], to.y, r) + std::sin(r * kPi) * 0.15f,
-                     lerp(lidManual[14], to.z, r)};
-        const Mat4 m = translate(p.x, p.y, p.z) * rotateY(lerp(-kLidOpen, -180.0f, r)) *
+        const Vec3 p{lerp(boxManual[12], to.x, r), lerp(boxManual[13], to.y, r) + std::sin(r * kPi) * 0.15f,
+                     lerp(boxManual[14], to.z, r)};
+        const Mat4 m = translate(p.x, p.y, p.z) * rotateY(-180.0f) *
                        scale(lerp(lw, pw, r), lerp(lh, ph, r), 0.006f);
         if (page(0).texture) sheet(m, 0, 5);
         else {
-            // Not drawn yet: as it looked in the lid.
+            // Not drawn yet: as it looked in the box.
             Part p;
             p.model = m;
             p.manual = true;
@@ -1414,11 +1471,11 @@ unsigned int BoxShelf::render(const std::vector<Item>& items, int selected, int 
             if (take_ <= 0) state_ = State::Browse;
             break;
         case State::Opening:
-            open_ = std::min(1.0f, open_ + dt / 0.9f);
+            open_ = std::min(1.0f, open_ + dt / 1.5f);
             if (open_ >= 1) state_ = State::Open;
             break;
         case State::Closing:
-            open_ = std::max(0.0f, open_ - dt / 0.7f);
+            open_ = std::max(0.0f, open_ - dt / 1.1f);
             if (open_ <= 0) state_ = State::Held;
             break;
         case State::Ejecting:

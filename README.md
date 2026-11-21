@@ -150,7 +150,10 @@ there is:
   CRT filters.
 - **The library's 3D shelf** ("Cajas 3D", next to Cuadrícula and Lista), as plumsg's: the
   games' boxes stand on a shelf in an old living room, their spines out. A click (or A)
-  takes one out, a second opens it and brings its cartridge out, and a third puts it into
+  takes one out; a second opens it as the cardboard boxes of the time open, by the tuck flap
+  at one end (the top of an NES or Game Boy box, the NES one tipped on its side first; the
+  right end of a Super Nintendo one), slides the card holder out and pulls the cartridge
+  out of it; a third puts it into
   its console, which comes up through the floor: on top of the Super Nintendo, in through
   the door of the NES and pushed down, at the back of the Game Boy or the Color, whose
   screen lights up. Its light comes on and the game starts. Dragging turns what is out (or

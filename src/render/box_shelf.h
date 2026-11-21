@@ -15,11 +15,13 @@ namespace plumnin {
 // The library's 3D view, as plumsg's: the games' boxes on a shelf, their spines to the
 // viewer, over a floor that reflects them. The wheel zooms out to the whole shelf and
 // dragging moves along it. A click takes a box out to the front, where dragging turns it; a
-// click on it opens its lid on the hinge at the left and brings its cartridge out, which
+// click on it opens the flap at one end of the cardboard box (the top of an NES or Game Boy
+// one, the right end of a Super Nintendo one lying down), slides the card holder inside out
+// a way and pulls its cartridge out, which
 // dragging turns as well; a click on the cartridge puts it into the game's console (on top
 // of a Super Nintendo, in the door of an NES and pushed down, at the back of a Game Boy),
 // whose light comes on (a Game Boy's screen too), and then the game is played
-// (takeLaunch()). With the box open, a click on the manual in its lid (or Left)
+// (takeLaunch()). With the box open, a click on the manual behind the holder (or Left)
 // brings it out in front to be read: a click on its right page (Right, A) turns to the
 // next pages, on its left one (Left) back. The wheel zooms in on the box, the cartridge
 // and the manual too. A click anywhere else goes a step back.
@@ -163,7 +165,7 @@ private:
         bool reflect = true;  // seen in the floor
         int box = -1;         // the item whose box this is part of, for clicks
         bool cartridge = false;
-        bool manual = false;  // the manual in the lid, or one of its pages out
+        bool manual = false;  // the manual in the box, or one of its pages out
         bool hidden = false;  // only there for clicks
         bool matte = false;   // the room around: no cool rim light, darker towards the ceiling
     };
@@ -175,13 +177,18 @@ private:
     static Size boxSize(const Item& item);
     void build(const std::vector<Item>& items, int selected);
     // The manual out of the box, on its way (read_) or open at its pages.
-    void addManual(const Item& item, const Mat4& lidManual);
+    void addManual(const Item& item, const Mat4& boxManual);
     // Its pages' size, and where its spine is while it is read.
     void manualSize(float* w, float* h) const;
     Vec3 manualSpot() const;
     int lastSpread() const;
-    // Returns where the manual lies in its lid (its middle, unscaled).
-    Mat4 addBox(const std::vector<Item>& items, int index, const Mat4& place, float lid, bool withManual);
+    // Returns where the manual lies in the box (its middle, unscaled, its cover to the front).
+    Mat4 addBox(const std::vector<Item>& items, int index, const Mat4& place, float open, bool withManual);
+    // A Super Nintendo box lying down opens at its right end, the others at the top.
+    static bool opensAtSide(ConsoleSystem s, const Size& size);
+    static Vec3 boxColour(ConsoleSystem s);
+    float trayOut() const;  // 0 in .. 1 the holder out as far as it goes
+    float tipped() const;   // 0 standing .. 1 an NES box on its side, to be opened
     Mat4 cartridgeInBox(const Mat4& box, ConsoleSystem s, const Size& size) const;
     // A closed box standing on the shelf, its spine out.
     void addShelfBox(const Item& item, int index, const Mat4& place);
@@ -243,7 +250,7 @@ private:
 
     State state_ = State::Browse;
     float take_ = 0;       // 0 on the shelf .. 1 the box out in front
-    float open_ = 0;       // 0 closed .. 1 the lid open and the cartridge out
+    float open_ = 0;       // 0 closed .. 1 the flap open and the cartridge out
     float eject_ = 0;      // 0 .. 1 the cartridge's way into the console
     float light_ = 0;      // seconds since it went in
     float pull_ = 0;       // the chosen box on the shelf, slid a little out
