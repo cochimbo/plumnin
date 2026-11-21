@@ -27,7 +27,7 @@ namespace plumnin {
 // and the manual too. A click anywhere else goes a step back.
 //
 // Each system's box has its size: the NES's tall, the Super Nintendo's lying on its side
-// when its cover is wider than tall (America's and Japan's), the Game Boy's small.
+// when its cover is wider than tall (America's and Japan's), the Game Boy's small and square.
 //
 // It draws with OpenGL 3.3 into a texture of its own, which the library shows as an
 // image; clicks on that image are passed back as points from 0 to 1.

@@ -916,12 +916,12 @@ BoxShelf::Vec3 BoxShelf::shelfSpot(int index) const {
 namespace {
 
 // The front of each system's box, width / height: the NES's (12.7 x 18.2 cm), the Game
-// Boy's (10.2 x 12.7 cm), the Super Nintendo's lying on its side (18 x 12.7 cm).
+// Boy's (12.7 cm square), the Super Nintendo's lying on its side (18 x 12.7 cm).
 float frontAspect(ConsoleSystem s) {
     switch (s) {
         case ConsoleSystem::Nes: return 12.7f / 18.2f;
         case ConsoleSystem::Snes: return 18.0f / 12.7f;
-        default: return 10.2f / 12.7f;
+        default: return 1.0f;  // the Game Boy's, square
     }
 }
 
@@ -932,7 +932,7 @@ BoxShelf::Size BoxShelf::boxSize(const Item& item) {
     switch (item.system) {
         case ConsoleSystem::Nes: s = {12.7f / 13.5f, 18.2f / 13.5f, 3.8f / 13.5f}; break;
         case ConsoleSystem::Snes: s = {18.0f / 13.5f, 12.7f / 13.5f, 3.8f / 13.5f}; break;
-        default: s = {10.2f / 13.5f, 12.7f / 13.5f, 2.5f / 13.5f}; break;
+        default: s = {12.7f / 13.5f, 12.7f / 13.5f, 2.5f / 13.5f}; break;  // square, 5 x 5 inches
     }
     // A Super Nintendo cover taller than wide (a European one standing up) gets a box to match.
     if (item.system == ConsoleSystem::Snes && item.texture && item.width > 0 && item.height > 0) {
