@@ -2680,6 +2680,16 @@ void testSnesSynth() {
     check(SynthMusic::suggest(chh, low).drum == 44,
           "snes rules: a hiss played a fifth down is a pedal hi-hat (Donkey Kong Country's first level)");
     check(SynthMusic::suggest(chh, high).drum == 42, "snes rules: the same hiss played up is a closed hi-hat");
+    {
+        // A click of a hundredth of a second struck as a whole hi-hat: far softer.
+        std::vector<int16_t> click(320), hat(4800);
+        for (size_t i = 0; i < click.size(); ++i) click[i] = static_cast<int16_t>((i * 7919 % 2000) - 1000);
+        for (size_t i = 0; i < hat.size(); ++i) hat[i] = static_cast<int16_t>((i * 7919 % 16000) - 8000);
+        SynthMusic::Traits a, b;
+        SynthMusic::analyzeSample(click.data(), click.size(), 0, false, 32000, &a);
+        SynthMusic::analyzeSample(hat.data(), hat.size(), 0, false, 32000, &b);
+        check(a.strike > 0 && a.strike * 100 < b.strike, "snes rules: a click holds far less sound than a drum");
+    }
     SynthMusic::Heard hit;
     for (int n = 0; n < 40; ++n) hit.add(60 + n % 3);
     check(SynthMusic::suggest(rough, hit).drum >= 35, "snes rules: on two or three notes, a drum");

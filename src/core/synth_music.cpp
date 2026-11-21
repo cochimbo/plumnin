@@ -631,6 +631,10 @@ void SynthMusic::learn(const std::map<uint32_t, Seen>& heard) {
     }
 }
 
+// How much sound a drum sample holds, struck once at full volume (Traits::strike): a
+// snare's, a tom's, a hi-hat's of the SNES, as loud as the SoundFont's.
+static constexpr double kDrumStrike = 0.003;
+
 int SynthMusic::velocity(const Voice& v, double amplitude) {
     return std::clamp(static_cast<int>(std::lround(127 * std::sqrt(amplitude) * v.volume / 100.0)), 1, 127);
 }
@@ -697,7 +701,13 @@ void SynthMusic::noteOn(int voice, const VoiceState& s, uint64_t clock) {
     v.volume = a.volume;
     if (v.drum) {
         v.note = a.drum;
-        emit(clock, Ev::NoteOn, kDrums, v.note, velocity(v, v.amplitude));
+        // A sample that holds much less sound than a drum's, a click of a hundredth of a
+        // second, struck as loud as a whole drum is far louder than on the console: its
+        // drum as much softer (Donkey Kong Country's jungle hi-hat, over the whole song).
+        double strike = 1;
+        if (rule.traits.kind == Kind::Sample && !rule.traits.looped && rule.traits.strike > 0)
+            strike = std::min(1.0, std::sqrt(rule.traits.strike / kDrumStrike));
+        emit(clock, Ev::NoteOn, kDrums, v.note, velocity(v, v.amplitude * strike));
         return;
     }
     Channel& c = channels_[static_cast<size_t>(voice)];
@@ -791,6 +801,11 @@ double SynthMusic::analyzeSample(const int16_t* pcm, size_t count, size_t loopSt
     t.kind = Kind::Sample;
     t.looped = looped && loopStart < count;
     t.seconds = t.looped ? 10.0 : static_cast<double>(count) / rate;
+    if (!t.looped) {
+        double sum = 0;
+        for (size_t i = 0; i < count; ++i) sum += (pcm[i] / 32768.0) * (pcm[i] / 32768.0);
+        t.strike = sum / rate;
+    }
     constexpr size_t kLength = 2048, kMaxLag = 1000, kMinLag = 8;
     std::vector<double> x(kLength, 0.0);
     if (t.looped) {

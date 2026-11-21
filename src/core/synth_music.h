@@ -112,6 +112,9 @@ public:
         // note of a sound too rough for one, should the game play it as a tune (Star Fox's
         // brass in Corneria).
         double roughHz = 0;
+        // How much sound a sample that dies away holds, struck once at full volume: the
+        // seconds it would last at full scale (its squares' sum over the rate). 0 if it loops.
+        double strike = 0;
     };
     static Assignment suggest(const Traits& traits, const Heard& heard);
     // What a sample sounds like: its traits, and the frequency of its note when played at

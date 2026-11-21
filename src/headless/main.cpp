@@ -369,10 +369,10 @@ static void printInstruments(SynthMusic& synth) {
     for (const auto& [fp, seen] : synth.seen()) {
         const SynthMusic::Assignment a = synth.assignmentFor(fp);
         const SynthMusic::Traits& t = seen.traits;
-        std::printf("instrument %08x: %d notes %d-%d voices %02x | %s%s %.2fs bright %.2f fund %.2f odd %.2f rough %.0f Hz"
+        std::printf("instrument %08x: %d notes %d-%d voices %02x | %s%s %.2fs bright %.2f fund %.2f odd %.2f rough %.0f Hz strike %.5f"
                     " | held %d decayed %d swelled %d -> ",
                     fp, seen.notes, seen.low, seen.high, seen.voices, t.pitched ? "pitched" : "unpitched",
-                    t.looped ? " looped" : "", t.seconds, t.brightness, t.fundamental, t.odd, t.roughHz, seen.heard.held,
+                    t.looped ? " looped" : "", t.seconds, t.brightness, t.fundamental, t.odd, t.roughHz, t.strike, seen.heard.held,
                     seen.heard.decayed, seen.heard.swelled);
         if (a.original) std::printf("original\n");
         else if (a.drum >= 0) std::printf("drum %d %s\n", a.drum, SynthMusic::drumName(a.drum) ? SynthMusic::drumName(a.drum) : "");
