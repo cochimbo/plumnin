@@ -592,7 +592,27 @@ struct Heard {
         }
         for (const auto& [key, n] : other.lateNotes)
             if (!lateNotes.count(key)) differ += n;
-        return total > 0 && 4 * differ <= total;
+        if (total > 0 && 4 * differ <= total) return true;
+        // Or one channel with a tune of its own going on just as it was, the bass, say,
+        // while an effect takes the others for a while (Double Dragon II's, over its
+        // title music): a song that starts changes them all. (Not the noise: many songs
+        // play the same beat.)
+        for (uint32_t ch = 0; ch < 3; ++ch) {
+            int chDiffer = 0, chTotal = 0;
+            std::set<uint32_t> pitches;
+            for (const auto& [key, n] : other.lateNotes)
+                if (key >> 16 == ch) {
+                    auto it = lateNotes.find(key);
+                    chDiffer += std::abs(n - (it == lateNotes.end() ? 0 : it->second));
+                    chTotal += n;
+                    pitches.insert(key);
+                }
+            for (const auto& [key, n] : lateNotes)
+                if (key >> 16 == ch && !pitches.count(key)) chDiffer += n;
+            // (A tune: some notes, more than one pitch.)
+            if (chTotal >= 6 && pitches.size() >= 2 && 8 * chDiffer <= chTotal) return true;
+        }
+        return false;
     }
 };
 
@@ -1059,11 +1079,23 @@ bool Ripper::run(std::vector<SongRipper::Song>* songs, std::string* error, std::
         // heard on its own; and as late as it was watched, in case it was silent then
         // because it was told to be.
         std::vector<uint8_t> silentState, lateState;
+        // A routine as it is first called once the driver has been going a while: some
+        // games call it first to start the driver (Double Dragon II asks it for nothing,
+        // and the driver then clears its memory and writes a routine of its own there),
+        // and a song asked for before that plays from memory never set up. The first
+        // call stays when there is no later one.
+        std::vector<bool> settled(routines, false);
         third.onCall = [&](uint32_t id, uint64_t calls) {
-            if (calls == 1)
+            if (id != driver) {
+                const auto it = third.routines.find(driver);
+                const bool going = it != third.routines.end() && it->second.calls >= 30;
                 for (size_t i = 0; i < routines; ++i)
-                    if (ways[i].id == id) gb3.console().saveState(ways[i].state, true);
-            if (id != driver) return;
+                    if (ways[i].id == id && !settled[i] && (calls == 1 || going)) {
+                        gb3.console().saveState(ways[i].state, true);
+                        settled[i] = going;
+                    }
+                return;
+            }
             // (Silent after it has played something: before, it may not be ready.)
             const bool quiet = calls >= 30 && third.lastNote > 0 &&
                                gb3.soundClock() - third.lastNote > static_cast<uint64_t>(kClock);
@@ -1224,6 +1256,36 @@ bool Ripper::run(std::vector<SongRipper::Song>* songs, std::string* error, std::
             if (std::search(those.begin(), those.end(), notes.begin() + static_cast<long>(from),
                             notes.begin() + static_cast<long>(from + length)) != those.end()) {
                 if (std::getenv("PLUMNIN_RIP_DEBUG")) std::fprintf(stderr, "  as song %zu\n", k + 1);
+                return true;
+            }
+            // Or two tuned channels or more, each on its own, playing nearly only what that
+            // channel of it plays: a song heard before with an effect over it that stays
+            // (Double Dragon II's title music, its triangle taken by a sound that goes on and
+            // on), so that the channels' notes no longer fall in the same order. (This also
+            // takes out Mega Man 2's numbers past its songs, the same one again and again.)
+            int same = 0;
+            for (uint32_t ch = 0; ch < 3; ++ch) {
+                std::vector<uint32_t> a, b;
+                for (uint32_t n : notes)
+                    if (n >> 16 == ch) a.push_back(n);
+                for (uint32_t n : heard[k])
+                    if (n >> 16 == ch) b.push_back(n);
+                constexpr size_t kRun = 8;
+                if (a.size() < 24 || b.size() < kRun) continue;
+                std::set<std::vector<uint32_t>> runs;
+                for (size_t i = 0; i + kRun <= b.size(); ++i) runs.insert(std::vector<uint32_t>(b.begin() + static_cast<long>(i), b.begin() + static_cast<long>(i + kRun)));
+                size_t found = 0, total = 0;
+                std::set<std::vector<uint32_t>> own;
+                for (size_t i = 0; i + kRun <= a.size(); ++i, ++total) {
+                    std::vector<uint32_t> run(a.begin() + static_cast<long>(i), a.begin() + static_cast<long>(i + kRun));
+                    found += runs.count(run);
+                    own.insert(std::move(run));
+                }
+                // (A tune, not one note again and again, which many songs have somewhere.)
+                if (own.size() >= 12 && 10 * found >= 9 * total) ++same;
+            }
+            if (same >= 2) {
+                if (std::getenv("PLUMNIN_RIP_DEBUG")) std::fprintf(stderr, "  as song %zu, on its channels\n", k + 1);
                 return true;
             }
         }
