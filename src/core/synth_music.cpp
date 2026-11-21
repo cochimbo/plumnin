@@ -970,7 +970,18 @@ void SynthMusic::apply(const Event& e) {
     tsf* f = synth_->font;
     const int ch = e.channel;
     switch (e.type) {
-        case Ev::NoteOn: tsf_channel_note_on(f, ch, e.value, static_cast<float>(e.extra) / 127.0f); break;
+        case Ev::NoteOn:
+            // A drum struck again starts over, as a real one would: the drums are never let
+            // go, and some of the SoundFont's pieces take seconds to die away once struck
+            // (its toms), so struck every beat they piled up until the synth had no voices
+            // left and the song went quiet (Jungle Hijinxs, after half a minute).
+            if (ch == kDrums)
+                for (int i = 0; i < f->voiceNum; ++i) {
+                    tsf_voice& v = f->voices[i];
+                    if (v.playingPreset != -1 && v.playingChannel == ch && v.playingKey == e.value) tsf_voice_endquick(f, &v);
+                }
+            tsf_channel_note_on(f, ch, e.value, static_cast<float>(e.extra) / 127.0f);
+            break;
         case Ev::NoteOff: tsf_channel_note_off(f, ch, e.value); break;
         case Ev::Program: tsf_channel_set_presetnumber(f, ch, e.value, ch == kDrums); break;
         case Ev::Bend: tsf_channel_set_pitchwheel(f, ch, e.value); break;
