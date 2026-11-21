@@ -185,13 +185,18 @@ add_executable(plumnin WIN32
   src/render/gl.cpp
   src/render/gl_renderers.cpp
   src/render/upscale.cpp
+  src/render/box_shelf.cpp
+  src/render/room.cpp
+  src/render/console_models.cpp
+  src/render/gltf_model.cpp
 )
 # The plum icon of plumnin.exe (Explorer, taskbar, shortcuts).
 if(WIN32)
   target_sources(plumnin PRIVATE src/frontend/plumnin.rc)
 endif()
-# stb_image (public domain / MIT, vendored) decodes the library's PNG and JPEG covers.
-target_include_directories(plumnin PRIVATE third_party/stb)
+# stb_image (public domain / MIT, vendored) decodes the library's PNG and JPEG covers, and
+# cgltf (MIT, vendored) reads the 3D view's console models.
+target_include_directories(plumnin PRIVATE third_party/stb third_party/cgltf)
 
 # The PLUMNIN logo, the plum icon and the interface's fonts, built into the executable as
 # byte arrays (logo_png.h, chakra_petch_regular_ttf.h...).
@@ -270,6 +275,9 @@ if(WIN32 AND TARGET SDL2::SDL2)
   add_custom_command(TARGET plumnin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:plumnin>)
 endif()
+# And the 3D view's console models, which it looks for in models/ beside the executable.
+add_custom_command(TARGET plumnin POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/assets/models $<TARGET_FILE_DIR:plumnin>/models)
 endif()  # PLUMNIN_BUILD_FRONTEND
 
 if(PLUMNIN_BUILD_TESTS)

@@ -148,6 +148,7 @@ void Settings::parse(std::istream& in, Settings& s) {
             else if (key == "view") {
                 const std::string view = iniName(lower(value));
                 s.libraryList = view == "list";
+                s.libraryBoxes = view == "boxes";
             }
             else if (key == "details") s.libraryDetails = yes(value);
             else if (key == "cover_width")
@@ -267,12 +268,12 @@ void Settings::write(std::ostream& out) const {
         << "\n[library]\n"
         << "# folder: where your games are (one line per folder). open_at_start: show the library when\n"
         << "# plumnin opens without a game. system: the chosen tab (all, gameboy, gameboycolor, nes or snes).\n"
-        << "# view: grid or list. details: the right-hand panel with the chosen game's data.\n"
+        << "# view: grid, list or boxes. details: the right-hand panel with the chosen game's data.\n"
         << "# sort: title, console, year, genre or developer. cover_width: the grid's covers, in pixels.\n";
     for (const auto& f : libraryFolders) out << "folder = " << f << "\n";
     out << "open_at_start = " << flag(libraryAtStart) << "\n"
         << "system = " << (librarySystem >= 0 && librarySystem < kSystemCount ? kSystemKeys[librarySystem] : "all") << "\n"
-        << "view = " << (libraryList ? "list" : "grid") << "\n"
+        << "view = " << (libraryBoxes ? "boxes" : libraryList ? "list" : "grid") << "\n"
         << "details = " << flag(libraryDetails) << "\n"
         << "cover_width = " << libraryCoverWidth << "\n"
         << "sort = " << kLibrarySortKeys[std::clamp(librarySort, 0, kLibrarySorts - 1)] << "\n"

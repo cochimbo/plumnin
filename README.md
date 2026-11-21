@@ -148,6 +148,15 @@ there is:
   `.vgm`, `.vgz` or `.spc` given instead of a game is played to `--wav`.
 - The 2D and pseudo-3D views, with the xBR and Anime4K upscalers and the scanline and
   CRT filters.
+- **The library's 3D shelf** ("Cajas 3D", next to Cuadrícula and Lista), as plumsg's: the
+  games' boxes stand on a shelf in an old living room, their spines out. A click (or A)
+  takes one out, a second opens it and brings its cartridge out, and a third puts it into
+  its console, which comes up through the floor: on top of the Super Nintendo, in through
+  the door of the NES and pushed down, at the back of the Game Boy or the Color, whose
+  screen lights up. Its light comes on and the game starts. Dragging turns what is out (or
+  moves along the shelf), the wheel and the right stick zoom. The consoles are real 3D
+  models (see License), made lighter by `tools/models/prepare.py`; a `.glb` of the same
+  name in `models/` next to `plumnin.ini` takes their place.
 - Netplay over UDP with rollback.
 - `plumnin-headless`, the emulator without a window, for tests, CI and reproducing bugs.
 - A common interface for the consoles (`src/core/console.h`): each console only has to
@@ -166,7 +175,7 @@ The plan, in order:
 5. In the future, the light guns: the NES Zapper and the SNES Super Scope.
 
 What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIOS, the
-32X, Sega's light guns, and the library's 3D shelf with the consoles' models) is not here.
+32X and Sega's light guns) is not here.
 
 ## Building
 
@@ -235,5 +244,13 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
 MIT (see [LICENSE](LICENSE)). plumnin does not include any game or BIOS. The
 synthesizer uses TinySoundFont (MIT, `third_party/tsf`), and the SoundFont that comes
 with it is GeneralUser GS by S. Christian Collins, with its own free license
-(`soundfonts/GeneralUser-GS-LICENSE.txt` in the installation). See
+(`soundfonts/GeneralUser-GS-LICENSE.txt` in the installation). The 3D shelf's consoles
+are ["Nintendo Game Boy (Original 1989)"](https://sketchfab.com/3d-models/nintendo-game-boy-original-1989-ad2f6be906e948f793fe722bbae5d29c)
+by lokeig (CC BY-NC 4.0: not for commercial use),
+["Game Boy Color"](https://sketchfab.com/3d-models/game-boy-color-03c6fe28d45244d2acd55486e3cfee19)
+by Wikiti, ["NES_OG-85"](https://sketchfab.com/3d-models/nes-og-85-f12c3312b9ad45f5a4a833f602358b60)
+by RadioactiveAG and ["Super nintendo"](https://sketchfab.com/3d-models/super-nintendo-d42c35b117974ade8842f0964f5fd59e)
+by quick_loop (CC BY 4.0), with the television "Television 01" by Gabriel Radić from Poly
+Haven (CC0); what was changed in each is in `assets/models/CREDITS.txt`. The 3D models are
+read with cgltf (MIT, `third_party/cgltf`). See
 [PRIVACY.md](PRIVACY.md) for what it connects to.

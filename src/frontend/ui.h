@@ -25,6 +25,8 @@
 
 namespace plumnin {
 
+class BoxShelf;
+
 // What the user asked for this frame; main() carries it out.
 struct UiActions {
     std::string load;            // ROM to open
@@ -153,6 +155,14 @@ public:
     // Puts the keyboard on the library's search box (Y on the pad): in console mode, with
     // the on-screen keyboard.
     void focusLibrarySearch() { libraryView_.focusSearch = true; }
+    // For screenshots: the library's 3D view holding still at that step (see BoxShelf::pose).
+    void poseBoxes(int step) { boxesPose_ = step; }
+    // The pad's right stick (zooms the library's 3D view) and left one (turns what is out).
+    void setRightStick(float x, float y) { rightStickX_ = x, rightStickY_ = y; }
+    void setLeftStick(float x, float y) { leftStickX_ = x, leftStickY_ = y; }
+    // Where the 3D view's console models are: the user's own first, then those that come
+    // with plumnin (each ending in a separator).
+    void setModelFolders(std::vector<std::string> folders) { modelFolders_ = std::move(folders); }
     // A PNG or JPEG of the user's as the game's cover, for when ScreenScraper has none.
     void chooseCoverImage(size_t game);
     void useCoverImage(const std::string& file);
@@ -248,9 +258,10 @@ private:
     void drawLibraryFolders(UiActions& out);
     void drawLibraryGrid(const std::vector<size_t>& visible);
     void drawLibraryList(const std::vector<size_t>& visible);
+    void drawLibraryBoxes(const std::vector<size_t>& visible);
     void drawLibraryDetails(const std::vector<size_t>& visible);
     void libraryItem(bool clicked, int n);
-    // 0 the grid, 1 the list.
+    // 0 the grid, 1 the list, 2 the 3D boxes.
     void setLibraryView(int view);
     void buildFonts();
     void needGlyphs(const std::string& text);
@@ -296,6 +307,11 @@ private:
     bool fontsDirty_ = false;
     CheatDatabase cheatDb_;
     std::unique_ptr<AchievementsUi> achievements_;
+    bool boxesDragged_ = false;  // the press on the 3D view has moved: no click when it ends
+    std::unique_ptr<BoxShelf> shelf_;  // the library's 3D view, made the first time it is shown
+    int boxesPose_ = 0;
+    float rightStickX_ = 0, rightStickY_ = 0, leftStickX_ = 0, leftStickY_ = 0;
+    std::vector<std::string> modelFolders_;
     unsigned int logoTexture_ = 0;  // the PLUMNIN marquee, 0 if it could not be decoded
     int logoWidth_ = 0, logoHeight_ = 0;
     unsigned int iconTexture_ = 0;  // the plum, 0 if it could not be decoded

@@ -25,6 +25,7 @@
 #include "../core/i18n.h"
 #include "../core/system.h"
 #include "../net/udp.h"
+#include "../render/box_shelf.h"
 #include "../render/gl.h"
 
 #define STBI_NO_STDIO
@@ -363,6 +364,7 @@ Ui::Ui(SDL_Window* window, SDL_GLContext context, Settings& settings, Input& inp
 }
 
 Ui::~Ui() {
+    shelf_.reset();
     library_.clearTextures();
     gameInfo_.clearTextures();
     scraper_.clearTextures();
@@ -2034,6 +2036,7 @@ void Ui::toggleLibrary() {
     if (!showLibrary_) return;
     if (!library_.scanned() || library_.folders() != settings_.libraryFolders) rescanLibrary();
     libraryView_.scroll = true;
+    if (shelf_) shelf_->reset();
 }
 
 void Ui::rescanLibrary() {
@@ -2053,6 +2056,14 @@ std::vector<size_t> Ui::visibleGames() {
     }
     // The library is in title order; the other orders keep it among equals, and games
     // with nothing to sort by go last.
+    // The 3D shelf keeps each console's games together (in the consoles' own order) and
+    // each console's in title order, whatever the order chosen for the other views.
+    if (settings_.libraryBoxes) {
+        std::stable_sort(out.begin(), out.end(), [&games](size_t a, size_t b) {
+            return static_cast<int>(games[a].system) < static_cast<int>(games[b].system);
+        });
+        return out;
+    }
     const int sort = settings_.librarySort;
     const bool descending = libraryView_.descending;
     if (sort == 0) {
@@ -2083,8 +2094,10 @@ std::vector<size_t> Ui::visibleGames() {
 }
 
 void Ui::setLibraryView(int view) {
-    if ((settings_.libraryList ? 1 : 0) == view) return;
+    if ((settings_.libraryBoxes ? 2 : settings_.libraryList ? 1 : 0) == view) return;
     settings_.libraryList = view == 1;
+    settings_.libraryBoxes = view == 2;
+    if (shelf_) shelf_->reset();
     libraryView_.syncSort = true;
     libraryView_.scroll = true;
     pendingSave_ = true;
@@ -2174,11 +2187,22 @@ bool Ui::handleLibrary(const SDL_Event& e) {
         libraryView_.scroll = true;
         libraryView_.tabChanged = true;
         pendingSave_ = true;
+        if (shelf_) shelf_->reset();
         return true;
     }
     if (action == View) {
-        setLibraryView(settings_.libraryList ? 0 : 1);
+        setLibraryView(settings_.libraryBoxes ? 0 : settings_.libraryList ? 2 : 1);
         return true;
+    }
+    // In the 3D view A opens the chosen box and then takes its cartridge out, B closes
+    // it, and the chosen game stays while a box is open.
+    if (settings_.libraryBoxes && shelf_) {
+        if (action == Play) {
+            shelf_->activate();
+            return true;
+        }
+        if (action == Close && shelf_->back()) return true;
+        if (shelf_->busy() && action != Close && action != Search && action != Menu) return true;
     }
     const int count = static_cast<int>(visibleGames().size());
     const int cols = std::max(1, libraryView_.columns);
@@ -2320,13 +2344,18 @@ void Ui::drawLibrary(UiActions& out) {
         libraryView_.selected = 0;
     // How the games are shown: a grid or a list, in what order, and with the panel or not.
     ImGui::SameLine();
-    const int libraryView = settings_.libraryList ? 1 : 0;
+    const int libraryView = settings_.libraryBoxes ? 2 : settings_.libraryList ? 1 : 0;
     if (ImGui::RadioButton(tr("Cuadrícula"), libraryView == 0)) setLibraryView(0);
     ImGui::SameLine();
     if (ImGui::RadioButton(tr("Lista"), libraryView == 1)) setLibraryView(1);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tr("Cambia de vista con V o con Select en el mando."));
     ImGui::SameLine();
+    if (ImGui::RadioButton(tr("Cajas 3D"), libraryView == 2)) setLibraryView(2);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s", tr("Las cajas de los juegos en 3D: ábrelas y lleva el cartucho a la consola para jugar."));
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(170);
+    ImGui::BeginDisabled(settings_.libraryBoxes);  // the shelf goes by console, then title
     static const char* const sorts[Settings::kLibrarySorts] = {N_("Por título"), N_("Por consola"), N_("Por año"),
                                                                N_("Por género"), N_("Por desarrolladora")};
     if (ImGui::BeginCombo("##orden", tr(sorts[std::clamp(settings_.librarySort, 0, Settings::kLibrarySorts - 1)]))) {
@@ -2339,14 +2368,18 @@ void Ui::drawLibrary(UiActions& out) {
             }
         ImGui::EndCombo();
     }
+    ImGui::EndDisabled();
+    if (settings_.libraryBoxes && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("%s", tr("En las cajas 3D los juegos van por consola y, en cada una, por título."));
     ImGui::SameLine();
     if (ImGui::Checkbox(tr("Detalles"), &settings_.libraryDetails)) out.settingsChanged = true;
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("%s", tr("Un panel a la derecha con la carátula, los datos y la descripción del juego elegido."));
     const std::vector<size_t> visible = visibleGames();
     // A new order (or the data to sort by arriving) keeps the same game chosen.
-    const unsigned order = static_cast<unsigned>(settings_.librarySort) * 2 + libraryView_.descending + 2 +
-                           (settings_.librarySort ? gameInfo_.detailsVersion() * 16 : 0);
+    const unsigned order = settings_.libraryBoxes ? 1u
+                                                  : static_cast<unsigned>(settings_.librarySort) * 2 + libraryView_.descending + 2 +
+                                                        (settings_.librarySort ? gameInfo_.detailsVersion() * 16 : 0);
     if (order != libraryView_.order) {
         libraryView_.order = order;
         const auto it = std::find(visible.begin(), visible.end(), libraryView_.selectedGame);
@@ -2429,7 +2462,8 @@ void Ui::drawLibrary(UiActions& out) {
         }
         library_.prioritize(first);
     }
-    if (settings_.libraryList) drawLibraryList(visible);
+    if (settings_.libraryBoxes) drawLibraryBoxes(visible);
+    else if (settings_.libraryList) drawLibraryList(visible);
     else drawLibraryGrid(visible);
     ImGui::EndChild();
     if (panelW > 0) {
@@ -2618,6 +2652,94 @@ void Ui::drawLibraryGrid(const std::vector<size_t>& visible) {
 // The games' boxes on a shelf in 3D: a click (or A) takes one out, a second its cartridge
 // and a third puts that into the console to play; dragging turns what is out, or moves
 // along the shelf, and the wheel zooms.
+void Ui::drawLibraryBoxes(const std::vector<size_t>& visible) {
+    const ImVec2 size = ImGui::GetContentRegionAvail();
+    if (visible.empty() || size.x < 16 || size.y < 16) return;
+    if (!shelf_) {
+        shelf_ = std::make_unique<BoxShelf>();
+        shelf_->loadConsoleModels(modelFolders_);
+    }
+    if (boxesPose_) {
+        shelf_->pose(boxesPose_);
+        boxesPose_ = 0;
+    }
+    const auto& games = library_.games();
+    std::vector<BoxShelf::Item> items;
+    items.reserve(visible.size());
+    for (size_t i : visible) {
+        const Library::Game& g = games[i];
+        items.push_back({g.texture, g.width, g.height, g.system, g.label, g.labelWidth, g.labelHeight, false});
+    }
+    // Drawn at twice the window's pixels and shrunk, for smooth edges.
+    const ImGuiIO& io = ImGui::GetIO();
+    float scale = 2.0f * std::max(1.0f, io.DisplayFramebufferScale.x);
+    scale = std::min(scale, 4096.0f / std::max(size.x, size.y));
+    const unsigned int texture = shelf_->render(items, libraryView_.selected, static_cast<int>(size.x * scale),
+                                                static_cast<int>(size.y * scale), io.DeltaTime);
+    const ImVec2 pos = ImGui::GetCursorScreenPos(), end(pos.x + size.x, pos.y + size.y);
+    ImGui::InvisibleButton("cajas", size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    draw->AddImage(static_cast<ImTextureID>(texture), pos, end, ImVec2(0, 1), ImVec2(1, 0));
+    const int count = static_cast<int>(visible.size());
+    libraryView_.columns = shelf_->columns();
+    // A press that moves is a drag; one that lets go where it was, a click.
+    const ImVec2 m = ImGui::GetMousePos();
+    const float x = (m.x - pos.x) / size.x, y = (m.y - pos.y) / size.y;
+    if (ImGui::IsItemActivated()) boxesDragged_ = false;
+    if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 4.0f)) {
+        boxesDragged_ = true;
+        shelf_->drag(io.MouseDelta.x / size.x, io.MouseDelta.y / size.y);
+    }
+    if (ImGui::IsItemDeactivated() && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !boxesDragged_ && ImGui::IsItemHovered()) {
+        const int n = shelf_->click(x, y);
+        if (n >= 0) libraryView_.selected = n;
+    }
+    if (ImGui::IsItemHovered()) {
+        if (!ImGui::IsItemActive() && shelf_->hover(x, y) != BoxShelf::Target::None) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        if (io.MouseWheel != 0) shelf_->zoom(io.MouseWheel);
+    }
+    // The pad's right stick zooms too: up comes closer, down steps back, about three of the
+    // wheel's steps a second at full tilt.
+    if (rightStickY_ != 0) shelf_->zoom(-rightStickY_ * 3.0f * io.DeltaTime);
+    // The left stick turns the box or cartridge out every way, up to 180 degrees a second:
+    // pushed up its top goes away, as when dragging up.
+    if (leftStickX_ != 0 || leftStickY_ != 0) shelf_->turn(leftStickX_ * 180.0f * io.DeltaTime, leftStickY_ * 180.0f * io.DeltaTime);
+    libraryItem(false, libraryView_.selected);  // the right button opens the game's menu
+    if (shelf_->takeLaunch()) libraryView_.load = libraryView_.selected;
+    // The chosen game's name under the boxes, and what to do next.
+    if (libraryView_.selected >= 0 && libraryView_.selected < count) {
+        const Library::Game& g = games[visible[static_cast<size_t>(libraryView_.selected)]];
+        const char* hint = "";
+        switch (shelf_->stage()) {
+            case BoxShelf::Stage::Shelf: hint = tr("Clic o A: sacar la caja   Rueda o stick derecho: zoom   Arrastrar o flechas: moverse"); break;
+            case BoxShelf::Stage::Box: hint = tr("Arrastrar o stick izquierdo: girarla   Rueda o stick derecho: zoom   Clic en la caja o A: sacar el cartucho   Clic fuera o B: devolverla"); break;
+            case BoxShelf::Stage::Cartridge:
+                hint = tr("Arrastrar o stick izquierdo: girarlo   Rueda o stick derecho: zoom   Clic en el cartucho o A: jugar   Clic fuera o B: guardarlo");
+                break;
+            default: break;
+        }
+        const float line = ImGui::GetTextLineHeightWithSpacing();
+        // With cheats on, a bolt before the name and how many after it.
+        const auto cheats = gamesWithCheats().find(g.stem);
+        const bool withCheats = cheats != gamesWithCheats().end();
+        const std::string title = withCheats ? g.title + "   (" +
+                                                   trf(cheats->second == 1 ? N_("%d truco activo") : N_("%d trucos activos"), cheats->second) + ")"
+                                             : g.title;
+        const float icon = withCheats ? ImGui::GetTextLineHeight() + 6 : 0;
+        const ImVec2 h = ImGui::CalcTextSize(hint);
+        ImVec2 t = ImGui::CalcTextSize(title.c_str());
+        t.x += icon;
+        const float cx = (pos.x + end.x) * 0.5f, y = end.y - line * 2 - 10;
+        draw->AddRectFilled(ImVec2(cx - std::max(t.x, h.x) * 0.5f - 12, y - 6), ImVec2(cx + std::max(t.x, h.x) * 0.5f + 12, end.y - 4),
+                            IM_COL32(0, 0, 0, 150), 6.0f);
+        if (withCheats) drawCheatIcon(draw, ImVec2(cx - t.x * 0.5f, y), ImGui::GetTextLineHeight(), kCheatColour);
+        draw->AddText(ImVec2(cx - t.x * 0.5f + icon, y), ImGui::GetColorU32(ImGuiCol_Text), title.c_str());
+        draw->AddText(ImVec2(cx - h.x * 0.5f, y + line), ImGui::GetColorU32(ImGuiCol_TextDisabled), hint);
+    }
+}
+
+// The games as a table: title, console, year, genre, developer and players, sorted by
+// clicking a column's header (or with "Ordenar por").
 void Ui::drawLibraryList(const std::vector<size_t>& visible) {
     const auto& games = library_.games();
     libraryView_.columns = 1;

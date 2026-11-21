@@ -83,6 +83,7 @@ struct Settings {
     bool libraryAtStart = true;   // open the library when plumnin starts without a ROM
     int librarySystem = -1;       // the library's tab: -1 every console, else a ConsoleSystem
     bool libraryList = false;     // the library as a list (title, console, year...) instead of a grid of covers
+    bool libraryBoxes = false;    // the library as a row of 3D boxes that open (wins over libraryList)
     bool libraryDetails = true;   // the panel on the right with the chosen game's cover, data and description
     static constexpr int kMinCoverWidth = 90, kMaxCoverWidth = 300;
     int libraryCoverWidth = 150;  // the width of the grid's covers, in pixels: smaller ones fit more to a row

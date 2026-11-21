@@ -3045,6 +3045,7 @@ msgid ""
 "  --join direccion       unirse a la partida en red de ese anfitrión (IP:puerto)\n"
 "  --library carpeta      abrir la biblioteca de esa carpeta (se puede repetir)\n"
 "  --list                 con --library: verla como lista en vez de cuadrícula\n"
+"  --boxes                con --library: verla como cajas 3D\n"
 "  --cheats               abrir los trucos del juego, con sus listas de internet\n"
 "  --instruments          abrir el editor de instrumentos\n"
 "  --achievements         abrir la ventana de RetroAchievements\n"
@@ -3073,6 +3074,7 @@ msgstr ""
 "  --join adresse         rejoindre la partie en réseau de cet hôte (IP:port)\n"
 "  --library dossier      ouvrir la bibliothèque de ce dossier (peut être répété)\n"
 "  --list                 avec --library : l'afficher en liste au lieu d'une grille\n"
+"  --boxes                avec --library : l'afficher en boîtes 3D\n"
 "  --cheats               ouvrir les codes du jeu, avec leurs listes d'internet\n"
 "  --instruments          ouvrir l'éditeur d'instruments\n"
 "  --achievements         ouvrir la fenêtre de RetroAchievements\n"
@@ -3180,3 +3182,21 @@ msgstr "Orgue rock"
 
 msgid "Órganos"
 msgstr "Orgues"
+
+msgid "Cajas 3D"
+msgstr "Boîtes 3D"
+
+msgid "Las cajas de los juegos en 3D: ábrelas y lleva el cartucho a la consola para jugar."
+msgstr "Les boîtes des jeux en 3D : ouvrez-en une et portez la cartouche à la console pour jouer."
+
+msgid "En las cajas 3D los juegos van por consola y, en cada una, por título."
+msgstr "Dans les boîtes 3D, les jeux sont classés par console puis, dans chacune, par titre."
+
+msgid "Clic o A: sacar la caja   Rueda o stick derecho: zoom   Arrastrar o flechas: moverse"
+msgstr "Clic ou A : sortir la boîte   Molette ou stick droit : zoom   Glisser ou flèches : se déplacer"
+
+msgid "Arrastrar o stick izquierdo: girarla   Rueda o stick derecho: zoom   Clic en la caja o A: sacar el cartucho   Clic fuera o B: devolverla"
+msgstr "Glisser ou stick gauche : la tourner   Molette ou stick droit : zoom   Clic sur la boîte ou A : sortir la cartouche   Clic ailleurs ou B : la ranger"
+
+msgid "Arrastrar o stick izquierdo: girarlo   Rueda o stick derecho: zoom   Clic en el cartucho o A: jugar   Clic fuera o B: guardarlo"
+msgstr "Glisser ou stick gauche : la tourner   Molette ou stick droit : zoom   Clic sur la cartouche ou A : jouer   Clic ailleurs ou B : la ranger"

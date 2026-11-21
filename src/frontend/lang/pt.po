@@ -3045,6 +3045,7 @@ msgid ""
 "  --join direccion       unirse a la partida en red de ese anfitrión (IP:puerto)\n"
 "  --library carpeta      abrir la biblioteca de esa carpeta (se puede repetir)\n"
 "  --list                 con --library: verla como lista en vez de cuadrícula\n"
+"  --boxes                con --library: verla como cajas 3D\n"
 "  --cheats               abrir los trucos del juego, con sus listas de internet\n"
 "  --instruments          abrir el editor de instrumentos\n"
 "  --achievements         abrir la ventana de RetroAchievements\n"
@@ -3073,6 +3074,7 @@ msgstr ""
 "  --join endereço        entrar na partida em rede desse anfitrião (IP:porta)\n"
 "  --library pasta        abrir a biblioteca dessa pasta (pode ser repetido)\n"
 "  --list                 com --library: vê-la como lista em vez de grade\n"
+"  --boxes                com --library: vê-la como caixas 3D\n"
 "  --cheats               abrir os truques do jogo, com suas listas da internet\n"
 "  --instruments          abrir o editor de instrumentos\n"
 "  --achievements         abrir a janela do RetroAchievements\n"
@@ -3180,3 +3182,21 @@ msgstr "Órgão de rock"
 
 msgid "Órganos"
 msgstr "Órgãos"
+
+msgid "Cajas 3D"
+msgstr "Caixas 3D"
+
+msgid "Las cajas de los juegos en 3D: ábrelas y lleva el cartucho a la consola para jugar."
+msgstr "As caixas dos jogos em 3D: abra uma e leve o cartucho ao console para jogar."
+
+msgid "En las cajas 3D los juegos van por consola y, en cada una, por título."
+msgstr "Nas caixas 3D os jogos vão por consola e, em cada uma, por título."
+
+msgid "Clic o A: sacar la caja   Rueda o stick derecho: zoom   Arrastrar o flechas: moverse"
+msgstr "Clique ou A: tirar a caixa   Roda ou stick direito: zoom   Arrastar ou setas: mover-se"
+
+msgid "Arrastrar o stick izquierdo: girarla   Rueda o stick derecho: zoom   Clic en la caja o A: sacar el cartucho   Clic fuera o B: devolverla"
+msgstr "Arrastar ou stick esquerdo: rodá-la   Roda ou stick direito: zoom   Clique na caixa ou A: tirar o cartucho   Clique fora ou B: devolvê-la"
+
+msgid "Arrastrar o stick izquierdo: girarlo   Rueda o stick derecho: zoom   Clic en el cartucho o A: jugar   Clic fuera o B: guardarlo"
+msgstr "Arrastar ou stick esquerdo: girá-lo   Roda ou stick direito: zoom   Clique no cartucho ou A: jogar   Clique fora ou B: guardá-lo"

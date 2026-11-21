@@ -1,0 +1,57 @@
+Console models for plumnin's 3D library view
+============================================
+
+All of them are made smaller for plumnin by tools/models/prepare.py from the files their
+authors published: only the meshes the shelf shows are kept (each cartridge in a file of
+its own), the textures are shrunk to 1024 pixels and saved as JPEG (PNG where they have
+transparency), and the metallic/roughness, occlusion and emission textures are left out.
+
+gameboy.glb, gameboy-cartridge.glb
+  "Nintendo Game Boy (Original 1989)" by lokeig (https://sketchfab.com/lokeig).
+  Source: https://sketchfab.com/3d-models/nintendo-game-boy-original-1989-ad2f6be906e948f793fe722bbae5d29c
+  License: Creative Commons Attribution-NonCommercial 4.0 (CC BY-NC 4.0),
+  https://creativecommons.org/licenses/by-nc/4.0/
+  NonCommercial: these two files may not be used for commercial purposes. plumnin is
+  free; whoever wants to sell it has to leave them out (plumnin then draws a simple Game
+  Boy of its own) or put other models in their place.
+  Changes: the console and the cartridge in its slot split in two files; the cartridge
+  wears the look of the Tetris one lying beside it. plumnin prints each game's label (or
+  its cover) over the cartridge's own.
+
+gameboycolor.glb
+  "Game Boy Color" by Wikiti (https://sketchfab.com/wikiti).
+  Source: https://sketchfab.com/3d-models/game-boy-color-03c6fe28d45244d2acd55486e3cfee19
+  License: Creative Commons Attribution 4.0 (CC BY 4.0),
+  https://creativecommons.org/licenses/by/4.0/
+  Changes: textures reduced from 4096x4096 to 1024x1024.
+
+nes.glb, nes-cartridge.glb
+  "NES_OG-85" by RadioactiveAG (https://sketchfab.com/RadioactiveAG).
+  Source: https://sketchfab.com/3d-models/nes-og-85-f12c3312b9ad45f5a4a833f602358b60
+  License: Creative Commons Attribution 4.0 (CC BY 4.0),
+  https://creativecommons.org/licenses/by/4.0/
+  Changes: the console with its pad, and the cartridge (its shell and labels, not the
+  board inside), in two files; the game's sleeve left out. plumnin prints each game's
+  label (or its cover) over the cartridge's own.
+
+snes.glb
+  "Super nintendo" by quick_loop (https://sketchfab.com/so_O).
+  Source: https://sketchfab.com/3d-models/super-nintendo-d42c35b117974ade8842f0964f5fd59e
+  License: Creative Commons Attribution 4.0 (CC BY 4.0),
+  https://creativecommons.org/licenses/by/4.0/
+  Changes: textures reduced to 1024x1024. Its cartridge is plumnin's own, drawn in code
+  (src/render/console_models.cpp).
+
+television.glb
+  "Television 01" by Gabriel Radić, from Poly Haven (the same file as plumsg's).
+  Source: https://polyhaven.com/a/Television_01
+  License: CC0 1.0 (public domain), https://creativecommons.org/publicdomain/zero/1.0/
+  It stands in the living room around the 3D shelf; the rest of the room (walls, floor,
+  rug, window, lamp, cabinet, video recorder and poster) is drawn by plumnin's own code
+  (src/render/room.cpp, from plumsg).
+
+Nintendo, Game Boy, Game Boy Color, NES, Super Nintendo and their logos are Nintendo's
+trademarks.
+
+Your own models: put a .glb with the same name in the "models" folder next to
+plumnin.ini and plumnin uses it instead.

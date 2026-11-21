@@ -86,6 +86,8 @@ struct Paths {
     std::string firmware;  // folder for the firmware of cartridges' chips (dsp1b.rom...)
     std::string soundfont;   // the SoundFont that comes with plumnin, next to the executable
     std::string soundfonts;  // folder for the user's own SoundFonts
+    std::string models;      // the 3D view's console models that come with plumnin, next to the executable
+    std::string myModels;    // the user's own, which take their place
 };
 
 const char* const kSoundfont = "soundfonts/GeneralUser-GS.sf2";
@@ -99,17 +101,20 @@ Paths findPaths() {
         if (SDL_RWops* f = SDL_RWFromFile(portable.c_str(), "rb")) {
             SDL_RWclose(f);
             return {portable, base + "states/", base + "profiles/", base + "cheats/", base + "covers/", base + "game-info/",
-                    base + "recordings/", base + "firmware/", base + kSoundfont, base + "sound/soundfonts/"};
+                    base + "recordings/", base + "firmware/", base + kSoundfont, base + "sound/soundfonts/", base + "models/",
+                    base + "models/"};
         }
     }
     if (char* pref = SDL_GetPrefPath("plumnin", "plumnin")) {
         const std::string dir = pref;
         SDL_free(pref);
         return {dir + "plumnin.ini", dir + "states/", dir + "profiles/", dir + "cheats/", dir + "covers/", dir + "game-info/",
-                dir + "recordings/", dir + "firmware/", base + kSoundfont, dir + "sound/soundfonts/"};
+                dir + "recordings/", dir + "firmware/", base + kSoundfont, dir + "sound/soundfonts/", base + "models/",
+                dir + "models/"};
     }
     return {base + "plumnin.ini", base + "states/", base + "profiles/", base + "cheats/", base + "covers/", base + "game-info/",
-            base + "recordings/", base + "firmware/", base + kSoundfont, base + "sound/soundfonts/"};
+            base + "recordings/", base + "firmware/", base + kSoundfont, base + "sound/soundfonts/", base + "models/",
+            base + "models/"};
 }
 
 struct App {
@@ -363,6 +368,7 @@ struct CommandLine {
     int upscale = -1;        // --upscaling none|xbr|anime4k
     bool fps = false;        // --fps: with the FPS counter on
     bool libraryList = false;     // --list: with --library, show it as a list
+    int libraryBoxes = -1;        // --boxes [1-4]: with --library, show its 3D boxes (and hold one open at that step)
     int media = 0;                // --media [search|all]: with --library, the first game's ScreenScraper media (1 downloaded, 2 searched for, 3 every game's)
     bool cheats = false;          // --cheats: start with the game's Cheats window open
     bool instruments = false;     // --instruments: start with the instrument editor open
@@ -399,6 +405,7 @@ const char* const kHelp = N_(
     "  --join direccion       unirse a la partida en red de ese anfitrión (IP:puerto)\n"
     "  --library carpeta      abrir la biblioteca de esa carpeta (se puede repetir)\n"
     "  --list                 con --library: verla como lista en vez de cuadrícula\n"
+    "  --boxes                con --library: verla como cajas 3D\n"
     "  --cheats               abrir los trucos del juego, con sus listas de internet\n"
     "  --instruments          abrir el editor de instrumentos\n"
     "  --achievements         abrir la ventana de RetroAchievements\n"
@@ -437,6 +444,11 @@ CommandLine parse(int argc, char** argv) {
         }
         else if (a == "--fps") c.fps = true;
         else if (a == "--library") c.library.push_back(next());
+        else if (a == "--boxes") {
+            // Undocumented steps, for screenshots: 1 the box out, 2 its cartridge out, 3 on the way, 4 in the console.
+            c.libraryBoxes = 0;
+            if (i + 1 < argc && argv[i + 1][0] >= '1' && argv[i + 1][0] <= '4' && !argv[i + 1][1]) c.libraryBoxes = argv[++i][0] - '0';
+        }
         else if (a == "--list") c.libraryList = true;
         else if (a == "--media") {
             c.media = 1;
@@ -667,6 +679,8 @@ int main(int argc, char** argv) {
     auto synth = std::make_unique<SynthMusic>();
     ui->setSoundfonts(paths.soundfont, paths.soundfonts);
     ui->setCheatsFolder(paths.cheats);
+    ui->setModelFolders(paths.myModels == paths.models ? std::vector<std::string>{paths.models}
+                                                       : std::vector<std::string>{paths.myModels, paths.models});
     const std::string soundDir = paths.soundfonts.substr(0, paths.soundfonts.size() - std::string("soundfonts/").size());
     ui->setSynth(synth.get(), soundDir);
     std::string synthFont;  // the SoundFont loaded (or tried)
@@ -834,6 +848,10 @@ int main(int argc, char** argv) {
     bool openStateMenu = cmd.stateMenu;
     if (!cmd.library.empty()) settings.libraryFolders = cmd.library;
     if (cmd.libraryList) settings.libraryList = true;
+    if (cmd.libraryBoxes >= 0) {
+        settings.libraryBoxes = true;
+        ui->poseBoxes(cmd.libraryBoxes);
+    }
     // In console mode the library is the start screen even without folders: it asks for one.
     if (!cmd.library.empty() ||
         (cmd.rom.empty() && cmd.testPattern < 0 && !capturing && settings.libraryAtStart && (!settings.libraryFolders.empty() || consoleStart)))
@@ -1287,7 +1305,12 @@ int main(int argc, char** argv) {
         const double frameSeconds = 1.0 / app->refreshRate();
         float stickX, stickY;
         input->rightStick(&stickX, &stickY);
-        // In the game the right stick turns the camera.
+        // In the library the right stick zooms its 3D view; in the game it turns the camera.
+        ui->setRightStick(ui->libraryOpen() ? stickX : 0, ui->libraryOpen() ? stickY : 0);
+        // And the left one turns the box or cartridge taken out there.
+        float leftX = 0, leftY = 0;
+        if (ui->libraryOpen()) input->leftStick(&leftX, &leftY);
+        ui->setLeftStick(leftX, leftY);
         if (cam.pseudo3d && cam.tiltCamera && !ui->libraryOpen()) {
             // The right stick turns the camera at up to 90 degrees a second.
             const float sx = stickX, sy = stickY;

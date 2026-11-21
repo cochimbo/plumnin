@@ -112,6 +112,8 @@ jobs:
           $gu = "https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/$env:GENERALUSER_COMMIT"
           Invoke-WebRequest "$gu/GeneralUser-GS.sf2" -OutFile dist\soundfonts\GeneralUser-GS.sf2
           Invoke-WebRequest "$gu/documentation/LICENSE.txt" -OutFile dist\soundfonts\GeneralUser-GS-LICENSE.txt
+          # The 3D view's console models, with the credits their licenses ask for.
+          Copy-Item -Recurse assets\models dist\models
           Get-ChildItem dist
 
       - name: Build installer (Inno Setup)

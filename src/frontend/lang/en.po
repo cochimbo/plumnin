@@ -3045,6 +3045,7 @@ msgid ""
 "  --join direccion       unirse a la partida en red de ese anfitrión (IP:puerto)\n"
 "  --library carpeta      abrir la biblioteca de esa carpeta (se puede repetir)\n"
 "  --list                 con --library: verla como lista en vez de cuadrícula\n"
+"  --boxes                con --library: verla como cajas 3D\n"
 "  --cheats               abrir los trucos del juego, con sus listas de internet\n"
 "  --instruments          abrir el editor de instrumentos\n"
 "  --achievements         abrir la ventana de RetroAchievements\n"
@@ -3073,6 +3074,7 @@ msgstr ""
 "  --join address         join that host's netplay game (IP:port)\n"
 "  --library folder       open the library of that folder (can be repeated)\n"
 "  --list                 with --library: show it as a list instead of a grid\n"
+"  --boxes                with --library: show it as 3D boxes\n"
 "  --cheats               open the game's cheats, with their internet lists\n"
 "  --instruments          open the instrument editor\n"
 "  --achievements         open the RetroAchievements window\n"
@@ -3180,3 +3182,21 @@ msgstr "Rock organ"
 
 msgid "Órganos"
 msgstr "Organ"
+
+msgid "Cajas 3D"
+msgstr "3D boxes"
+
+msgid "Las cajas de los juegos en 3D: ábrelas y lleva el cartucho a la consola para jugar."
+msgstr "The games' boxes in 3D: open one and take the cartridge to the console to play."
+
+msgid "En las cajas 3D los juegos van por consola y, en cada una, por título."
+msgstr "In the 3D boxes the games go by console and, within each one, by title."
+
+msgid "Clic o A: sacar la caja   Rueda o stick derecho: zoom   Arrastrar o flechas: moverse"
+msgstr "Click or A: take the box out   Wheel or right stick: zoom   Drag or arrows: move"
+
+msgid "Arrastrar o stick izquierdo: girarla   Rueda o stick derecho: zoom   Clic en la caja o A: sacar el cartucho   Clic fuera o B: devolverla"
+msgstr "Drag or left stick: turn it   Wheel or right stick: zoom   Click the box or A: take the cartridge out   Click elsewhere or B: put it back"
+
+msgid "Arrastrar o stick izquierdo: girarlo   Rueda o stick derecho: zoom   Clic en el cartucho o A: jugar   Clic fuera o B: guardarlo"
+msgstr "Drag or left stick: turn it   Wheel or right stick: zoom   Click the cartridge or A: play   Click elsewhere or B: put it away"
