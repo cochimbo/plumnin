@@ -415,6 +415,14 @@ SynthMusic::Assignment SynthMusic::suggest(const Traits& t, const Heard& heard) 
             if (drum) {
                 if (!t.pitched && t.looped && t.brightness >= 0.18) a.drum = held < 0.25 ? 42 : held < 0.6 ? 46 : 49;
                 else a.drum = t.brightness < 0.06 ? 36 : t.brightness < 0.18 ? 38 : t.seconds > 0.6 ? 49 : 42;
+                // A hiss the game plays well below the note it was recorded at sounds darker
+                // than it is, a soft "chh": a pedal hi-hat, not the closed one's sharp tick,
+                // which is far brighter (Donkey Kong Country's in its first level, played a
+                // fifth down; the same sample played up in another song stays a closed one).
+                if (a.drum == 42 && !t.pitched && t.roughHz > 0 && heard.notes) {
+                    const double played = t.brightness * std::exp2((median - noteOf(t.roughHz)) / 12.0);
+                    if (played < 0.6) a.drum = 44;
+                }
                 break;
             }
             // The rest by how it holds its note, with the chip's envelope: one that dies

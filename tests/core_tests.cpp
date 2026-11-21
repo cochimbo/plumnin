@@ -2673,6 +2673,13 @@ void testSnesSynth() {
     for (int n = 0; n < 40; ++n) congas.add(44 + n % 4);
     check(SynthMusic::suggest(conga, congas).drum >= 35,
           "snes rules: a short dark knock on four notes is a drum, not a bass (Donkey Kong Country's)");
+    SynthMusic::Traits chh = hiss;
+    chh.looped = false, chh.seconds = 0.15, chh.brightness = 0.74, chh.roughHz = 310.7;  // note 63
+    SynthMusic::Heard low, high;
+    for (int n = 0; n < 40; ++n) low.add(54 + n % 5), high.add(84 + n % 3);
+    check(SynthMusic::suggest(chh, low).drum == 44,
+          "snes rules: a hiss played a fifth down is a pedal hi-hat (Donkey Kong Country's first level)");
+    check(SynthMusic::suggest(chh, high).drum == 42, "snes rules: the same hiss played up is a closed hi-hat");
     SynthMusic::Heard hit;
     for (int n = 0; n < 40; ++n) hit.add(60 + n % 3);
     check(SynthMusic::suggest(rough, hit).drum >= 35, "snes rules: on two or three notes, a drum");

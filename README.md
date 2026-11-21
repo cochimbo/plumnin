@@ -101,7 +101,8 @@ there is:
   loop), so the pitch register gives the note played and its slides; the voice's volume
   and its left/right balance are the expression and the pan. A sample without a pitch,
   or a short one played on one or two notes, is a drum (bass drum, snare, hi-hat or
-  cymbal by how bright it is); the rest go by their register (a bass), whether they hold
+  cymbal by how bright it is; a hiss the game plays well below its own pitch, darker
+  than it is, a pedal hi-hat); the rest go by their register (a bass), whether they hold
   their note (a looped sample: a flute if it is nearly all fundamental, brass if bright,
   strings otherwise; one that dies away: marimba, guitar or piano), and the DSP's noise
   is the drums too. `plumnin-headless --synth file.sf2 --wav out.wav` records it without
