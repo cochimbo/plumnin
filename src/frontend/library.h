@@ -44,6 +44,11 @@ public:
         // The cartridge's label: 0 if there is none.
         unsigned int label = 0;
         int labelWidth = 0, labelHeight = 0;
+        // ScreenScraper's whole sleeve (back, spine and front side by side), for the 3D
+        // boxes: only looked for while setSleeves(true), 0 if there is none.
+        unsigned int sleeve = 0;
+        int sleeveWidth = 0, sleeveHeight = 0;
+        bool sleeveLooked = false;
     };
 
     Library();
@@ -84,6 +89,9 @@ public:
     // a label, either may be empty. Unless `replace`, only where the game has none, or
     // (the cover) where it has a whole sleeve, much wider than the front.
     void useDownloaded(const std::string& path, const std::vector<uint8_t>& cover, const std::vector<uint8_t>& label, bool replace);
+    // Whether the games' whole sleeves are wanted too (the 3D boxes are on screen): on,
+    // they are looked for, for the games whose covers are in as well.
+    void setSleeves(bool on);
     // Main thread, once a frame: uploads as many decoded covers as textures as fit in
     // `budgetMs` milliseconds (at least one).
     void update(int budgetMs = 3);
@@ -95,6 +103,7 @@ private:
         unsigned generation;
         std::string path, stem;
         ConsoleSystem system;
+        bool sleeveOnly = false;  // the cover is in: only the sleeve
     };
     struct Result {
         size_t index;
@@ -104,6 +113,9 @@ private:
         int width, height;
         std::vector<uint32_t> label;
         int labelWidth = 0, labelHeight = 0;
+        bool sleeveOnly = false, sleeveLooked = false;
+        std::vector<uint32_t> sleeve;
+        int sleeveWidth = 0, sleeveHeight = 0;
     };
 
     void work();
@@ -133,6 +145,7 @@ private:
     std::deque<Job> jobs_;
     std::deque<Result> results_;
     std::atomic<int> pending_{0};
+    std::atomic<bool> sleeves_{false};
     bool stop_ = false;
     std::vector<std::thread> workers_;
     TextureCache cache_;

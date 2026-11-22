@@ -315,6 +315,13 @@ void Library::update(int budgetMs) {
         }
         if (r.generation != generation_ || r.index >= games_.size()) continue;
         Game& g = games_[r.index];
+        if (r.sleeveLooked) {
+            g.sleeveLooked = true;
+            if (!r.sleeve.empty()) g.sleeve = uploadTexture(g.sleeve, r.sleeve, r.sleeveWidth, r.sleeveHeight);
+            g.sleeveWidth = r.sleeveWidth;
+            g.sleeveHeight = r.sleeveHeight;
+        }
+        if (r.sleeveOnly) continue;
         if (!r.found) {
             g.cover = Cover::Missing;
             continue;
@@ -329,8 +336,26 @@ void Library::update(int budgetMs) {
     }
 }
 
+void Library::setSleeves(bool on) {
+    if (sleeves_.exchange(on) == on || !on) return;
+    // The games whose covers are in already: their sleeves now. The others' come with them.
+    for (size_t i = 0; i < games_.size(); ++i) {
+        const Game& g = games_[i];
+        if (g.cover == Cover::Ready && !g.sleeveLooked) {
+            Job job{i, generation_, g.path, g.stem, g.system};
+            job.sleeveOnly = true;
+            queue(std::move(job));
+        }
+    }
+}
+
 void Library::clearTextures() {
     for (Game& g : games_) {
+        if (g.sleeve) {
+            gl::DeleteTextures(1, &g.sleeve);
+            g.sleeve = 0;
+        }
+        g.sleeveLooked = false;
         if (g.label) {
             gl::DeleteTextures(1, &g.label);
             g.label = 0;
@@ -438,17 +463,29 @@ void Library::work() {
             jobs_.pop_front();
         }
         Result r{job.index, job.generation, false, {}, 0, 0, {}, 0, 0};
-        uint64_t coverKey = 0, labelKey = 0;
-        std::string cover;
-        if (findLocal(job, &cover)) r.found = loadImage(cover, r.pixels, &r.width, &r.height, &coverKey);
-        std::string label;
-        if (r.found && findLabel(job, &label) && !loadImage(label, r.label, &r.labelWidth, &r.labelHeight, &labelKey))
-            r.label.clear(), r.labelWidth = r.labelHeight = 0;
+        r.sleeveOnly = job.sleeveOnly;
+        uint64_t coverKey = 0, labelKey = 0, sleeveKey = 0;
+        if (!job.sleeveOnly) {
+            std::string cover;
+            if (findLocal(job, &cover)) r.found = loadImage(cover, r.pixels, &r.width, &r.height, &coverKey);
+            std::string label;
+            if (r.found && findLabel(job, &label) && !loadImage(label, r.label, &r.labelWidth, &r.labelHeight, &labelKey))
+                r.label.clear(), r.labelWidth = r.labelHeight = 0;
+        }
+        // ScreenScraper's whole sleeve, for the back and the spine of the 3D boxes.
+        if (sleeves_ && (job.sleeveOnly || r.found)) {
+            r.sleeveLooked = true;
+            std::string sleeve;
+            if (findMedia(job, {"portada-completa"}, &sleeve) &&
+                !loadImage(sleeve, r.sleeve, &r.sleeveWidth, &r.sleeveHeight, &sleeveKey))
+                r.sleeve.clear(), r.sleeveWidth = r.sleeveHeight = 0;
+        }
         std::lock_guard<std::mutex> lock(mutex_);
         --pending_;
         if (job.generation != generation_) continue;
         if (coverKey) usedKeys_.push_back(coverKey);
         if (labelKey) usedKeys_.push_back(labelKey);
+        if (sleeveKey) usedKeys_.push_back(sleeveKey);
         results_.push_back(std::move(r));
     }
 }

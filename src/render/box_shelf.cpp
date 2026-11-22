@@ -995,8 +995,11 @@ float BoxShelf::coverFront(int width, int height, ConsoleSystem system) {
     // A whole sleeve is the back, the spine and the front side by side, so it is told by
     // being well wider than a front.
     const float aspect = frontAspect(system);
-    if (w < h * aspect * 1.6f) return 0;
-    return std::clamp(1 - aspect * h / w, 0.0f, 0.9f);
+    if (w >= h * aspect * 1.6f) return std::clamp(1 - aspect * h / w, 0.0f, 0.9f);
+    // A European Super Nintendo one, its front standing up: about 1.6 times as wide as
+    // tall, where a front lying down alone is 1.42.
+    if (system == ConsoleSystem::Snes && w >= h * 1.55f) return std::clamp(1 - (12.7f / 18.0f) * h / w, 0.0f, 0.9f);
+    return 0;
 }
 
 namespace {

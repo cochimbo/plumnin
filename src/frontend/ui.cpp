@@ -2468,6 +2468,7 @@ void Ui::drawLibrary(UiActions& out) {
         }
         library_.prioritize(first);
     }
+    library_.setSleeves(settings_.libraryBoxes);
     if (settings_.libraryBoxes) drawLibraryBoxes(visible);
     else if (settings_.libraryList) drawLibraryList(visible);
     else drawLibraryGrid(visible);
@@ -2669,12 +2670,15 @@ void Ui::drawLibraryBoxes(const std::vector<size_t>& visible) {
         shelf_->pose(boxesPose_);
         boxesPose_ = 0;
     }
+    // ScreenScraper's whole sleeves, where they were downloaded, give the boxes their backs
+    // and spines; else the front cover (setSleeves, in drawLibrary).
     const auto& games = library_.games();
     std::vector<BoxShelf::Item> items;
     items.reserve(visible.size());
     for (size_t i : visible) {
         const Library::Game& g = games[i];
-        items.push_back({g.texture, g.width, g.height, g.system, g.label, g.labelWidth, g.labelHeight, false});
+        if (g.sleeve) items.push_back({g.sleeve, g.sleeveWidth, g.sleeveHeight, g.system, g.label, g.labelWidth, g.labelHeight, false});
+        else items.push_back({g.texture, g.width, g.height, g.system, g.label, g.labelWidth, g.labelHeight, false});
     }
     // Drawn at twice the window's pixels and shrunk, for smooth edges.
     const ImGuiIO& io = ImGui::GetIO();

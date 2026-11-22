@@ -159,7 +159,10 @@ there is:
   its console, which comes up through the floor: on top of the Super Nintendo, in through
   the door of the NES and pushed down, at the back of the Game Boy or the Color, whose
   screen lights up. Its light comes on and the game starts. Dragging turns what is out (or
-  moves along the shelf), the wheel and the right stick zoom. The consoles are real 3D
+  moves along the shelf), the wheel and the right stick zoom. The boxes wear the covers
+  downloaded from ScreenScraper: the whole sleeve (**Portada completa**) where there is
+  one, for the spine and the back too, and the cartridges the label (**Etiqueta del
+  cartucho**), or else the front. The consoles are real 3D
   models (see License), made lighter by `tools/models/prepare.py`; a `.glb` of the same
   name in `models/` next to `plumnin.ini` takes their place.
 - Netplay over UDP with rollback.
