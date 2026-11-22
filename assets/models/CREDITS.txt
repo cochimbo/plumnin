@@ -41,8 +41,15 @@ snes.glb
   Source: https://sketchfab.com/3d-models/super-nintendo-d42c35b117974ade8842f0964f5fd59e
   License: Creative Commons Attribution 4.0 (CC BY 4.0),
   https://creativecommons.org/licenses/by/4.0/
-  Changes: textures reduced to 1024x1024. Its cartridge is plumnin's own, drawn in code
-  (src/render/console_models.cpp).
+  Changes: textures reduced to 1024x1024.
+
+snes-cartridge.glb
+  "Super Nintendo Cartridge" by SomeKevin (https://sketchfab.com/SomeKevin).
+  Source: https://sketchfab.com/3d-models/super-nintendo-cartridge-b2076d8a65d648ff99bf51ca9d5fca2a
+  License: Creative Commons Attribution 4.0 (CC BY 4.0),
+  https://creativecommons.org/licenses/by/4.0/
+  Changes: textures reduced from 4096x4096 to 1024x1024. plumnin prints each game's label (or its
+  cover) over the cartridge's own.
 
 television.glb
   "Television 01" by Gabriel Radić, from Poly Haven (the same file as plumsg's).

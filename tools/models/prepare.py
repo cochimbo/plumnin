@@ -43,6 +43,7 @@ RECIPES = {
     "nes.glb": ("nes_og-85.glb", None, [r"^Object_(7|9|10|11|12|13|14)$"], 1024),
     "nes-cartridge.glb": ("nes_og-85.glb", [r"^Object_(10|13|14)$"], [], 1024),
     "snes.glb": ("super_nintendo.glb", None, [], 1024),
+    "snes-cartridge.glb": ("super_nintendo_cartridge.glb", None, [], 1024),
 }
 
 

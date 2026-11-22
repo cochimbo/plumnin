@@ -455,6 +455,10 @@ const CartridgeFile kCartridgeFiles[] = {
     // Out!!'s) is a texture of its own, the third the model reads (after the shell's normal
     // map and colour), all of it.
     {ConsoleSystem::Nes, "nes-cartridge.glb", 90, 0, {0, 0, 1, 1}, {0, 0, 1, 1}, 0, 0.61f, 0.5f, 0.0f, 2},
+    // The Super Nintendo's, from SomeKevin's: standing, its label to the back; the label
+    // (a European one) is the long one across its top, mirrored in the texture.
+    {ConsoleSystem::Snes, "snes-cartridge.glb", 0, 0, {0.006f, 0.078f, 0.486f, 0.236f}, {0.006f, 0.078f, 0.486f, 0.236f}, 2,
+     2.7f, 0.4f, 180.0f},
 };
 
 }  // namespace
