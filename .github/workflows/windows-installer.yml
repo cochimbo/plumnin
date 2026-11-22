@@ -126,6 +126,8 @@ jobs:
           New-Item -ItemType Directory -Force dist\pdfium-licenses | Out-Null
           Copy-Item "$pdf\LICENSE" dist\pdfium-licenses\pdfium-LICENSE.txt
           Copy-Item "$pdf\licenses\*" dist\pdfium-licenses\
+          # shine, Exportar a MP3's encoder (LGPL 2): its license goes with it.
+          Copy-Item build\_deps\shine-src\COPYING dist\shine-LICENSE.txt
           Get-ChildItem dist
 
       - name: Build installer (Inno Setup)

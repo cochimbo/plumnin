@@ -234,6 +234,9 @@ msgstr "Open the SoundFonts folder"
 msgid "Abrir la carpeta de grabaciones"
 msgstr "Open the recordings folder"
 
+msgid "Abrir los MP3"
+msgstr "Open the MP3s"
+
 msgid "Acción"
 msgstr "Action"
 
@@ -1157,6 +1160,9 @@ msgstr "Waiting for the other player on port %d"
 msgid "Esperando al otro jugador en el puerto %d. Mientras, puedes seguir jugando: la partida empezará donde estés."
 msgstr "Waiting for the other player on port %d. Meanwhile you can keep playing: the game will start wherever you are."
 
+msgid "Esta canción (%s)"
+msgstr "This song (%s)"
+
 msgid "Esta compilación de plumnin no trae la cuenta de desarrollador de ScreenScraper, así que no puede descargar nada. Los instaladores publicados sí la traen."
 msgstr "This build of plumnin does not include the ScreenScraper developer account, so it cannot download anything. The published installers do include it."
 
@@ -1210,6 +1216,12 @@ msgstr "Cartridge label"
 
 msgid "Europa (PAL)"
 msgstr "Europe (PAL)"
+
+msgid "Exportando %s"
+msgstr "Exporting %s"
+
+msgid "Exportar a MP3..."
+msgstr "Export to MP3..."
 
 msgid "Extrusión"
 msgstr "Extrusion"
@@ -1414,6 +1426,13 @@ msgstr ""
 "Saves the song playing in the game as an .spc (Recording 01...) and opens it\n"
 "here: it goes on playing as in the game, without it."
 
+msgid ""
+"Guarda la mezcla (los instrumentos elegidos para cada canción) en MP3: dos vueltas a su bucle\n"
+"y se apaga. En %smp3/."
+msgstr ""
+"Saves the mix (the instruments chosen for each song) as MP3: twice round its loop,\n"
+"then it fades out. In %smp3/."
+
 msgid "Guardar el 3D solo para este juego"
 msgstr "Save the 3D just for this game"
 
@@ -1478,6 +1497,12 @@ msgstr "You left the netplay game"
 
 msgid "Has salido de la partida."
 msgstr "You left the game."
+
+msgid "He exportado %d canciones a MP3."
+msgstr "Exported %d songs to MP3."
+
+msgid "He exportado 1 canción a MP3."
+msgstr "Exported 1 song to MP3."
 
 msgid "He sacado %d canciones de la ROM: están en la lista de pistas."
 msgstr "I got %d songs out of the ROM: they are in the track list."
@@ -2157,6 +2182,12 @@ msgstr ""
 "(Steam Deck, ROG Ally, Legion Go, MSI Claw...): bigger\n"
 "letters and the pad in every window."
 
+msgid "Parado: %d canciones exportadas."
+msgstr "Stopped: %d songs exported."
+
+msgid "Parado: 1 canción exportada."
+msgstr "Stopped: 1 song exported."
+
 msgid "Parar"
 msgstr "Stop"
 
@@ -2645,6 +2676,9 @@ msgstr "Mute"
 msgid "Simulación"
 msgstr "Simulation"
 
+msgid "Sin SoundFont: saldrá el sonido original."
+msgstr "No SoundFont: it will be the original sound."
+
 msgid "Sin carátula"
 msgstr "No cover"
 
@@ -2816,6 +2850,9 @@ msgstr "Timpani"
 
 msgid "Tocar"
 msgstr "Play"
+
+msgid "Todas las canciones del juego (%d)"
+msgstr "All the game's songs (%d)"
 
 msgid "Todo a las sugerencias..."
 msgstr "All back to suggestions..."
@@ -3119,6 +3156,9 @@ msgstr "the one at %06X in the ROM"
 
 msgid "la que sonó en el juego (%zu)"
 msgstr "the one heard in the game (%zu)"
+
+msgid "ninguna"
+msgstr "none"
 
 msgid "ninguno"
 msgstr "none"

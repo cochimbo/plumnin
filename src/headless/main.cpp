@@ -26,6 +26,7 @@
 #include "cheats.h"
 #include "console.h"
 #include "songs.h"
+#include "song_export.h"
 #include "miniz.h"
 #include "net/udp.h"
 #include "netplay.h"
@@ -82,6 +83,8 @@ Output
   --png-every N         a PNG every N frames, as frame_000123.png in --out-dir
   --out-dir DIR         where screenshots without a name go (default: .)
   --wav FILE            the whole run's sound (44100 Hz stereo)
+  --mp3 FILE            a .vgm, .vgz or .spc exported as the instrument editor's Exportar a
+                        MP3 does: round its loop twice and faded out (with --synth, through it)
   --synth SF2           the music through the synthesizer, on this SoundFont
   --synth-chip PERCENT  how loud the chip's own sound stays under it (default 0)
   --effects FILE        the sound effects' instruments (the effects.txt of --rip-songs):
@@ -386,7 +389,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> cheats, scripts, lines;
     ConsoleSystem testSystem = ConsoleSystem::Nes;
     long frames = 600, overclock = 100, pngEvery = 0, netPort = 0, inputDelay = 2, netLag = 0, netLoss = 0, synthChip = 0;
-    std::string synthFont, vgmOut, ripDir, spcOut, effectsFile;
+    std::string synthFont, vgmOut, ripDir, spcOut, effectsFile, mp3Out;
     bool netHost = false;
     std::string netJoin;
     int wideLeft = 0, wideRight = 0;
@@ -461,6 +464,7 @@ int main(int argc, char** argv) {
         else if (a == "--effects") effectsFile = next();
         else if (a == "--vgm") vgmOut = next();
         else if (a == "--rip-songs") ripDir = next();
+        else if (a == "--mp3") mp3Out = next();
         else if (a == "--spc") spcOut = next();
         else if (a == "--gif") gifOut = next();
         else if (a == "--avi") aviOut = next();
@@ -560,6 +564,21 @@ int main(int argc, char** argv) {
             player.setSynth(&synth, static_cast<int>(synthChip));
         }
         std::vector<int16_t> out;
+        if (!mp3Out.empty()) {
+            // As the instrument editor exports it: the rules by the whole song first.
+            if (!synthFont.empty()) {
+                synth.forget();
+                synth.learn(VgmPlayer::instruments(player.file()));
+            }
+            const VgmFile song = player.file();
+            if (!renderSong(song, synthFont.empty() ? nullptr : &synth, synthFont.empty() ? 100 : static_cast<int>(synthChip),
+                            SongRender{}, &out)) return 1;
+            const std::vector<uint8_t> mp3 = encodeMp3(out, 44100, 192, {song.title, song.game, "", 0});
+            if (mp3.empty() || !writeFile(mp3Out, mp3.data(), mp3.size())) return 1;
+            if (!wav.empty() && !writeWav(wav, out, 44100)) return 1;
+            if (!quiet) std::printf("%s: %.1f s to %s\n", game.c_str(), out.size() / 2 / 44100.0, mp3Out.c_str());
+            return 0;
+        }
         for (long i = 0; i < frames && !player.finished(); ++i) player.play(1.0 / 60.0, 44100, out);
         if (!wav.empty() && !writeWav(wav, out, 44100)) return 1;
         if (!synthFont.empty() && !quiet) printInstruments(synth);

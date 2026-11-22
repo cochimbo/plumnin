@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -15,6 +16,7 @@
 #include "miniz.h"
 #include "../core/console.h"
 #include "../core/i18n.h"
+#include "../core/song_export.h"
 
 namespace plumnin {
 
@@ -78,6 +80,28 @@ std::vector<std::pair<std::string, std::vector<uint8_t>>> zipTracks(const std::v
     }
     mz_zip_reader_end(&archive);
     std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    return out;
+}
+
+// A name a file can have on any system.
+std::string fileSafe(std::string name) {
+    for (char& c : name)
+        if (std::strchr("<>:\"/\\|?*", c) || static_cast<unsigned char>(c) < 32) c = '_';
+    while (!name.empty() && (name.back() == ' ' || name.back() == '.')) name.pop_back();
+    while (!name.empty() && name.front() == ' ') name.erase(name.begin());
+    return name.empty() ? std::string("_") : name;
+}
+
+// A game's name without its region and version.
+std::string plainName(const std::string& game) {
+    std::string out;
+    int depth = 0;
+    for (char c : game) {
+        if (c == '(' || c == '[') ++depth;
+        else if ((c == ')' || c == ']') && depth > 0) --depth;
+        else if (depth == 0) out += c == '_' ? ' ' : c;
+    }
+    while (!out.empty() && out.back() == ' ') out.pop_back();
     return out;
 }
 
@@ -156,6 +180,10 @@ const ImVec4 kPlaying(0.45f, 0.95f, 0.55f, 1.0f);
 InstrumentEditor::InstrumentEditor() = default;
 
 InstrumentEditor::~InstrumentEditor() {
+    if (export_ && export_->thread.joinable()) {
+        export_->cancel = true;
+        export_->thread.join();
+    }
     if (ripThread_.joinable()) {
         ripProgress_->cancel = true;
         ripThread_.join();
@@ -304,6 +332,7 @@ void InstrumentEditor::setGame(const EditorView& view) {
     stop();
     game_ = view.game;
     gameName_ = game_.empty() ? std::string() : stem(game_);
+    exported_.clear();
     system_ = view.console ? view.console->system() : game_.empty() ? ConsoleSystem::GameBoy : detectSystem(game_);
     message_.clear();
     selected_ = soloInstrument_ = 0;
@@ -533,6 +562,10 @@ std::vector<InstrumentEditor::Instrument> InstrumentEditor::instruments(const Sy
 
 void InstrumentEditor::draw(const EditorView& view, EditorRequests& out) {
     if (ripDone_) finishRip();
+    if (export_ && export_->done) finishExport();
+    effectsOriginal_ = view.effectsOriginal;
+    reverb_ = view.reverb;
+    chorus_ = view.chorus;
     if (recording_ && recording_ != view.console) {
         // The game was closed while recording: its console is gone, and so is the recording.
         recording_ = nullptr;
@@ -657,7 +690,7 @@ void InstrumentEditor::drawTrack(const EditorView& view, EditorRequests& out) {
                               tracksFor(folder_, game_).c_str());
         ImGui::SameLine();
         const bool rippable = SongRipper::supported(system_);
-        ImGui::BeginDisabled(ripping || !rippable || recording_);
+        ImGui::BeginDisabled(ripping || !rippable || recording_ || export_);
         if (ImGui::Button(tr("Sacar canciones"))) startRip();
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
@@ -757,6 +790,32 @@ void InstrumentEditor::drawTrack(const EditorView& view, EditorRequests& out) {
         if (view.drawSoundfont) ImGui::SameLine();
         ImGui::TextDisabled("%s%s%s", player_.file().game.c_str(), player_.file().title.empty() ? "" : " - ",
                             player_.file().title.c_str());
+    }
+
+    // Exportar a MP3.
+    if (!gameName_.empty()) {
+        ImGui::BeginDisabled(ripping || export_ || recording_ || tracks_.empty());
+        if (ImGui::Button(tr("Exportar a MP3..."))) ImGui::OpenPopup("exportar");
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip(tr("Guarda la mezcla (los instrumentos elegidos para cada canción) en MP3: dos vueltas a su bucle\n"
+                                 "y se apaga. En %smp3/."),
+                              folder_.c_str());
+        if (ImGui::BeginPopup("exportar")) {
+            if (!synth_.ready()) ImGui::TextDisabled("%s", tr("Sin SoundFont: saldrá el sonido original."));
+            ImGui::BeginDisabled(track_.path.empty());
+            if (ImGui::Selectable(trf("Esta canción (%s)", track_.path.empty() ? tr("ninguna") : track_.title.c_str()).c_str()))
+                startExport({track_});
+            ImGui::EndDisabled();
+            if (ImGui::Selectable(trf("Todas las canciones del juego (%d)", static_cast<int>(tracks_.size())).c_str()))
+                startExport(tracks_);
+            ImGui::EndPopup();
+        }
+        if (!exported_.empty() && !export_) {
+            ImGui::SameLine();
+            if (ImGui::Button(tr("Abrir los MP3"))) openInSystem(exported_);
+        }
+        drawExport();
     }
     if (live_) ImGui::TextDisabled("%s", tr("Sin pista abierta: los instrumentos que suenan en el juego hasta ahora."));
 }
@@ -1084,6 +1143,7 @@ void InstrumentEditor::saveSnapshot(Console* console) {
 }
 
 void InstrumentEditor::startRip() {
+    if (export_) return;
     std::vector<uint8_t> rom;
     std::string name, error;
     if (!readRomFile(game_, rom, &name, &error)) {
@@ -1197,6 +1257,116 @@ void InstrumentEditor::finishRip() {
     } else {
         ++musicVersion_;
     }
+}
+
+// ---------------------------------------------------------------------------------
+// Exportar a MP3
+
+bool InstrumentEditor::readTrack(const Track& track, VgmFile* file) {
+    std::vector<uint8_t> bytes;
+    if (!readBytes(track.path, bytes)) return false;
+    if (!track.member.empty()) {
+        std::vector<uint8_t> zip = std::move(bytes);
+        bytes.clear();
+        for (auto& [name, data] : zipTracks(zip))
+            if (name == track.member) bytes = std::move(data);
+    }
+    return file->parse(std::move(bytes), nullptr);
+}
+
+void InstrumentEditor::startExport(const std::vector<Track>& which) {
+    if (export_ || ripThread_.joinable() || which.empty() || gameName_.empty()) return;
+    stop();
+    message_.clear();
+    std::vector<Export> list;
+    const std::string dir = folder_ + "mp3/" + fileSafe(gameName_) + "/";
+    std::set<std::string> names;
+    for (const Track& t : which) {
+        Export e;
+        e.track = t;
+        // What it plays: what was chosen for the whole game, and over it for this song.
+        e.assigned = own_;
+        for (const auto& [fp, a] : readSong(songFile(t)).assigned) e.assigned[fp] = a;
+        const auto at = std::find(tracks_.begin(), tracks_.end(), t);
+        e.number = at == tracks_.end() ? 0 : static_cast<int>(at - tracks_.begin()) + 1;
+        e.title = t.title;
+        const std::string file = fileSafe(t.title);
+        std::string unique = file;
+        for (int n = 2; names.count(lower(unique)); ++n) unique = file + " (" + std::to_string(n) + ")";
+        names.insert(lower(unique));
+        e.file = dir + unique + ".mp3";
+        list.push_back(std::move(e));
+    }
+    // The synthesizer it plays them on: the editor's SoundFont, shared here (and closed
+    // here, on this thread, when it is done).
+    exportSynth_.reset();
+    if (synth_.ready()) {
+        exportSynth_ = std::make_unique<SynthMusic>();
+        if (!exportSynth_->shareSoundfont(synth_)) exportSynth_.reset();
+    }
+    if (exportSynth_) {
+        exportSynth_->setSoundEffects(effectsFor(folder_, game_), effectsOriginal_);
+        exportSynth_->setEffects(reverb_, chorus_);
+    }
+    export_ = std::make_unique<ExportJob>();
+    export_->folder = dir;
+    export_->steps = static_cast<int>(list.size());
+    for (const Export& e : list) export_->labels.push_back(trf("Exportando %s", e.title.c_str()));
+    ExportJob* job = export_.get();
+    SynthMusic* synth = exportSynth_.get();
+    const int chip = synth ? chipPercent_ : 100;
+    const std::string album = plainName(gameName_);
+    job->thread = std::thread([job, synth, chip, album, list = std::move(list)] {
+        std::error_code ec;
+        fs::create_directories(fs::u8path(job->folder), ec);
+        for (const Export& e : list) {
+            if (job->cancel) break;
+            job->part = 0;
+            VgmFile file;
+            if (!readTrack(e.track, &file)) {
+                job->error = trf("No se pudo leer %s.", e.track.title.c_str());
+                job->step = job->step + 1;
+                continue;
+            }
+            if (synth) {
+                // As the editor plays it: the rules by the whole song, from its first note.
+                synth->setAssignments(e.assigned);
+                synth->allNotesOff();
+                synth->forget();
+                synth->learn(VgmPlayer::instruments(file));
+            }
+            std::vector<int16_t> pcm;
+            if (!renderSong(file, synth, chip, SongRender{}, &pcm, &job->part, &job->cancel)) break;
+            const std::vector<uint8_t> mp3 = encodeMp3(pcm, 44100, 192, {e.title, album, std::string(), e.number});
+            if (!mp3.empty() && writeBytes(e.file, mp3.data(), mp3.size())) job->written.push_back(e.file);
+            else job->error = trf("No se pudo guardar %s", e.file.c_str());
+            job->step = job->step + 1;
+        }
+        job->done = true;
+    });
+}
+
+void InstrumentEditor::drawExport() {
+    if (!export_) return;
+    const ExportJob& j = *export_;
+    const int step = std::min(j.step.load(), j.steps.load() - 1);
+    const float fraction = (static_cast<float>(j.step.load()) + j.part.load()) / static_cast<float>(std::max(1, j.steps.load()));
+    const std::string label =
+        step >= 0 && step < static_cast<int>(j.labels.size()) ? j.labels[static_cast<size_t>(step)] : std::string();
+    ImGui::ProgressBar(std::min(1.0f, fraction), ImVec2(360, 0), label.c_str());
+    ImGui::SameLine();
+    if (ImGui::Button(tr("Parar##exportar"))) export_->cancel = true;
+}
+
+void InstrumentEditor::finishExport() {
+    export_->thread.join();
+    const std::unique_ptr<ExportJob> job = std::move(export_);
+    exportSynth_.reset();
+    const int n = static_cast<int>(job->written.size());
+    exported_ = n > 0 ? job->folder : std::string();
+    if (!job->error.empty()) message_ = job->error;
+    else if (job->cancel) message_ = n == 1 ? std::string(tr("Parado: 1 canción exportada.")) : trf("Parado: %d canciones exportadas.", n);
+    else message_ = n == 1 ? std::string(tr("He exportado 1 canción a MP3.")) : trf("He exportado %d canciones a MP3.", n);
 }
 
 }  // namespace plumnin

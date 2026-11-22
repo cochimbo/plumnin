@@ -31,6 +31,7 @@
 #include "test_console.h"
 #include "vgm.h"
 #include "songs.h"
+#include "song_export.h"
 #include "frontend/achievements.h"
 #include "frontend/game_info_data.h"
 #include "frontend/library_names.h"
@@ -2393,6 +2394,45 @@ void testSongRipper() {
           "songs: a program without a driver has none");
 }
 
+// Exportar a MP3: a song played through, round its loop and faded out, as an MP3.
+void testSongExport() {
+    SongRipper::Options options;
+    options.traceSeconds = 6;
+    SongRipper::Progress progress;
+    std::vector<SongRipper::Song> songs;
+    std::string error;
+    VgmFile f;
+    if (!SongRipper::run(gameBoySongs(), options, &progress, &songs, &error) || songs.empty() || !f.parse(songs[0].vgz, nullptr)) {
+        check(false, "export: a song to export");
+        return;
+    }
+    SongRender how;
+    how.loops = 3;
+    how.fadeSeconds = 2;
+    const double loop = f.loopSamples / 44100.0, intro = f.seconds() - loop;
+    check(std::fabs(renderedSeconds(f, how) - (intro + 3 * loop + 2)) < 0.01, "export: its start, three loops and the fade");
+    std::vector<int16_t> pcm;
+    std::atomic<float> done{0};
+    SynthMusic synth;  // no SoundFont: the chip's sound alone, as it would be without one
+    check(renderSong(f, nullptr, 100, how, &pcm, &done) && pcm.size() == static_cast<size_t>(std::llround(renderedSeconds(f, how) * 44100)) * 2 &&
+              done == 1.0f,
+          "export: played to its end");
+    int loud = 0;
+    for (size_t i = 0; i < pcm.size() / 2; ++i) loud = std::max(loud, std::abs(static_cast<int>(pcm[i])));
+    check(loud > 1000 && pcm.back() == 0 && std::abs(pcm[pcm.size() - 2]) < 50, "export: it sounds, and fades out");
+    std::atomic<bool> stop{true};
+    check(!renderSong(f, &synth, 0, how, &pcm, nullptr, &stop), "export: it can be stopped");
+
+    const std::vector<uint8_t> mp3 = encodeMp3(std::vector<int16_t>(pcm.begin(), pcm.begin() + 44100 * 2 * 2), 44100, 192,
+                                               {"Canción 01", "Juego", "", 1});
+    const size_t id3 = mp3.size() > 10 ? 10 + (mp3[6] << 21 | mp3[7] << 14 | mp3[8] << 7 | mp3[9]) : 0;
+    check(mp3.size() > id3 + 4 && std::memcmp(mp3.data(), "ID3", 3) == 0 && mp3[id3] == 0xFF && (mp3[id3 + 1] & 0xE0) == 0xE0,
+          "export: an MP3, with its tag");
+    // Two seconds at 192 kbit/s.
+    check(mp3.size() > id3 + 44000 && mp3.size() < id3 + 52000, "export: of the size of its bit rate");
+    check(encodeMp3(pcm, 44100, 191, {}).empty(), "export: not at a bit rate MP3 has not");
+}
+
 // The Game Boy's music recorded to a VGM and played back without the game.
 void testVgm() {
     GameBoy gb;
@@ -2827,6 +2867,7 @@ int main() {
     testSnesSynth();
     testVgm();
     testSongRipper();
+    testSongExport();
     std::printf(failures ? "%d fallos\n" : "todo bien\n", failures);
     return failures ? EXIT_FAILURE : EXIT_SUCCESS;
 }

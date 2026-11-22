@@ -234,6 +234,9 @@ msgstr "Abrir a pasta de SoundFonts"
 msgid "Abrir la carpeta de grabaciones"
 msgstr "Abrir a pasta das gravações"
 
+msgid "Abrir los MP3"
+msgstr "Abrir os MP3"
+
 msgid "Acción"
 msgstr "Ação"
 
@@ -1157,6 +1160,9 @@ msgstr "Esperando o outro jogador na porta %d"
 msgid "Esperando al otro jugador en el puerto %d. Mientras, puedes seguir jugando: la partida empezará donde estés."
 msgstr "Esperando o outro jogador na porta %d. Enquanto isso, você pode continuar jogando: a partida começará onde você estiver."
 
+msgid "Esta canción (%s)"
+msgstr "Esta música (%s)"
+
 msgid "Esta compilación de plumnin no trae la cuenta de desarrollador de ScreenScraper, así que no puede descargar nada. Los instaladores publicados sí la traen."
 msgstr "Esta compilação do plumnin não traz a conta de desenvolvedor do ScreenScraper, então não pode baixar nada. Os instaladores publicados a trazem."
 
@@ -1210,6 +1216,12 @@ msgstr "Etiqueta do cartucho"
 
 msgid "Europa (PAL)"
 msgstr "Europa (PAL)"
+
+msgid "Exportando %s"
+msgstr "Exportando %s"
+
+msgid "Exportar a MP3..."
+msgstr "Exportar para MP3..."
 
 msgid "Extrusión"
 msgstr "Extrusão"
@@ -1414,6 +1426,13 @@ msgstr ""
 "Guarda a música que toca no jogo como um .spc (Gravação 01...) e abre-a\n"
 "aqui: continua a tocar como no jogo, sem ele."
 
+msgid ""
+"Guarda la mezcla (los instrumentos elegidos para cada canción) en MP3: dos vueltas a su bucle\n"
+"y se apaga. En %smp3/."
+msgstr ""
+"Salva a mixagem (os instrumentos escolhidos para cada música) em MP3: duas voltas no seu loop\n"
+"e vai sumindo. Em %smp3/."
+
 msgid "Guardar el 3D solo para este juego"
 msgstr "Salvar o 3D só para este jogo"
 
@@ -1478,6 +1497,12 @@ msgstr "Você saiu da partida em rede"
 
 msgid "Has salido de la partida."
 msgstr "Você saiu da partida."
+
+msgid "He exportado %d canciones a MP3."
+msgstr "%d músicas exportadas para MP3."
+
+msgid "He exportado 1 canción a MP3."
+msgstr "1 música exportada para MP3."
 
 msgid "He sacado %d canciones de la ROM: están en la lista de pistas."
 msgstr "Tirei %d músicas da ROM: estão na lista de faixas."
@@ -2157,6 +2182,12 @@ msgstr ""
 "(Steam Deck, ROG Ally, Legion Go, MSI Claw...): letra\n"
 "maior e o controle em todas as janelas."
 
+msgid "Parado: %d canciones exportadas."
+msgstr "Parado: %d músicas exportadas."
+
+msgid "Parado: 1 canción exportada."
+msgstr "Parado: 1 música exportada."
+
 msgid "Parar"
 msgstr "Parar"
 
@@ -2645,6 +2676,9 @@ msgstr "Mudo"
 msgid "Simulación"
 msgstr "Simulação"
 
+msgid "Sin SoundFont: saldrá el sonido original."
+msgstr "Sem SoundFont: sairá o som original."
+
 msgid "Sin carátula"
 msgstr "Sem capa"
 
@@ -2816,6 +2850,9 @@ msgstr "Tímpanos"
 
 msgid "Tocar"
 msgstr "Tocar"
+
+msgid "Todas las canciones del juego (%d)"
+msgstr "Todas as músicas do jogo (%d)"
 
 msgid "Todo a las sugerencias..."
 msgstr "Tudo para as sugestões..."
@@ -3119,6 +3156,9 @@ msgstr "a de %06X na ROM"
 
 msgid "la que sonó en el juego (%zu)"
 msgstr "a que tocou no jogo (%zu)"
+
+msgid "ninguna"
+msgstr "nenhuma"
 
 msgid "ninguno"
 msgstr "nenhum"

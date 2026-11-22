@@ -99,6 +99,22 @@ private:
         std::string title;
         bool operator==(const Track& o) const { return path == o.path && member == o.member; }
     };
+    // Exportar a MP3, on a thread of its own: the songs, as chosen on the main thread.
+    struct Export {
+        Track track;
+        SynthMusic::Assignments assigned;  // the game's choices, and over them the song's
+        std::string file, title;
+        int number = 0;
+    };
+    struct ExportJob {
+        std::thread thread;
+        std::atomic<bool> cancel{false}, done{false};
+        std::atomic<int> step{0}, steps{1};
+        std::atomic<float> part{0};  // of the song it is on
+        std::vector<std::string> labels;  // of each song
+        std::vector<std::string> written;
+        std::string error, folder;
+    };
 
     void setGame(const EditorView& view);
     void listTracks();
@@ -126,6 +142,10 @@ private:
     void startRip();
     void drawRip();
     void finishRip();
+    static bool readTrack(const Track& track, VgmFile* file);
+    void startExport(const std::vector<Track>& which);
+    void drawExport();
+    void finishExport();
     void stopRecording(Console* console, bool keep);
     void saveSnapshot(Console* console);  // the SNES's music now, as an .spc
     static int songsIn(const std::string& folder);  // .vgm, .vgz and .zip
@@ -173,6 +193,12 @@ private:
     std::vector<std::set<uint32_t>> ripInstruments_;  // each song's
     std::set<uint32_t> ripEffects_;
     std::string ripError_, ripGame_;
+
+    std::unique_ptr<ExportJob> export_;
+    std::unique_ptr<SynthMusic> exportSynth_;  // the export's, sharing the SoundFont
+    bool effectsOriginal_ = true;
+    int reverb_ = 40, chorus_ = 20;
+    std::string exported_;  // the folder of the last export, to open it
 };
 
 }  // namespace plumnin

@@ -145,9 +145,14 @@ there is:
   loads each part's music when it gets there: Super Mario World gives 24, Final Fantasy III
   60, Secret of Mana 51, in two to eight minutes; Chrono Trigger, Donkey Kong Country and
   Super Castlevania IV none yet.
+  **Export to MP3...** saves the open song, or every song of the game, as it plays here
+  (the synthesizer with what was chosen for each song, and the chip under it at its
+  volume): its start, twice round its loop and an eight-second fade, at 192 kbit/s with
+  its title, game and number in the tag, in `sound/mp3/<game>/`.
   `plumnin-headless game.gb --rip-songs DIR` does it without a
   window, `--vgm FILE` records a run, `--spc FILE` saves a SNES game's music after it, and a
-  `.vgm`, `.vgz` or `.spc` given instead of a game is played to `--wav`.
+  `.vgm`, `.vgz` or `.spc` given instead of a game is played to `--wav` (or exported with
+  `--mp3`).
 - The 2D and pseudo-3D views, with the xBR and Anime4K upscalers and the scanline and
   CRT filters.
 - **The library's 3D shelf** ("Cajas 3D", next to Cuadrícula and Lista), as plumsg's: the
@@ -195,7 +200,7 @@ What plumsg had that only made sense on Sega's consoles (the Mega CD and its BIO
 ## Building
 
 You need CMake 3.16+, a C++17 compiler and SDL2 (if it is not installed, CMake downloads
-it). Dear ImGui and rcheevos are downloaded by themselves.
+it). Dear ImGui, rcheevos and shine are downloaded by themselves.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -257,7 +262,9 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
 ## License
 
 MIT (see [LICENSE](LICENSE)). plumnin does not include any game or BIOS. The
-synthesizer uses TinySoundFont (MIT, `third_party/tsf`), and the SoundFont that comes
+synthesizer uses TinySoundFont (MIT, `third_party/tsf`), Export to MP3 the shine encoder
+(LGPL 2, [toots/shine](https://github.com/toots/shine), built from its source as a
+library of its own, its license in `shine-LICENSE.txt` in the installation), and the SoundFont that comes
 with it is GeneralUser GS by S. Christian Collins, with its own free license
 (`soundfonts/GeneralUser-GS-LICENSE.txt` in the installation). The manuals are read with
 PDFium (BSD-3-Clause and Apache 2.0, the prebuilt library of bblanchon/pdfium-binaries;
