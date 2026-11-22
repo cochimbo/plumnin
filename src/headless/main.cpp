@@ -597,8 +597,9 @@ int main(int argc, char** argv) {
             if (s.spc) std::snprintf(file, sizeof file, "/song %02d.spc", static_cast<int>(&s - songs.data()) + 1);
             else std::snprintf(file, sizeof file, "/song %03d.vgz", s.number);
             if (!writeFile(ripDir + file, s.vgz.data(), s.vgz.size())) return 1;
-            std::printf("%d: %.1f s%s\n", s.number, s.seconds,
-                        s.loopSeconds > 0 ? (", loop " + std::to_string(s.loopSeconds) + " s").c_str() : ", ends");
+            std::printf("%d: %.1f s%s%s\n", s.number, s.seconds,
+                        s.loopSeconds > 0 ? (", loop " + std::to_string(s.loopSeconds) + " s").c_str() : ", ends",
+                        s.request.empty() ? "" : (", asked with " + s.request).c_str());
         }
         // The sound effects' instruments, as the instrument editor keeps them.
         if (!effects.empty()) {

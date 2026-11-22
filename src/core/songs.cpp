@@ -16,6 +16,7 @@
 #include "gb/gb.h"
 #include "i18n.h"
 #include "nes/nes.h"
+#include "synth_music.h"
 #include "vgm.h"
 
 namespace plumnin {
@@ -81,6 +82,33 @@ public:
     virtual double frameRate() const { return const_cast<Machine*>(this)->console().refreshRate(); }
 };
 
+// Work RAM (and its echo), high RAM, and the cartridge's RAM (some keep it there).
+int gbRamIndex(uint16_t a) {
+    if (a >= 0xC000 && a < 0xE000) return a - 0xC000;
+    if (a >= 0xE000 && a < 0xFE00) return a - 0xE000;
+    if (a >= 0xFF80 && a < 0xFFFF) return 0x2000 + (a - 0xFF80);
+    if (a >= 0xA000 && a < 0xC000) return 0x2080 + (a - 0xA000);
+    return -1;
+}
+// A routine: its address with the bank it is in.
+uint32_t gbRoutineId(const GameBoy& gb, uint16_t a) {
+    const uint32_t bank = a < 0x4000 ? 0 : a < 0x8000 ? static_cast<uint32_t>(gb.romBank()) : 0xFFFF;
+    return bank << 16 | a;
+}
+// The console's 2 KB of RAM (but the stack's page) and the cartridge's at 6000.
+int nesRamIndex(uint16_t a) {
+    if (a < 0x2000) {
+        const int i = a & 0x7FF;
+        return i >= 0x100 && i < 0x200 ? -1 : i;
+    }
+    if (a >= 0x6000 && a < 0x8000) return 0x800 + (a - 0x6000);
+    return -1;
+}
+uint32_t nesRoutineId(const Nes& nes, uint16_t a) {
+    const uint32_t bank = a >= 0x8000 ? nes.banks().prg[(a >> 13) & 3] / 0x2000 : a >= 0x6000 ? 0xFFFE : 0xFFFF;
+    return bank << 16 | a;
+}
+
 // The Game Boy and the Color.
 class GbMachine : public Machine {
 public:
@@ -92,23 +120,14 @@ public:
     uint64_t soundClock() const override { return gb.soundClock(); }
     void setTracer(CpuTracer* tracer) override { gb.setTracer(tracer); }
     // Work RAM (and its echo), high RAM, and the cartridge's RAM (some keep it there).
-    int ramIndex(uint16_t a) const override {
-        if (a >= 0xC000 && a < 0xE000) return a - 0xC000;
-        if (a >= 0xE000 && a < 0xFE00) return a - 0xE000;
-        if (a >= 0xFF80 && a < 0xFFFF) return 0x2000 + (a - 0xFF80);
-        if (a >= 0xA000 && a < 0xC000) return 0x2080 + (a - 0xA000);
-        return -1;
-    }
+    int ramIndex(uint16_t a) const override { return gbRamIndex(a); }
     uint16_t ramAddress(int i) const override {
         if (i < 0x2000) return static_cast<uint16_t>(0xC000 + i);
         if (i < 0x2080) return static_cast<uint16_t>(0xFF80 + (i - 0x2000));
         return static_cast<uint16_t>(0xA000 + (i - 0x2080));
     }
     bool onStack(uint16_t a, uint16_t sp) const override { return a + 3 >= sp && a <= sp + 1; }
-    uint32_t routineId(uint16_t a) const override {
-        const uint32_t bank = a < 0x4000 ? 0 : a < 0x8000 ? static_cast<uint32_t>(gb.romBank()) : 0xFFFF;
-        return bank << 16 | a;
-    }
+    uint32_t routineId(uint16_t a) const override { return gbRoutineId(gb, a); }
     bool vector(uint16_t a) const override { return a < 0x68; }
     bool handlerReturns() const override { return true; }
     uint8_t peek(uint16_t a) const override { return gb.peek(a); }
@@ -204,22 +223,12 @@ public:
     uint64_t soundClock() const override { return nes.soundClock(); }
     void setTracer(CpuTracer* tracer) override { nes.setTracer(tracer); }
     // The console's 2 KB of RAM (but the stack's page) and the cartridge's at 6000.
-    int ramIndex(uint16_t a) const override {
-        if (a < 0x2000) {
-            const int i = a & 0x7FF;
-            return i >= 0x100 && i < 0x200 ? -1 : i;
-        }
-        if (a >= 0x6000 && a < 0x8000) return 0x800 + (a - 0x6000);
-        return -1;
-    }
+    int ramIndex(uint16_t a) const override { return nesRamIndex(a); }
     uint16_t ramAddress(int i) const override {
         return static_cast<uint16_t>(i < 0x800 ? i : 0x6000 + (i - 0x800));
     }
     bool onStack(uint16_t, uint16_t) const override { return false; }  // (its page is left out)
-    uint32_t routineId(uint16_t a) const override {
-        const uint32_t bank = a >= 0x8000 ? nes.banks().prg[(a >> 13) & 3] / 0x2000 : a >= 0x6000 ? 0xFFFE : 0xFFFF;
-        return bank << 16 | a;
-    }
+    uint32_t routineId(uint16_t a) const override { return nesRoutineId(nes, a); }
     bool vector(uint16_t) const override { return false; }
     // (RTI also takes the flags back, and the game's own work is in the NMI: the driver
     // is something it calls.)
@@ -570,6 +579,14 @@ struct Way {
         return s;
     }
 };
+
+// How a way asks, for SongRipper::Song::request and SongWatcher.
+std::string request(const Way& w) {
+    char s[48];
+    if (w.routine) std::snprintf(s, sizeof s, "rutina %X:%04X %d", w.id >> 16, w.id & 0xFFFF, w.reg);
+    else std::snprintf(s, sizeof s, "byte %X", w.id);
+    return s;
+}
 
 struct Heard {
     bool ok = false;
@@ -1310,6 +1327,7 @@ bool Ripper::run(std::vector<SongRipper::Song>* songs, std::string* error, std::
                 VgmWriter::Tag tag{trf("Canción %02d", static_cast<int>(songs->size()) + 1), title_,
                                    trf("Número %d del juego", f.number)};
                 song.number = f.number;
+                song.request = request(*f.way);
                 song.vgz = take.vgm->finish(tag, &take.end, take.looped ? &take.loop : nullptr);
                 song.seconds = static_cast<double>(take.end.samples) / 44100.0;
                 song.loopSeconds = take.looped ? static_cast<double>(take.end.samples - take.loop.samples) / 44100.0 : 0;
@@ -1433,6 +1451,85 @@ bool SongRipper::run(const std::vector<uint8_t>& rom, const Options& options, Pr
     if (!ok && error && !firstError.empty()) *error = firstError;
     if (!ok && error && error->empty() && progress && progress->cancel) *error = tr("Cancelado.");
     return ok;
+}
+
+// ---------------------------------------------------------------------------------
+// SongWatcher
+
+bool SongWatcher::attach(Console* console, SynthMusic* synth, const std::vector<Request>& requests) {
+    detach();
+    GameBoy* gb = dynamic_cast<GameBoy*>(console);
+    Nes* nes = gb ? nullptr : dynamic_cast<Nes*>(console);
+    if ((!gb && !nes) || !synth) return false;
+    for (const Request& r : requests) {
+        Way w;
+        unsigned bank = 0, address = 0;
+        int reg = 0;
+        if (std::sscanf(r.way.c_str(), "rutina %X:%X %d", &bank, &address, &reg) == 3 && reg >= 0 && reg < 3) {
+            w.routine = true;
+            w.id = bank << 16 | (address & 0xFFFF);
+            w.reg = reg;
+        } else if (std::sscanf(r.way.c_str(), "byte %X", &address) == 1) {
+            w.id = address;
+        } else {
+            continue;
+        }
+        w.text = r.way;
+        auto same = std::find_if(ways_.begin(), ways_.end(),
+                                 [&](const Way& o) { return o.routine == w.routine && o.id == w.id && o.reg == w.reg; });
+        if (same == ways_.end()) same = ways_.insert(ways_.end(), w);
+        same->numbers.insert(r.number);
+        if (w.routine) anyRoutine_ = true;
+        else bytes_.insert(static_cast<int>(w.id));
+    }
+    if (ways_.empty()) return false;
+    console_ = console;
+    gb_ = gb;
+    nes_ = nes;
+    synth_ = synth;
+    if (gb) gb->setTracer(this);
+    else nes->setTracer(this);
+    return true;
+}
+
+void SongWatcher::detach() {
+    if (gb_) gb_->setTracer(nullptr);
+    if (nes_) nes_->setTracer(nullptr);
+    console_ = nullptr;
+    gb_ = nullptr;
+    nes_ = nullptr;
+    synth_ = nullptr;
+    ways_.clear();
+    bytes_.clear();
+    anyRoutine_ = false;
+}
+
+void SongWatcher::call(uint16_t to, uint16_t, bool interrupt) {
+    if (interrupt || !anyRoutine_) return;
+    uint32_t id = 0;
+    std::array<uint8_t, 3> args{};
+    if (gb_) {
+        id = gbRoutineId(*gb_, to);
+        const GameBoy::Cpu c = gb_->cpu();
+        args = {c.a, c.c, c.e};
+    } else if (nes_) {
+        id = nesRoutineId(*nes_, to);
+        const Nes::Cpu c = nes_->cpu();
+        args = {c.a, c.x, c.y};
+    }
+    for (const Way& w : ways_) {
+        if (!w.routine || w.id != id) continue;
+        const int n = args[static_cast<size_t>(w.reg)];
+        if (w.numbers.count(n)) synth_->playingSong(w.text, n);
+    }
+}
+
+void SongWatcher::access(uint16_t address, uint8_t value, bool write) {
+    if (!write || bytes_.empty()) return;
+    const int index = gb_ ? gbRamIndex(address) : nesRamIndex(address);
+    if (index < 0 || !bytes_.count(index)) return;
+    for (const Way& w : ways_)
+        if (!w.routine && static_cast<int>(w.id) == index && w.numbers.count(value)) synth_->playingSong(w.text, value);
 }
 
 }  // namespace plumnin

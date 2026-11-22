@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "cpu_tracer.h"
 #include "system.h"
 
 namespace plumnin {
@@ -26,6 +27,9 @@ public:
         std::vector<uint8_t> vgz;  // or, with `spc`, an SPC (the Super Nintendo's)
         bool spc = false;
         double seconds = 0, loopSeconds = 0;  // loopSeconds 0: it ends
+        // How the game asks for it, with `number` (SongWatcher's format: "rutina 03:4A2B A",
+        // "byte C0F1"); empty if it is not asked for so (the Super Nintendo's).
+        std::string request;
     };
     // For a thread of its own: how far it is, read from another, and a way to stop it.
     struct Progress {
@@ -47,6 +51,49 @@ public:
     static bool run(const std::vector<uint8_t>& rom, const Options& options, Progress* progress,
                     std::vector<Song>* songs, std::string* error, std::string* report = nullptr,
                     std::set<uint32_t>* effects = nullptr);
+};
+
+class Console;
+class GameBoy;
+class Nes;
+class SynthMusic;
+
+// Watches a Game Boy (or Color) or NES game as it is played for the requests for its songs
+// that Sacar canciones found (SongRipper::Song::request and number): the routine called
+// with a song's number, or the byte of memory written with it. The song the game asks for
+// is told to the synthesizer, for what was chosen for that song alone.
+class SongWatcher : public CpuTracer {
+public:
+    struct Request {
+        std::string way;  // as SongRipper::Song::request
+        int number = 0;
+    };
+    // False if the console is not one it can watch, or none of the requests makes sense.
+    bool attach(Console* console, SynthMusic* synth, const std::vector<Request>& requests);
+    void detach();
+    // Forgets the console without touching it: it is gone already.
+    void release() { console_ = nullptr; gb_ = nullptr; nes_ = nullptr; detach(); }
+    bool attached() const { return console_ != nullptr; }
+
+    void instruction(uint16_t, uint16_t) override {}
+    void call(uint16_t to, uint16_t sp, bool interrupt) override;
+    void access(uint16_t address, uint8_t value, bool write) override;
+
+private:
+    struct Way {
+        bool routine = false;
+        uint32_t id = 0;  // the routine (bank and address) or the byte's index in RAM
+        int reg = 0;      // which register has the number: 0-2 (A, C, E or A, X, Y)
+        std::set<int> numbers;
+        std::string text;
+    };
+    Console* console_ = nullptr;
+    GameBoy* gb_ = nullptr;  // the console, as one or the other
+    Nes* nes_ = nullptr;
+    SynthMusic* synth_ = nullptr;
+    std::vector<Way> ways_;
+    bool anyRoutine_ = false;
+    std::set<int> bytes_;  // the RAM indices watched
 };
 
 }  // namespace plumnin

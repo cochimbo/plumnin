@@ -687,6 +687,16 @@ int main(int argc, char** argv) {
     bool synthFontOk = false;
     const Console* synthConsole = nullptr;
     std::string synthGame;
+    // The songs the game asks for, as Sacar canciones found how: the synthesizer knows by
+    // them which one is playing.
+    SongWatcher songWatcher;
+    auto watchSongs = [&](std::vector<SynthMusic::Song> songs, bool keepAsked) {
+        std::vector<SongWatcher::Request> requests;
+        for (const SynthMusic::Song& s : songs)
+            if (!s.request.empty()) requests.push_back({s.request, s.number});
+        synth->setSongs(std::move(songs), keepAsked);
+        if (app->console) songWatcher.attach(app->console.get(), synth.get(), requests);
+    };
     auto applySynth = [&] {
         // The SoundFont is loaded when the synthesizer is on, or the instrument editor is
         // open (it plays the songs with it, game or no game).
@@ -705,11 +715,13 @@ int main(int argc, char** argv) {
         const bool on = settings.synth && app->console->synthSupported() && synthFontOk;
         // Another game: what was learnt of the last one's instruments does not apply.
         if (app->console.get() != synthConsole || app->romPath != synthGame) {
+            // (The console watched before is gone: nothing to take the watcher off.)
+            if (app->console.get() != synthConsole) songWatcher.release();
             synthConsole = app->console.get();
             synthGame = app->romPath;
             synth->forget();
             synth->setAssignments(InstrumentEditor::load(soundDir, app->romPath));
-            synth->setSongs(InstrumentEditor::songsFor(soundDir, app->romPath));
+            watchSongs(InstrumentEditor::songsFor(soundDir, app->romPath), false);
             synth->setSoundEffects(InstrumentEditor::effectsFor(soundDir, app->romPath), settings.effectsOriginal);
         }
         if (synth->soundEffectsOriginal() != settings.effectsOriginal)
@@ -911,7 +923,7 @@ int main(int argc, char** argv) {
         // canciones may have found others since the game was opened.
         if (loaded && app->console && app->console->synth()) {
             synth->setAssignments(InstrumentEditor::load(soundDir, app->romPath));
-            synth->setSongs(InstrumentEditor::songsFor(soundDir, app->romPath));
+            watchSongs(InstrumentEditor::songsFor(soundDir, app->romPath), false);
             synth->setSoundEffects(InstrumentEditor::effectsFor(soundDir, app->romPath), settings.effectsOriginal);
         }
         std::vector<uint8_t> progress;

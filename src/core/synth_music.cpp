@@ -502,12 +502,33 @@ SynthMusic::Assignment SynthMusic::ruled(uint32_t fingerprint) const {
     return suggest(r->second.traits, r->second.heard);
 }
 
-void SynthMusic::setSongs(std::vector<Song> songs) {
+void SynthMusic::setSongs(std::vector<Song> songs, bool keepAsked) {
+    // The song asked for stays the one playing, when it is among them still.
+    std::string request;
+    int number = -1;
+    if (keepAsked && asked_ && song_ >= 0 && static_cast<size_t>(song_) < songs_.size()) {
+        request = songs_[static_cast<size_t>(song_)].request;
+        number = songs_[static_cast<size_t>(song_)].number;
+    }
     songs_ = std::move(songs);
     song_ = -1;
+    asked_ = false;
     guessedAt_ = 0;
-    guessSong(guessedAt_);
+    if (!request.empty()) playingSong(request, number);
+    if (!asked_) guessSong(guessedAt_);
     updateChipVoices();
+}
+
+void SynthMusic::playingSong(const std::string& request, int number) {
+    for (size_t i = 0; i < songs_.size(); ++i) {
+        if (songs_[i].request != request || songs_[i].number != number) continue;
+        asked_ = true;
+        if (song_ != static_cast<int>(i)) {
+            song_ = static_cast<int>(i);
+            updateChipVoices();
+        }
+        return;
+    }
 }
 
 // The song whose instruments are the ones heard in the last seconds: the one with most of
@@ -515,6 +536,7 @@ void SynthMusic::setSongs(std::vector<Song> songs) {
 // heard ones fit as well as the one before stays.
 void SynthMusic::guessSong(uint64_t clock) {
     guessedAt_ = clock;
+    if (asked_) return;  // the game said which
     if (songs_.empty()) {
         song_ = -1;
         return;
@@ -673,6 +695,7 @@ void SynthMusic::forget() {
     allNotesOff();
     recent_.clear();
     song_ = -1;
+    asked_ = false;
     voices_ = {};
     rules_.clear();
     seen_.clear();

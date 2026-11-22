@@ -163,12 +163,19 @@ public:
     Assignment assignmentFor(uint32_t fingerprint) const;
     // The game's songs, each with its instruments and what was chosen for it alone (over
     // what was chosen for the whole game): as the game plays, the song it is playing is
-    // told by the instruments heard in the last seconds, and its choices are the ones heard.
+    // known by the number it asks for (playingSong(), from a SongWatcher), or else told by
+    // the instruments heard in the last seconds; its choices are the ones heard.
     struct Song {
         std::set<uint32_t> instruments;
         Assignments assigned;
+        std::string request;  // how the game asks for it, with `number` (see SongRipper::Song)
+        int number = -1;
     };
-    void setSongs(std::vector<Song> songs);
+    // (`keepAsked`: the song the game asked for stays the one playing, if it is among them.)
+    void setSongs(std::vector<Song> songs, bool keepAsked = true);
+    // The game asked for song `number` that way: if it is one of the songs, it is the one
+    // playing, until it asks for another (no more guessing by the instruments).
+    void playingSong(const std::string& request, int number);
     // Which of them it is playing now (-1 for none it can tell).
     int currentSong() const { return song_; }
     // What it plays when not chosen by hand: the rules', or its own sound for an effect.
@@ -305,6 +312,7 @@ private:
     // The songs, and the instruments heard lately (each with its last note), to tell them.
     std::vector<Song> songs_;
     int song_ = -1;
+    bool asked_ = false;  // song_ is the one the game asked for
     std::map<uint32_t, uint64_t> recent_;
     uint64_t guessedAt_ = 0;
     void guessSong(uint64_t clock);

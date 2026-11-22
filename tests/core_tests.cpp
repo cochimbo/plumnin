@@ -2352,6 +2352,41 @@ void testSongRipper() {
         check(!player.finished() && std::count(log.begin(), log.end(), "0 on 60") >= 2,
               "songs: played back, the first song's notes come round again");
     }
+    // How the game asks for each, kept with it: as it is played, the synthesizer knows by
+    // that which song is playing, even when another has the same instruments.
+    check(songs.size() == 3 && songs[0].request == "byte 0" && songs[2].request == "byte 0",
+          "songs: each knows how the game asks for it");
+    if (songs.size() == 3) {
+        VgmFile f;
+        f.parse(songs[0].vgz, &error);
+        std::set<uint32_t> in;
+        for (const auto& [fp, seen] : VgmPlayer::instruments(f)) in.insert(fp);
+        std::vector<SynthMusic::Song> list(2);
+        list[0].instruments = list[1].instruments = in;  // told apart by the number alone
+        list[0].request = list[1].request = songs[0].request;
+        list[0].number = 3;
+        list[1].number = songs[0].number;  // the one the game asks for as it starts
+        for (uint32_t fp : in) {
+            list[0].assigned[fp].program = 20;
+            list[1].assigned[fp].program = 10;
+        }
+        GameBoy gb;
+        check(gb.loadRomData(gameBoySongs(), &error), "songs: the game loads, to be played");
+        gb.setSampleRate(44100);
+        SynthMusic synth;
+        std::vector<std::string> log;
+        synth.setLog(&log);
+        synth.setSongs(list);
+        SongWatcher watcher;
+        check(watcher.attach(&gb, &synth, {{list[0].request, 3}, {list[1].request, list[1].number}}),
+              "songs: the watcher takes the game");
+        gb.setSynth(&synth, 0);
+        for (int i = 0; i < 120; ++i) gb.runFrame();
+        check(synth.currentSong() == 1 && logHas(log, "0 program 10") && !logHas(log, "0 program 20"),
+              "songs: the song the game asks for is the one heard, by its number");
+        watcher.detach();
+        gb.setSynth(nullptr, 0);
+    }
     SongRipper::Progress none;
     songs.clear();
     check(!SongRipper::run(gameBoyScale(), options, &none, &songs, &error) && !error.empty(),

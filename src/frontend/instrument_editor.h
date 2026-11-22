@@ -106,9 +106,9 @@ private:
     bool loadTrack(const Track& track);
     void stop();
     static std::string songFile(const Track& track);  // what was chosen for it alone
-    // A song's file: its choices, and the instruments in it.
-    static void writeSong(const std::string& path, const SynthMusic::Assignments& assigned,
-                          const std::set<uint32_t>& instruments);
+    // A song's file: its choices, its instruments and how the game asks for it.
+    static void writeSong(const std::string& path, const SynthMusic::Song& song);
+    static SynthMusic::Song readSong(const std::string& path);
     bool songOpen() const { return !live_ && player_.loaded() && !track_.path.empty(); }
     bool editingSong() const { return songOpen() && forSong_; }  // changes go to the song alone
     SynthMusic::Assignments chosen() const;  // the game's choices, and over them the song's

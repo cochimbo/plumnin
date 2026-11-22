@@ -1621,6 +1621,9 @@ msgstr "A API do ScreenScraper está fechada por agora. Tente mais tarde."
 msgid "La base de trucos de libretro no tiene listas para este juego."
 msgstr "A base de truques do libretro não tem listas para este jogo."
 
+msgid "La canción: sus instrumentos, y cómo la pide el juego (de Sacar canciones), para saber cuándo suena en el juego."
+msgstr "A música: os seus instrumentos, e como o jogo a pede (de Tirar músicas), para saber quando o jogo a toca."
+
 msgid ""
 "La carpeta de las canciones de este juego: lo que pongas en ella (.vgm, .vgz,\n"
 ".spc o un .zip de ellos) sale en la lista.\n"
@@ -1721,10 +1724,10 @@ msgstr ""
 
 msgid ""
 "Lo que cambies suena solo en esta canción: en el juego, cuando suena ella\n"
-"(se reconoce por sus instrumentos)."
+"(se reconoce por el número con el que la pide el juego, o por sus instrumentos)."
 msgstr ""
 "O que mudares só soa nesta música: no jogo, quando ela toca\n"
-"(é reconhecida pelos seus instrumentos)."
+"(é reconhecida pelo número com que o jogo a pede, ou pelos seus instrumentos)."
 
 msgid "Lo que se descarga de cada juego. Los vídeos y los manuales ocupan mucho, así que no se descargan si no los marcas (cada juego los puede descargar aparte)."
 msgstr "O que se descarrega de cada jogo. Os vídeos e os manuais ocupam muito, por isso não se descarregam se não os marcar (cada jogo pode descarregá-los à parte)."
@@ -1779,9 +1782,6 @@ msgid ""
 msgstr ""
 "Os fotogramas por segundo do jogo e quanto demora cada um a emular,\n"
 "com um gráfico dos últimos 10 segundos."
-
-msgid "Los instrumentos de la canción, para saber cuándo suena en el juego."
-msgstr "Os instrumentos da música, para saber quando o jogo a toca."
 
 msgid ""
 "Los lados de arriba se guardan para %s y se recuperan al abrirlo.\n"

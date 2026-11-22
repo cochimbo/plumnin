@@ -190,26 +190,42 @@ std::set<uint32_t> InstrumentEditor::effectsFor(const std::string& folder, const
     return out;
 }
 
-// A song's instruments, in its file: "instrumentos = huella huella...".
-static std::set<uint32_t> songInstruments(const std::string& text) {
-    std::set<uint32_t> out;
+// A song's file: what was chosen for it, then "[cancion]" with its instruments
+// ("instrumentos = huella huella..."), and how the game asks for it, as Sacar canciones
+// found ("numero = 5", "pedida = rutina 3:4A2B 0").
+static SynthMusic::Song parseSong(const std::string& text) {
+    SynthMusic::Song out;
+    out.assigned = SynthMusic::parseAssignments(text);
     size_t pos = 0;
     while (pos < text.size()) {
         size_t end = text.find('\n', pos);
         if (end == std::string::npos) end = text.size();
-        const std::string line = text.substr(pos, end - pos);
+        std::string line = text.substr(pos, end - pos);
         pos = end + 1;
+        if (!line.empty() && line.back() == '\r') line.pop_back();
         const size_t eq = line.find('=');
-        if (eq == std::string::npos || line.compare(0, 12, "instrumentos") != 0) continue;
-        const char* p = line.c_str() + eq + 1;
-        for (;;) {
-            char* stop = nullptr;
-            const unsigned long fp = std::strtoul(p, &stop, 16);
-            if (stop == p) break;
-            if (fp) out.insert(static_cast<uint32_t>(fp));
-            p = stop;
+        if (eq == std::string::npos) continue;
+        std::string key = line.substr(0, eq);
+        while (!key.empty() && key.back() == ' ') key.pop_back();
+        size_t v = eq + 1;
+        while (v < line.size() && line[v] == ' ') ++v;
+        const std::string value = line.substr(v);
+        if (key == "instrumentos") {
+            const char* p = value.c_str();
+            for (;;) {
+                char* stop = nullptr;
+                const unsigned long fp = std::strtoul(p, &stop, 16);
+                if (stop == p) break;
+                if (fp) out.instruments.insert(static_cast<uint32_t>(fp));
+                p = stop;
+            }
+        } else if (key == "numero") {
+            out.number = std::atoi(value.c_str());
+        } else if (key == "pedida") {
+            out.request = value;
         }
     }
+    if (out.request.empty()) out.number = -1;
     return out;
 }
 
@@ -221,19 +237,22 @@ std::string InstrumentEditor::songFile(const Track& track) {
     return dir + p.stem().u8string() + " - " + stem(track.member) + ".ini";
 }
 
-void InstrumentEditor::writeSong(const std::string& path, const SynthMusic::Assignments& assigned,
-                                 const std::set<uint32_t>& instruments) {
-    std::string text = SynthMusic::formatAssignments(assigned);
-    text += "\n; " + std::string(tr("Los instrumentos de la canción, para saber cuándo suena en el juego.")) +
+void InstrumentEditor::writeSong(const std::string& path, const SynthMusic::Song& song) {
+    std::string text = SynthMusic::formatAssignments(song.assigned);
+    text += "\n; " + std::string(tr("La canción: sus instrumentos, y cómo la pide el juego (de Sacar canciones), para saber "
+                                       "cuándo suena en el juego.")) +
             "\n[cancion]\ninstrumentos =";
     char word[16];
-    for (uint32_t fp : instruments) {
+    for (uint32_t fp : song.instruments) {
         std::snprintf(word, sizeof word, " %08x", fp);
         text += word;
     }
     text += "\n";
+    if (!song.request.empty()) text += "numero = " + std::to_string(song.number) + "\npedida = " + song.request + "\n";
     writeBytes(path, text.data(), text.size());
 }
+
+SynthMusic::Song InstrumentEditor::readSong(const std::string& path) { return parseSong(readText(path)); }
 
 std::vector<SynthMusic::Song> InstrumentEditor::songsFor(const std::string& folder, const std::string& game) {
     std::vector<SynthMusic::Song> out;
@@ -246,11 +265,8 @@ std::vector<SynthMusic::Song> InstrumentEditor::songsFor(const std::string& fold
     }
     std::sort(files.begin(), files.end());
     for (const std::string& f : files) {
-        const std::string text = readText(f);
-        SynthMusic::Song song;
-        song.instruments = songInstruments(text);
-        song.assigned = SynthMusic::parseAssignments(text);
-        if (!song.instruments.empty()) out.push_back(std::move(song));
+        SynthMusic::Song song = readSong(f);
+        if (!song.instruments.empty() || !song.request.empty()) out.push_back(std::move(song));
     }
     return out;
 }
@@ -379,11 +395,14 @@ bool InstrumentEditor::loadTrack(const Track& track) {
     // tell when it plays it.
     {
         const std::string path = songFile(track_);
-        const std::string text = readText(path);
-        songOwn_ = SynthMusic::parseAssignments(text);
+        SynthMusic::Song song = readSong(path);
+        songOwn_ = song.assigned;
         std::set<uint32_t> in;
         for (const auto& [fp, seen] : trackSeen_) in.insert(fp);
-        if (!in.empty() && songInstruments(text) != in) writeSong(path, songOwn_, in);
+        if (!in.empty() && song.instruments != in) {
+            song.instruments = std::move(in);
+            writeSong(path, song);
+        }
     }
     synth_.setAssignments(chosen());
     // The rules by this song alone, as heard whole: from its first note, and not by how
@@ -450,9 +469,12 @@ void InstrumentEditor::save(const EditorView& view) {
         message_ = writeBytes(path, text.data(), text.size()) ? std::string() : trf("No se pudo guardar %s", path.c_str());
     }
     if (songOpen()) {
-        std::set<uint32_t> in;
-        for (const auto& [fp, seen] : trackSeen_) in.insert(fp);
-        writeSong(songFile(track_), songOwn_, in);
+        const std::string path = songFile(track_);
+        SynthMusic::Song song = readSong(path);
+        song.assigned = songOwn_;
+        song.instruments.clear();
+        for (const auto& [fp, seen] : trackSeen_) song.instruments.insert(fp);
+        writeSong(path, song);
     }
     synth_.setAssignments(chosen());
     // Heard at once in the game, when it is the one running.
@@ -893,7 +915,7 @@ void InstrumentEditor::drawAssignment(const EditorView& view, const std::vector<
         if (ImGui::RadioButton(tr("Solo esta canción"), forSong_)) forSong_ = true;
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("%s", tr("Lo que cambies suena solo en esta canción: en el juego, cuando suena ella\n"
-                                       "(se reconoce por sus instrumentos)."));
+                                       "(se reconoce por el número con el que la pide el juego, o por sus instrumentos)."));
         ImGui::SameLine();
         if (ImGui::RadioButton(tr("Todo el juego"), !forSong_)) forSong_ = false;
         if (ImGui::IsItemHovered())
@@ -1133,9 +1155,14 @@ void InstrumentEditor::finishRip() {
         if (writeBytes(path, v.data(), v.size())) ++saved;
         // What was chosen for it stays (the same game gives the same songs); its
         // instruments are the ones now.
-        if (i < ripInstruments_.size() && !ripInstruments_[i].empty()) {
+        {
             const std::string ini = songFile(Track{path, {}, {}});
-            writeSong(ini, SynthMusic::parseAssignments(readText(ini)), ripInstruments_[i]);
+            SynthMusic::Song song;
+            song.assigned = readSong(ini).assigned;
+            if (i < ripInstruments_.size()) song.instruments = ripInstruments_[i];
+            song.request = ripSongs_[i].request;
+            song.number = ripSongs_[i].number;
+            writeSong(ini, song);
         }
     }
     ripSongs_.clear();
