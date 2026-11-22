@@ -1330,11 +1330,17 @@ void Ui::drawVideo(const UiState& state, UiActions& out) {
     changed |= ImGui::RadioButton(tr("Scanlines"), &filter, static_cast<int>(Filter2D::Scanlines));
     ImGui::SameLine();
     changed |= ImGui::RadioButton(tr("CRT"), &filter, static_cast<int>(Filter2D::Crt));
-    settings_.render.filter = static_cast<Filter2D>(filter);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("%s", tr("Scanlines: las líneas oscuras entre las líneas de la imagen, como en una tele.\n"
                           "CRT: además, la pantalla un poco curva, la máscara de colores y las esquinas\n"
                           "más oscuras. Solo en la vista 2D; se ve mejor a pantalla completa."));
+    ImGui::SameLine();
+    changed |= ImGui::RadioButton("LCD", &filter, static_cast<int>(Filter2D::Lcd));
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s", tr("LCD: la pantalla de una consola portátil, pensado para la Game Boy: la rejilla\n"
+                          "fina entre los píxeles y el rastro que dejan las cosas al moverse, como en una\n"
+                          "pantalla de cristal líquido de verdad. Solo en la vista 2D; se nota más en grande."));
+    settings_.render.filter = static_cast<Filter2D>(filter);
     ImGui::BeginDisabled(settings_.render.filter == Filter2D::None);
     float strength = settings_.render.filterStrength * 100.0f;
     if (ImGui::SliderFloat(tr("Intensidad del filtro"), &strength, 0.0f, 100.0f, "%.0f %%"))
@@ -1588,8 +1594,8 @@ void Ui::drawStateOptions(int tab, const UiState& state, UiActions& out) {
                                  [&r](int v) { r.scale = static_cast<ScaleMode>(v); }));
         options.push_back(toggle(N_("Suavizar píxeles"), r.smooth));
         options.push_back(toggle(N_("Píxeles cuadrados (sin estirar a 4:3)"), r.squarePixels));
-        static const char* const kFilters[] = {N_("Ninguno"), N_("Scanlines"), N_("CRT")};
-        options.push_back(choice(N_("Filtro 2D"), static_cast<int>(r.filter), kFilters, 3,
+        static const char* const kFilters[] = {N_("Ninguno"), N_("Scanlines"), N_("CRT"), "LCD"};
+        options.push_back(choice(N_("Filtro 2D"), static_cast<int>(r.filter), kFilters, 4,
                                  [&r](int v) { r.filter = static_cast<Filter2D>(v); }, kSave,
                                  r.upscale == Upscale2D::None));
         options.push_back(amount(N_("Intensidad del filtro"), r.filterStrength, 0.0f, 1.0f, 0.05f, "%.0f %%", 100.0f,
@@ -3241,9 +3247,9 @@ void Ui::drawGameSettings(const UiState& state, UiActions& out) {
         } else if (key == "smooth") {
             edited |= yesNo(tr("Suavizar píxeles"), s.render.smooth);
         } else if (key == "filter") {
-            static const char* names[] = {N_("Ninguno"), N_("Scanlines"), "CRT"};
+            static const char* names[] = {N_("Ninguno"), N_("Scanlines"), "CRT", "LCD"};
             int i = static_cast<int>(s.render.filter);
-            if (comboTr(tr(opt.label), &i, names, 3)) {
+            if (comboTr(tr(opt.label), &i, names, 4)) {
                 s.render.filter = static_cast<Filter2D>(i);
                 edited = true;
             }

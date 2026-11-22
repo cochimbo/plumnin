@@ -36,7 +36,7 @@ bool yes(const std::string& v) {
 }
 
 constexpr const char* kScaleNames[] = {"integer", "fit", "stretch"};
-constexpr const char* kFilterNames[] = {"none", "scanlines", "crt"};
+constexpr const char* kFilterNames[] = {"none", "scanlines", "crt", "lcd"};
 constexpr const char* kUpscaleNames[] = {"none", "xbr", "anime4k"};
 constexpr const char* kRegionNames[] = {"auto", "japan", "usa", "europe"};
 constexpr const char* kSystemKeys[] = {"gameboy", "gameboycolor", "nes", "snes"};

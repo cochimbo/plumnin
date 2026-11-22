@@ -359,7 +359,7 @@ struct CommandLine {
     bool search = false;     // --search: with --library, typing in its search box (screenshots)
     int windowW = 0, windowH = 0;  // --window-size WxH: the window's size (a Steam Deck's 1280x800)
     std::vector<std::string> library;  // --library folder (repeatable): start with the library of those folders open
-    int filter = -1;         // --filter none|scanlines|crt
+    int filter = -1;         // --filter none|scanlines|crt|lcd
     int upscale = -1;        // --upscaling none|xbr|anime4k
     bool fps = false;        // --fps: with the FPS counter on
     bool libraryList = false;     // --list: with --library, show it as a list
@@ -390,7 +390,7 @@ const char* const kHelp = N_(
     "  --console-mode         para jugar con mando (Steam Deck, ROG Ally...): pantalla completa,\n"
     "                         biblioteca y letra grande (--desktop-mode para no usarlo)\n"
     "  --3d / --2d            con o sin la vista pseudo-3D\n"
-    "  --filter f             none, scanlines o crt\n"
+    "  --filter f             none, scanlines, crt o lcd\n"
     "  --upscaling u          none, xbr o anime4k (experimental)\n"
     "  --fps                  mostrar el contador de FPS con su gráfica\n"
     "  --region r             auto, jp, us o eu\n"
@@ -464,7 +464,7 @@ CommandLine parse(int argc, char** argv) {
         }
         else if (a == "--filter") {
             const std::string f = next();
-            c.filter = f == "crt" ? 2 : f == "scanlines" ? 1 : 0;
+            c.filter = f == "lcd" ? 3 : f == "crt" ? 2 : f == "scanlines" ? 1 : 0;
         }
         else if (a == "--upscaling") {
             const std::string r = next();

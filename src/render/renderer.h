@@ -15,8 +15,9 @@ constexpr float kMinTilt = -10.0f, kMaxTilt = 80.0f, kMaxYaw = 75.0f, kMinZoom =
 enum class Style3D { Layers, Voxels };
 
 // Look of the 2D picture: plain, with the dark gaps between a TV's lines, or a whole
-// CRT (scanlines, a slightly curved screen, the phosphor mask and darker corners).
-enum class Filter2D { None, Scanlines, Crt };
+// CRT (scanlines, a slightly curved screen, the phosphor mask and darker corners), or
+// a handheld's LCD (the grid between its pixels and the trail moving things leave).
+enum class Filter2D { None, Scanlines, Crt, Lcd };
 
 // Experimental: the 2D picture drawn bigger than the console made it, guessing the
 // detail. xBR rounds the stairs of the diagonals off; Anime4K is a small neural
@@ -28,7 +29,7 @@ struct RenderOptions {
     ScaleMode scale = ScaleMode::Integer;
     bool smooth = false;     // bilinear filtering instead of sharp pixels
     Filter2D filter = Filter2D::None;  // only the 2D view uses it
-    float filterStrength = 0.6f;       // 0..1, how strong the scanlines and the rest are
+    float filterStrength = 0.6f;       // 0..1, how strong the scanlines, the LCD and the rest are
     Upscale2D upscale = Upscale2D::None;  // only the 2D view uses it; wins over the filter
     bool pseudo3d = false;   // toggled by the "efecto 3D" hotkey: draw with the pseudo-3D renderer
     // Pseudo-3D look, each 0..1 except the tilt.

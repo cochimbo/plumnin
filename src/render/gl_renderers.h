@@ -23,7 +23,7 @@ public:
 protected:
     // Fills `out` (frame.width x frame.height, 0xAARRGGBB) from the frame.
     virtual void compose(const VideoFrame& frame, uint32_t* out) = 0;
-    bool filterable_ = false;  // draws through the scanlines / CRT filter or the upscaler when one is chosen
+    bool filterable_ = false;  // draws through the scanlines / CRT / LCD filter or the upscaler when one is chosen
 
 private:
     gl::GLuint program_ = 0;
@@ -32,6 +32,10 @@ private:
     gl::GLuint texture_ = 0;
     int texWidth_ = 0, texHeight_ = 0;
     std::vector<uint32_t> pixels_;
+    // The LCD filter's trail: what the screen shows, which follows the picture a frame
+    // late, as a slow liquid crystal does. Empty when the filter is off.
+    std::vector<uint32_t> lcd_;
+    uint64_t lcdFrame_ = 0;
     Upscaler upscaler_;
 };
 

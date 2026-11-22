@@ -57,6 +57,10 @@ void main() { outColor = texture(uImage, vUv); }
 // and the corners darken. uStrength 0..1 scales all of it. The picture is sampled by
 // hand: one texel row per beam and, across, a blend of the two nearest texels that is
 // sharp in the middle of a pixel and soft at its edges.
+// uFilter 3 is a handheld's LCD instead: every pixel of the picture is a cell with a
+// thin dark line around it, about one screen pixel wide (it fades away when the picture
+// is too small for it to fit), and the cells are lit a little brighter so the whole keeps
+// its brightness. The trail of a slow LCD is not here: draw() mixes it into the picture.
 constexpr const char* kCrtFragment = R"(#version 330 core
 uniform sampler2D uImage;
 uniform int uFilter;
@@ -87,9 +91,26 @@ float beam(float distance, vec3 colour) {
     return exp(-0.5 * distance * distance / (width * width));
 }
 
+vec3 lcd(vec2 uv, float strength) {
+    vec2 p = uv * uSource;
+    vec2 cell = floor(p), f = p - cell;
+    vec3 c = pow(texel(cell.x, cell.y), vec3(2.2));
+    vec2 size = uOutput / uSource;  // screen pixels per picture pixel
+    float fit = clamp((min(size.x, size.y) - 2.0) / 2.0, 0.0, 1.0);
+    vec2 gap = clamp(1.0 / size, 0.0, 0.3);
+    vec2 inside = smoothstep(vec2(0.0), gap, f) * smoothstep(vec2(0.0), gap, 1.0 - f);
+    float amount = strength * fit;
+    float lit = mix(1.0, mix(0.35, 1.0, inside.x * inside.y), amount);
+    return c * lit * (1.0 + 0.18 * amount);
+}
+
 void main() {
     vec2 uv = vUv;
     float strength = clamp(uStrength, 0.0, 1.0);
+    if (uFilter == 3) {
+        outColor = vec4(pow(clamp(lcd(uv, strength), 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
+        return;
+    }
     if (uFilter == 2) {
         vec2 c = uv * 2.0 - 1.0;
         c *= 1.0 + 0.10 * strength * (c.yx * c.yx);
@@ -348,7 +369,25 @@ void GlTextureRenderer::draw(const VideoFrame& frame, const Viewport& area) {
         resize(texture_, fw, fh);
     }
     compose(frame, pixels_.data());
-    upload(texture_, pixels_.data(), fw, fh, options_.smooth);
+    const bool lcd = filterable_ && options_.filter == Filter2D::Lcd && options_.upscale == Upscale2D::None;
+    if (!lcd) {
+        lcd_.clear();
+    } else if (lcd_.size() != pixels_.size()) {
+        lcd_ = pixels_;
+        lcdFrame_ = frame.frameNumber;
+    } else if (frame.frameNumber != lcdFrame_) {
+        // Once per frame of the console, not per frame of the monitor, so the trail is
+        // as long at 144 Hz as at 60 Hz (and a paused game does not blur away).
+        lcdFrame_ = frame.frameNumber;
+        const uint32_t keep = static_cast<uint32_t>(std::clamp(options_.filterStrength, 0.0f, 1.0f) * 0.45f * 256.0f);
+        for (size_t i = 0; i < pixels_.size(); ++i) {
+            const uint32_t now = pixels_[i], was = lcd_[i];
+            const uint32_t rb = (((now & 0xFF00FFu) * (256 - keep) + (was & 0xFF00FFu) * keep) >> 8) & 0xFF00FFu;
+            const uint32_t g = (((now & 0x00FF00u) * (256 - keep) + (was & 0x00FF00u) * keep) >> 8) & 0x00FF00u;
+            lcd_[i] = (now & 0xFF000000u) | rb | g;
+        }
+    }
+    upload(texture_, lcd ? lcd_.data() : pixels_.data(), fw, fh, options_.smooth);
 
     const Viewport picture = pictureArea(frame, area, options_);
     const int w = picture.width, h = picture.height;
@@ -360,7 +399,7 @@ void GlTextureRenderer::draw(const VideoFrame& frame, const Viewport& area) {
     gl::UseProgram(program);
     gl::Uniform1i(gl::GetUniformLocation(program, "uImage"), 0);
     if (crt) {
-        gl::Uniform1i(gl::GetUniformLocation(program, "uFilter"), options_.filter == Filter2D::Crt ? 2 : 1);
+        gl::Uniform1i(gl::GetUniformLocation(program, "uFilter"), options_.filter == Filter2D::Lcd ? 3 : options_.filter == Filter2D::Crt ? 2 : 1);
         gl::Uniform1f(gl::GetUniformLocation(program, "uStrength"), options_.filterStrength);
         gl::Uniform2f(gl::GetUniformLocation(program, "uSource"), static_cast<float>(fw), static_cast<float>(fh));
         gl::Uniform2f(gl::GetUniformLocation(program, "uOutput"), static_cast<float>(w), static_cast<float>(h));
