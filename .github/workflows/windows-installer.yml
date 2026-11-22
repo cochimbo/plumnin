@@ -19,6 +19,7 @@ env:
   SDL2_VERSION: 2.30.9
   APP_EXE: plumnin.exe
   GENERALUSER_COMMIT: main
+  PDFIUM_BUILD: '8138'
   # Set when a v* tag is pushed, or when the workflow is run by hand with a release_tag.
   RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || inputs.release_tag }}
 
@@ -114,6 +115,17 @@ jobs:
           Invoke-WebRequest "$gu/documentation/LICENSE.txt" -OutFile dist\soundfonts\GeneralUser-GS-LICENSE.txt
           # The 3D view's console models, with the credits their licenses ask for.
           Copy-Item -Recurse assets\models dist\models
+          # PDFium, to read the games' manuals in the 3D view (BSD and Apache licenses: its
+          # LICENSE goes with it). Pinned to one build of bblanchon/pdfium-binaries.
+          $pdf = "$env:RUNNER_TEMP\pdfium"
+          New-Item -ItemType Directory -Force $pdf | Out-Null
+          Invoke-WebRequest "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/$env:PDFIUM_BUILD/pdfium-win-x64.tgz" -OutFile "$pdf\pdfium.tgz"
+          tar -xzf "$pdf\pdfium.tgz" -C $pdf
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Copy-Item "$pdf\bin\pdfium.dll" dist\
+          New-Item -ItemType Directory -Force dist\pdfium-licenses | Out-Null
+          Copy-Item "$pdf\LICENSE" dist\pdfium-licenses\pdfium-LICENSE.txt
+          Copy-Item "$pdf\licenses\*" dist\pdfium-licenses\
           Get-ChildItem dist
 
       - name: Build installer (Inno Setup)

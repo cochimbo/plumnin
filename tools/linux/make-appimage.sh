@@ -4,7 +4,8 @@
 #
 #   tools/linux/make-appimage.sh <build dir> <version> [output dir]
 #
-# Inside the AppImage plumnin sits in usr/bin/ with its license. SDL2 and the other
+# Inside the AppImage plumnin sits in usr/bin/ with its license, its SoundFont and
+# libpdfium.so (for the games' manuals). SDL2 and the other
 # libraries it links to go to usr/lib/ (linuxdeploy picks them); the graphics drivers
 # (libGL, libEGL, Mesa) and glibc stay the system's.
 set -euo pipefail
@@ -20,6 +21,7 @@ out=$(cd "$out" && pwd)
 
 # Pinned versions, as the Windows installer's workflow pins its own.
 LINUXDEPLOY_TAG=${LINUXDEPLOY_TAG:-1-alpha-20250213-2}
+PDFIUM_BUILD=${PDFIUM_BUILD:-8138}
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -38,6 +40,18 @@ mkdir -p "$bin/soundfonts"
 gu="https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/$GENERALUSER_COMMIT"
 curl -sSfL -o "$bin/soundfonts/GeneralUser-GS.sf2" "$gu/GeneralUser-GS.sf2"
 curl -sSfL -o "$bin/soundfonts/GeneralUser-GS-LICENSE.txt" "$gu/documentation/LICENSE.txt"
+
+# PDFium, for the games' manuals in the 3D view (BSD and Apache licenses). It is not given
+# to linuxdeploy: it stays in usr/bin/, where plumnin loads it from when a manual is opened,
+# and it needs nothing beyond glibc.
+curl -sSfL -o "$work/pdfium.tgz" \
+  "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/$PDFIUM_BUILD/pdfium-linux-x64.tgz"
+mkdir -p "$work/pdfium"
+tar -xzf "$work/pdfium.tgz" -C "$work/pdfium"
+install -m 755 "$work/pdfium/lib/libpdfium.so" "$bin/libpdfium.so"
+mkdir -p "$bin/pdfium-licenses"
+cp "$work/pdfium/LICENSE" "$bin/pdfium-licenses/pdfium-LICENSE.txt"
+cp "$work/pdfium/licenses/"* "$bin/pdfium-licenses/"
 
 # The menu entry and the plum icon.
 cp "$here/plumnin.desktop" "$work/plumnin.desktop"

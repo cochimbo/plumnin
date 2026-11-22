@@ -390,6 +390,7 @@ Ui::~Ui() {
     library_.clearTextures();
     gameInfo_.clearTextures();
     scraper_.clearTextures();
+    manual_.clearTextures();
     if (logoTexture_) gl::DeleteTextures(1, &logoTexture_);
     if (iconTexture_) gl::DeleteTextures(1, &iconTexture_);
     ImGui_ImplOpenGL3_Shutdown();
@@ -2238,6 +2239,11 @@ bool Ui::handleLibrary(const SDL_Event& e) {
         }
         return true;
     }
+    // While a manual is read, Page Up/Down and the shoulders turn its pages too.
+    if (settings_.libraryBoxes && shelf_ && shelf_->stage() == BoxShelf::Stage::Manual && (action == PrevTab || action == NextTab)) {
+        shelf_->turnPage(action == NextTab ? 1 : -1);
+        return true;
+    }
     if (action == PrevTab || action == NextTab) {
         // Tabs: all, history, favourites, then each console; wraps around.
         const std::vector<int> tabs = libraryTabs();
@@ -2260,6 +2266,8 @@ bool Ui::handleLibrary(const SDL_Event& e) {
             return true;
         }
         if (action == Close && shelf_->back()) return true;
+        // Left opens the manual of an open box; Left and Right turn its pages.
+        if ((action == Left || action == Right) && shelf_->side(action == Right ? 1 : -1)) return true;
         if (shelf_->busy() && action != Close && action != Search && action != Menu) return true;
     }
     const int count = static_cast<int>(visibleGames().size());
@@ -2794,6 +2802,37 @@ void Ui::drawLibraryBoxes(const std::vector<size_t>& visible) {
         if (g.sleeve) items.push_back({g.sleeve, g.sleeveWidth, g.sleeveHeight, g.system, g.label, g.labelWidth, g.labelHeight, false});
         else items.push_back({g.texture, g.width, g.height, g.system, g.label, g.labelWidth, g.labelHeight, false});
     }
+    // The chosen game's manual, from what ScreenScraper downloaded of it.
+    const int chosen = libraryView_.selected;
+    if (chosen >= 0 && chosen < static_cast<int>(visible.size())) {
+        const Library::Game& g = games[visible[static_cast<size_t>(chosen)]];
+        const double now = ImGui::GetTime();
+        if (g.path != manualFor_ || now - manualChecked_ > 3.0) {
+            manualFor_ = g.path;
+            manualChecked_ = now;
+            const std::string dir = scraper_.gameFolder({g.path, g.stem, g.title, g.tags, g.system});
+            std::error_code ec;
+            manualFile_ = !dir.empty() && std::filesystem::is_regular_file(std::filesystem::u8path(dir + "manual.pdf"), ec)
+                              ? dir + "manual.pdf" : std::string();
+        }
+        items[static_cast<size_t>(chosen)].manual = !manualFile_.empty();
+        // Opened with the box, so that its cover is in it before it comes out.
+        const BoxShelf::Stage stage = shelf_->stage();
+        if (stage == BoxShelf::Stage::Cartridge || stage == BoxShelf::Stage::Manual) manual_.open(manualFile_);
+        manual_.update();
+        int first = 0, last = 0;
+        shelf_->manualPages(&first, &last);
+        manual_.want(first, last);
+        std::vector<BoxShelf::Page> pages;
+        if (manual_.path() == manualFile_ && manual_.pageCount() > 0) {
+            pages.resize(static_cast<size_t>(manual_.pageCount()));
+            for (int i = 0; i < manual_.pageCount(); ++i) {
+                const ManualReader::Page p = manual_.page(i);
+                pages[static_cast<size_t>(i)] = {p.texture, p.width, p.height};
+            }
+        }
+        shelf_->setManual(std::move(pages));
+    }
     // Drawn at twice the window's pixels and shrunk, for smooth edges.
     const ImGuiIO& io = ImGui::GetIO();
     float scale = 2.0f * std::max(1.0f, io.DisplayFramebufferScale.x);
@@ -2838,7 +2877,13 @@ void Ui::drawLibraryBoxes(const std::vector<size_t>& visible) {
             case BoxShelf::Stage::Shelf: hint = tr("Clic o A: sacar la caja   Rueda o stick derecho: zoom   Arrastrar o flechas: moverse"); break;
             case BoxShelf::Stage::Box: hint = tr("Arrastrar o stick izquierdo: girarla   Rueda o stick derecho: zoom   Clic en la caja o A: sacar el cartucho   Clic fuera o B: devolverla"); break;
             case BoxShelf::Stage::Cartridge:
-                hint = tr("Arrastrar o stick izquierdo: girarlo   Rueda o stick derecho: zoom   Clic en el cartucho o A: jugar   Clic fuera o B: guardarlo");
+                hint = !manualFile_.empty() ? tr("Clic en el cartucho o A: jugar   Clic en el manual o flecha izquierda: leerlo   Stick izquierdo: girarlo   Rueda o stick derecho: zoom   B: guardarlo")
+                                            : tr("Arrastrar o stick izquierdo: girarlo   Rueda o stick derecho: zoom   Clic en el cartucho o A: jugar   Clic fuera o B: guardarlo");
+                break;
+            case BoxShelf::Stage::Manual:
+                hint = !manual_.error().empty() ? manual_.error().c_str()
+                       : manual_.pageCount() < 0 ? tr("Abriendo el manual...")
+                                                 : tr("Clic en una página o flechas: pasar páginas   Rueda: zoom   Arrastrar: moverse   B: cerrarlo");
                 break;
             default: break;
         }

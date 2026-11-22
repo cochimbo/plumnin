@@ -198,6 +198,9 @@ msgstr "Open a ROM to save a 3D profile of its own."
 msgid "Abre una ROM, o elige un juego en la biblioteca con el botón derecho."
 msgstr "Open a ROM, or pick a game in the library with the right button."
 
+msgid "Abriendo el manual..."
+msgstr "Opening the manual..."
+
 msgid "Abrir .spc..."
 msgstr "Open .spc..."
 
@@ -636,6 +639,12 @@ msgstr "Claves"
 msgid "Clavinet"
 msgstr "Clavinet"
 
+msgid "Clic en el cartucho o A: jugar   Clic en el manual o flecha izquierda: leerlo   Stick izquierdo: girarlo   Rueda o stick derecho: zoom   B: guardarlo"
+msgstr "Click the cartridge or A: play   Click the manual or left arrow: read it   Left stick: turn it   Wheel or right stick: zoom   B: put it away"
+
+msgid "Clic en una página o flechas: pasar páginas   Rueda: zoom   Arrastrar: moverse   B: cerrarlo"
+msgstr "Click a page or arrows: turn pages   Wheel: zoom   Drag: move   B: close it"
+
 msgid "Clic o A: sacar la caja   Rueda o stick derecho: zoom   Arrastrar o flechas: moverse"
 msgstr "Click or A: take the box out   Wheel or right stick: zoom   Drag or arrows: move"
 
@@ -1015,6 +1024,12 @@ msgstr "The game uses the general 3D again"
 msgid "El juego vuelve a usar la pantalla ancha general"
 msgstr "The game goes back to the general widescreen"
 
+msgid "El manual no es un PDF que se pueda abrir."
+msgstr "The manual is not a PDF that can be opened."
+
+msgid "El manual no tiene páginas."
+msgstr "The manual has no pages."
+
 msgid "El otro jugador ha salido de la partida."
 msgstr "The other player has left the game."
 
@@ -1222,6 +1237,9 @@ msgstr "Bassoon"
 
 msgid "Falta la función %s"
 msgstr "The function %s is missing"
+
+msgid "Falta pdfium.dll junto a plumnin: sin ella no se pueden leer los manuales."
+msgstr "pdfium.dll is missing next to plumnin: without it manuals cannot be read."
 
 msgid "Favoritos"
 msgstr "Favourites"

@@ -20,6 +20,7 @@
 #include "input.h"
 #include "library.h"
 #include "osk.h"
+#include "manual.h"
 #include "screenscraper.h"
 #include "settings.h"
 
@@ -309,6 +310,12 @@ private:
     Library library_;
     GameInfo gameInfo_;
     ScreenScraper scraper_;
+    // The chosen game's manual in the 3D view, and whether it has one (looked for again
+    // every few seconds, as it may have just been downloaded).
+    ManualReader manual_;
+    std::string manualFor_;   // the ROM it was looked for
+    std::string manualFile_;  // its manual.pdf, "" if none
+    double manualChecked_ = 0;
     std::set<ImWchar> fontExtra_;  // characters beyond the base ranges that texts have needed
     ImVector<ImWchar> fontRanges_;  // the atlas's ranges, alive until it is built
     bool fontsDirty_ = false;

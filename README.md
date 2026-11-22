@@ -165,6 +165,13 @@ there is:
   cartucho**), or else the front. The consoles are real 3D
   models (see License), made lighter by `tools/models/prepare.py`; a `.glb` of the same
   name in `models/` next to `plumnin.ini` takes their place.
+- **Manuals in the 3D boxes**, as in plumsg: with a box open and its cartridge out, a
+  click on the manual behind the holder (or the left arrow) brings it out in front, open
+  at its pages. A click on the right page (the right arrow, Page Down or RB) turns to the
+  next ones, on the left page (left arrow, Page Up or LB) back; the wheel zooms in and
+  dragging moves over the page. The pages are drawn from the PDF ScreenScraper has of the
+  game (**Manual** in **Scraping > What to download...**, saved as `manual.pdf` in the
+  game's folder) with PDFium, `pdfium.dll` (`libpdfium.so` on Linux) next to plumnin.
 - Netplay over UDP with rollback.
 - `plumnin-headless`, the emulator without a window, for tests, CI and reproducing bugs.
 - A common interface for the consoles (`src/core/console.h`): each console only has to
@@ -252,7 +259,9 @@ with `tools/linux/make-appimage.sh <build dir> <version>`.
 MIT (see [LICENSE](LICENSE)). plumnin does not include any game or BIOS. The
 synthesizer uses TinySoundFont (MIT, `third_party/tsf`), and the SoundFont that comes
 with it is GeneralUser GS by S. Christian Collins, with its own free license
-(`soundfonts/GeneralUser-GS-LICENSE.txt` in the installation). The 3D shelf's consoles
+(`soundfonts/GeneralUser-GS-LICENSE.txt` in the installation). The manuals are read with
+PDFium (BSD-3-Clause and Apache 2.0, the prebuilt library of bblanchon/pdfium-binaries;
+its licenses go in `pdfium-licenses` in the installation). The 3D shelf's consoles
 are ["Nintendo Game Boy (Original 1989)"](https://sketchfab.com/3d-models/nintendo-game-boy-original-1989-ad2f6be906e948f793fe722bbae5d29c)
 by lokeig (CC BY-NC 4.0: not for commercial use),
 ["Game Boy Color"](https://sketchfab.com/3d-models/game-boy-color-03c6fe28d45244d2acd55486e3cfee19)

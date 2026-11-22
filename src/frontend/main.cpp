@@ -368,7 +368,7 @@ struct CommandLine {
     int upscale = -1;        // --upscaling none|xbr|anime4k
     bool fps = false;        // --fps: with the FPS counter on
     bool libraryList = false;     // --list: with --library, show it as a list
-    int libraryBoxes = -1;        // --boxes [1-4]: with --library, show its 3D boxes (and hold one open at that step)
+    int libraryBoxes = -1;        // --boxes [1-5]: with --library, show its 3D boxes (and hold one open at that step)
     int media = 0;                // --media [search|all]: with --library, the first game's ScreenScraper media (1 downloaded, 2 searched for, 3 every game's)
     bool cheats = false;          // --cheats: start with the game's Cheats window open
     bool instruments = false;     // --instruments: start with the instrument editor open
@@ -445,9 +445,9 @@ CommandLine parse(int argc, char** argv) {
         else if (a == "--fps") c.fps = true;
         else if (a == "--library") c.library.push_back(next());
         else if (a == "--boxes") {
-            // Undocumented steps, for screenshots: 1 the box out, 2 its cartridge out, 3 on the way, 4 in the console.
+            // Undocumented steps, for screenshots: 1 the box out, 2 its cartridge out, 3 on the way, 4 in the console, 5 its manual read.
             c.libraryBoxes = 0;
-            if (i + 1 < argc && argv[i + 1][0] >= '1' && argv[i + 1][0] <= '4' && !argv[i + 1][1]) c.libraryBoxes = argv[++i][0] - '0';
+            if (i + 1 < argc && argv[i + 1][0] >= '1' && argv[i + 1][0] <= '5' && !argv[i + 1][1]) c.libraryBoxes = argv[++i][0] - '0';
         }
         else if (a == "--list") c.libraryList = true;
         else if (a == "--media") {

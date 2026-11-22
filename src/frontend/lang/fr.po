@@ -198,6 +198,9 @@ msgstr "Ouvrez une ROM pour lui sauvegarder un profil 3D propre."
 msgid "Abre una ROM, o elige un juego en la biblioteca con el botón derecho."
 msgstr "Ouvrez une ROM, ou choisissez un jeu dans la bibliothèque avec le bouton droit."
 
+msgid "Abriendo el manual..."
+msgstr "Ouverture du manuel..."
+
 msgid "Abrir .spc..."
 msgstr "Ouvrir un .spc..."
 
@@ -636,6 +639,12 @@ msgstr "Claves"
 msgid "Clavinet"
 msgstr "Clavinet"
 
+msgid "Clic en el cartucho o A: jugar   Clic en el manual o flecha izquierda: leerlo   Stick izquierdo: girarlo   Rueda o stick derecho: zoom   B: guardarlo"
+msgstr "Clic sur la cartouche ou A : jouer   Clic sur le manuel ou flèche gauche : le lire   Stick gauche : la tourner   Molette ou stick droit : zoom   B : la ranger"
+
+msgid "Clic en una página o flechas: pasar páginas   Rueda: zoom   Arrastrar: moverse   B: cerrarlo"
+msgstr "Clic sur une page ou flèches : tourner les pages   Molette : zoom   Glisser : se déplacer   B : le fermer"
+
 msgid "Clic o A: sacar la caja   Rueda o stick derecho: zoom   Arrastrar o flechas: moverse"
 msgstr "Clic ou A : sortir la boîte   Molette ou stick droit : zoom   Glisser ou flèches : se déplacer"
 
@@ -1015,6 +1024,12 @@ msgstr "Le jeu utilise de nouveau la 3D générale"
 msgid "El juego vuelve a usar la pantalla ancha general"
 msgstr "Le jeu reprend l'écran large général"
 
+msgid "El manual no es un PDF que se pueda abrir."
+msgstr "Le manuel n'est pas un PDF qui peut être ouvert."
+
+msgid "El manual no tiene páginas."
+msgstr "Le manuel n'a pas de pages."
+
 msgid "El otro jugador ha salido de la partida."
 msgstr "L'autre joueur a quitté la partie."
 
@@ -1222,6 +1237,9 @@ msgstr "Basson"
 
 msgid "Falta la función %s"
 msgstr "Il manque la fonction %s"
+
+msgid "Falta pdfium.dll junto a plumnin: sin ella no se pueden leer los manuales."
+msgstr "pdfium.dll manque à côté de plumnin : sans elle, les manuels ne peuvent pas être lus."
 
 msgid "Favoritos"
 msgstr "Favoris"
