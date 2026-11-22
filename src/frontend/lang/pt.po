@@ -48,8 +48,14 @@ msgstr "%d truques ativos"
 msgid "%s no es una imagen PNG o JPEG"
 msgstr "%s não é uma imagem PNG ou JPEG"
 
+msgid "%s ya no está en favoritos"
+msgstr "%s já não está nos favoritos"
+
 msgid "%s, %u puntos"
 msgstr "%s, %u pontos"
+
+msgid "%s, en favoritos"
+msgstr "%s adicionado aos favoritos"
 
 msgid "%s: %d %s, de %s a %s. Sugerencia: %s."
 msgstr "%s: %d %s, de %s a %s. Sugestão: %s."
@@ -300,6 +306,12 @@ msgstr "Arraste uma ROM aqui, use Arquivo > Abrir ROM ou abra a biblioteca (F10 
 msgid "Arrastra una ROM aquí, usa Archivo > Abrir ROM o abre la biblioteca (F10)"
 msgstr "Arraste uma ROM aqui, use Arquivo > Abrir ROM ou abra a biblioteca (F10)"
 
+msgid "Arrastrar o stick izquierdo: girarla   Rueda o stick derecho: zoom   Clic en la caja o A: sacar el cartucho   Clic fuera o B: devolverla"
+msgstr "Arrastar ou stick esquerdo: rodá-la   Roda ou stick direito: zoom   Clique na caixa ou A: tirar o cartucho   Clique fora ou B: devolvê-la"
+
+msgid "Arrastrar o stick izquierdo: girarlo   Rueda o stick derecho: zoom   Clic en el cartucho o A: jugar   Clic fuera o B: guardarlo"
+msgstr "Arrastar ou stick esquerdo: girá-lo   Roda ou stick direito: zoom   Clique no cartucho ou A: jogar   Clique fora ou B: guardá-lo"
+
 msgid "Arriba"
 msgstr "Cima"
 
@@ -348,6 +360,9 @@ msgstr "O código mestre também foi adicionado: sem ele o jogo não iniciaria"
 msgid "Añadir"
 msgstr "Adicionar"
 
+msgid "Añadir a favoritos"
+msgstr "Adicionar aos favoritos"
+
 msgid "Añadir carpeta..."
 msgstr "Adicionar pasta..."
 
@@ -357,8 +372,14 @@ msgstr "Adicionar só o que falta (rápido: não volta a pedir o jogo)"
 msgid "Año"
 msgstr "Ano"
 
+msgid "Aún no has jugado a ningún juego de la biblioteca: los que abras aparecerán aquí, el último el primero."
+msgstr "Ainda não jogaste nenhum jogo da biblioteca: os que abrires aparecem aqui, o último primeiro."
+
 msgid "Aún no se ha descargado nada de este juego: pulsa Descargar de ScreenScraper."
 msgstr "Nada foi baixado deste jogo ainda: aperte Descarregar do ScreenScraper."
+
+msgid "Aún no tienes favoritos: pulsa con el botón derecho sobre un juego y elige «Añadir a favoritos»."
+msgstr "Ainda não tens favoritos: clica com o botão direito num jogo e escolhe «Adicionar aos favoritos»."
 
 msgid "Bajo acústico"
 msgstr "Baixo acústico"
@@ -503,6 +524,9 @@ msgstr "Caixa elétrica"
 msgid "Caja en 3D"
 msgstr "Caixa em 3D"
 
+msgid "Cajas 3D"
+msgstr "Caixas 3D"
+
 msgid "Cambia de vista con V o con Select en el mando."
 msgstr "Troque de visualização com V ou com Select no controle."
 
@@ -611,6 +635,9 @@ msgstr "Claves"
 
 msgid "Clavinet"
 msgstr "Clavinet"
+
+msgid "Clic o A: sacar la caja   Rueda o stick derecho: zoom   Arrastrar o flechas: moverse"
+msgstr "Clique ou A: tirar a caixa   Roda ou stick direito: zoom   Arrastar ou setas: mover-se"
 
 msgid ""
 "Como si no hubiera nada enchufado en el segundo puerto. En una partida en red el mando 2\n"
@@ -970,6 +997,9 @@ msgstr "O anfitrião não responde. Confira o endereço e se ele está com a por
 msgid "El anfitrión usa otra versión de plumnin: tenéis que usar la misma."
 msgstr "O anfitrião usa outra versão do plumnin: vocês precisam usar a mesma."
 
+msgid "El histórico va del último juego al que has jugado al primero."
+msgstr "O histórico vai do último jogo que jogaste ao primeiro."
+
 msgid "El juego abierto tiene sus propios botones (en Opciones de este juego); aquí cambias los generales."
 msgstr "O jogo aberto tem seus próprios botões (em Opções deste jogo); aqui você muda os gerais."
 
@@ -1035,6 +1065,12 @@ msgstr "Em casa, seu amigo entra em %s:%d."
 
 msgid "En esta pista no suena música."
 msgstr "Não toca música nesta faixa."
+
+msgid "En favoritos"
+msgstr "Nos favoritos"
+
+msgid "En las cajas 3D los juegos van por consola y, en cada una, por título."
+msgstr "Nas caixas 3D os jogos vão por consola e, em cada uma, por título."
 
 msgid "En modo hardcore no se pueden cargar estados"
 msgstr "No modo hardcore não dá para carregar estados"
@@ -1186,6 +1222,9 @@ msgstr "Fagote"
 
 msgid "Falta la función %s"
 msgstr "Falta a função %s"
+
+msgid "Favoritos"
+msgstr "Favoritos"
 
 msgid "Fecha"
 msgstr "Data"
@@ -1422,6 +1461,9 @@ msgstr "Tirei 1 música da ROM: está na lista de faixas."
 msgid "Helicóptero"
 msgstr "Helicóptero"
 
+msgid "Histórico"
+msgstr "Histórico"
+
 msgid "Huella"
 msgstr "Impressão"
 
@@ -1614,6 +1656,9 @@ msgstr "A sessão expirou: digite a senha de novo."
 
 msgid "La#"
 msgstr "Lá#"
+
+msgid "Las cajas de los juegos en 3D: ábrelas y lleva el cartucho a la consola para jugar."
+msgstr "As caixas dos jogos em 3D: abra uma e leve o cartucho ao console para jogar."
 
 msgid ""
 "Las canciones del juego y sus instrumentos, con lo que suena en el sintetizador:\n"
@@ -2269,6 +2314,12 @@ msgstr ""
 
 msgid "Quitar"
 msgstr "Remover"
+
+msgid "Quitar de favoritos"
+msgstr "Remover dos favoritos"
+
+msgid "Quitar del histórico"
+msgstr "Remover do histórico"
 
 msgid "Quitar la cuenta"
 msgstr "Remover a conta"
@@ -3191,21 +3242,3 @@ msgstr "Órgão de rock"
 
 msgid "Órganos"
 msgstr "Órgãos"
-
-msgid "Cajas 3D"
-msgstr "Caixas 3D"
-
-msgid "Las cajas de los juegos en 3D: ábrelas y lleva el cartucho a la consola para jugar."
-msgstr "As caixas dos jogos em 3D: abra uma e leve o cartucho ao console para jogar."
-
-msgid "En las cajas 3D los juegos van por consola y, en cada una, por título."
-msgstr "Nas caixas 3D os jogos vão por consola e, em cada uma, por título."
-
-msgid "Clic o A: sacar la caja   Rueda o stick derecho: zoom   Arrastrar o flechas: moverse"
-msgstr "Clique ou A: tirar a caixa   Roda ou stick direito: zoom   Arrastar ou setas: mover-se"
-
-msgid "Arrastrar o stick izquierdo: girarla   Rueda o stick derecho: zoom   Clic en la caja o A: sacar el cartucho   Clic fuera o B: devolverla"
-msgstr "Arrastar ou stick esquerdo: rodá-la   Roda ou stick direito: zoom   Clique na caixa ou A: tirar o cartucho   Clique fora ou B: devolvê-la"
-
-msgid "Arrastrar o stick izquierdo: girarlo   Rueda o stick derecho: zoom   Clic en el cartucho o A: jugar   Clic fuera o B: guardarlo"
-msgstr "Arrastar ou stick esquerdo: girá-lo   Roda ou stick direito: zoom   Clique no cartucho ou A: jogar   Clique fora ou B: guardá-lo"

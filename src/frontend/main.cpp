@@ -814,6 +814,7 @@ int main(int argc, char** argv) {
             applyConsole();
             if (settings.achievements && !capturing) achievements.loadGame(*app->console, app->achievementsHash);
             settings.addRecent(path);
+            settings.addHistory(path);  // the library's Histórico tab
             if (!game.own.empty()) ui->notify(trf("Opciones propias de %s", fileName(path).c_str()));
             if (!app->console->loadNotice().empty()) ui->notify(app->console->loadNotice());
             rewind.clear();

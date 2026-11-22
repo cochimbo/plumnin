@@ -212,6 +212,42 @@ void testCrashReport() {
 }
 #endif
 
+void testHistoryAndFavorites() {
+    Settings s;
+    s.addHistory("/roms/tetris.gb");
+    s.addHistory("/roms/zelda.sfc");
+    s.addHistory("/roms/tetris.gb");
+    check(s.history.size() == 2 && s.history[0] == "/roms/tetris.gb", "histórico: el último juego el primero, sin repetir");
+    for (int i = 0; i < 300; ++i) s.addHistory("/roms/juego" + std::to_string(i) + ".gb");
+    check(s.history.size() == Settings::kMaxHistory, "histórico: como mucho kMaxHistory juegos");
+    s.removeHistory("/roms/juego299.gb");
+    check(s.history[0] == "/roms/juego298.gb", "histórico: se quita un juego");
+    check(Settings::samePath("C:\\roms\\tetris.gb", "C:/roms/tetris.gb"), "rutas: las barras de los dos lados valen");
+
+    s.setFavorite("/roms/tetris.gb", true);
+    s.setFavorite("/roms/tetris.gb", true);
+    s.setFavorite("/roms/kirby.nes", true);
+    check(s.favorites.size() == 2 && s.isFavorite("/roms/kirby.nes"), "favoritos: se marcan una sola vez");
+    s.setFavorite("/roms/kirby.nes", false);
+    check(!s.isFavorite("/roms/kirby.nes") && s.isFavorite("/roms/tetris.gb"), "favoritos: se quitan");
+
+    s.librarySystem = Settings::kTabFavorites;
+    std::ostringstream out;
+    s.write(out);
+    Settings again;
+    std::istringstream text(out.str());
+    Settings::parse(text, again);
+    check(again.history == s.history, "histórico: plumnin.ini lo guarda en orden");
+    check(again.favorites == s.favorites, "favoritos: plumnin.ini los guarda");
+    check(again.librarySystem == Settings::kTabFavorites, "biblioteca: plumnin.ini recuerda la pestaña de favoritos");
+    s.librarySystem = Settings::kTabHistory;
+    std::ostringstream out2;
+    s.write(out2);
+    std::istringstream text2(out2.str());
+    Settings::parse(text2, again);
+    check(again.librarySystem == Settings::kTabHistory, "biblioteca: plumnin.ini recuerda la pestaña del histórico");
+}
+
 }  // namespace
 
 int main() {
@@ -222,6 +258,7 @@ int main() {
     testOverclockOption();
 
     testConsoleMode();
+    testHistoryAndFavorites();
 #ifndef _WIN32
     testCrashReport();
 #endif

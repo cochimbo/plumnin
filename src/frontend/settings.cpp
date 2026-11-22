@@ -58,6 +58,41 @@ void Settings::removeRecent(const std::string& path) {
     recent.erase(std::remove(recent.begin(), recent.end(), path), recent.end());
 }
 
+std::string Settings::pathKey(const std::string& path) {
+    std::string k = path;
+    std::replace(k.begin(), k.end(), '\\', '/');
+#ifdef _WIN32
+    k = lower(k);
+#endif
+    return k;
+}
+
+bool Settings::samePath(const std::string& a, const std::string& b) { return pathKey(a) == pathKey(b); }
+
+void Settings::removeHistory(const std::string& path) {
+    history.erase(std::remove_if(history.begin(), history.end(), [&](const std::string& h) { return samePath(h, path); }),
+                  history.end());
+}
+
+void Settings::addHistory(const std::string& path) {
+    if (path.empty()) return;
+    removeHistory(path);
+    history.insert(history.begin(), path);
+    if (history.size() > kMaxHistory) history.resize(kMaxHistory);
+}
+
+bool Settings::isFavorite(const std::string& path) const {
+    return std::any_of(favorites.begin(), favorites.end(), [&](const std::string& f) { return samePath(f, path); });
+}
+
+void Settings::setFavorite(const std::string& path, bool favorite) {
+    if (path.empty() || isFavorite(path) == favorite) return;
+    if (favorite) favorites.push_back(path);
+    else
+        favorites.erase(std::remove_if(favorites.begin(), favorites.end(), [&](const std::string& f) { return samePath(f, path); }),
+                        favorites.end());
+}
+
 Settings Settings::load(const std::string& path) {
     Settings s;
     std::ifstream in(path);
@@ -158,9 +193,12 @@ void Settings::parse(std::istream& in, Settings& s) {
                 for (int i = 0; i < Settings::kLibrarySorts; ++i)
                     if (iniName(lower(value)) == kLibrarySortKeys[i]) s.librarySort = i;
             } else if (key == "system") {
-                s.librarySystem = -1;
+                s.librarySystem = kTabAll;
+                const std::string v = iniName(lower(value));
+                if (v == "history") s.librarySystem = kTabHistory;
+                else if (v == "favorites") s.librarySystem = kTabFavorites;
                 for (int i = 0; i < kSystemCount; ++i)
-                    if (iniName(lower(value)) == kSystemKeys[i]) s.librarySystem = i;
+                    if (v == kSystemKeys[i]) s.librarySystem = i;
             }
         } else if (section == "network") {
             if (key == "port") s.netPort = std::clamp(std::atoi(value.c_str()), 1, 65535);
@@ -181,6 +219,14 @@ void Settings::parse(std::istream& in, Settings& s) {
         } else if (section == "recent") {
             if (key == "rom" && !value.empty() && s.recent.size() < kMaxRecent) s.recent.push_back(value);
             else if (key == "last_folder") s.lastFolder = value;
+        } else if (section == "history") {
+            if (key == "rom" && !value.empty() && s.history.size() < kMaxHistory) {
+                bool seen = false;
+                for (const auto& h : s.history) seen = seen || samePath(h, value);
+                if (!seen) s.history.push_back(value);
+            }
+        } else if (section == "favorites") {
+            if (key == "rom" && !value.empty()) s.setFavorite(value, true);
         }
     }
 }
@@ -267,12 +313,18 @@ void Settings::write(std::ostream& out) const {
         << "slot = " << stateSlot << "\n"
         << "\n[library]\n"
         << "# folder: where your games are (one line per folder). open_at_start: show the library when\n"
-        << "# plumnin opens without a game. system: the chosen tab (all, gameboy, gameboycolor, nes or snes).\n"
+        << "# plumnin opens without a game. system: the chosen tab (all, history, favorites,\n"
+        << "# gameboy, gameboycolor, nes or snes).\n"
         << "# view: grid, list or boxes. details: the right-hand panel with the chosen game's data.\n"
         << "# sort: title, console, year, genre or developer. cover_width: the grid's covers, in pixels.\n";
     for (const auto& f : libraryFolders) out << "folder = " << f << "\n";
     out << "open_at_start = " << flag(libraryAtStart) << "\n"
-        << "system = " << (librarySystem >= 0 && librarySystem < kSystemCount ? kSystemKeys[librarySystem] : "all") << "\n"
+        << "system = "
+        << (librarySystem >= 0 && librarySystem < kSystemCount ? kSystemKeys[librarySystem]
+            : librarySystem == kTabHistory                    ? "history"
+            : librarySystem == kTabFavorites                  ? "favorites"
+                                                              : "all")
+        << "\n"
         << "view = " << (libraryBoxes ? "boxes" : libraryList ? "list" : "grid") << "\n"
         << "details = " << flag(libraryDetails) << "\n"
         << "cover_width = " << libraryCoverWidth << "\n"
@@ -304,6 +356,12 @@ void Settings::write(std::ostream& out) const {
         << "\n[recent]\n";
     if (!lastFolder.empty()) out << "last_folder = " << lastFolder << "\n";
     for (const auto& r : recent) out << "rom = " << r << "\n";
+    out << "\n[history]\n"
+        << "# The games played, the last one first (the library's History tab).\n";
+    for (const auto& h : history) out << "rom = " << h << "\n";
+    out << "\n[favorites]\n"
+        << "# The games marked as favourites in the library (right click on a game).\n";
+    for (const auto& f : favorites) out << "rom = " << f << "\n";
 }
 
 }  // namespace plumnin

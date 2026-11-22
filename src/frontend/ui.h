@@ -277,6 +277,13 @@ private:
     void rescanLibrary();
     bool handleLibrary(const SDL_Event& e);
     std::vector<size_t> visibleGames();
+    // Whether the game is one of the favourites (settings_.favorites, by pathKey).
+    bool isFavorite(const Library::Game& g);
+    std::vector<std::string> favoriteKeysFor_;
+    std::set<std::string> favoriteKeys_;
+    int favoriteFrame_ = -1;
+    // Goes to a tab of the library (Settings::librarySystem).
+    void setLibraryTab(int tab);
     void drawStateMenu(const UiState& state, UiActions& out);
     void drawStateSlots(const UiState& state);
     // The options of the states menu's tab `tab` (1 on): the ones that change while playing.
@@ -379,11 +386,13 @@ private:
         bool focusSearch = false;
         int load = -1;         // index into the filtered list chosen this frame
         bool tabChanged = false;  // the console tab was changed with the pad or the keyboard
+        bool tabsDrawn = false;   // the tab bar was drawn once (and shows the remembered tab)
         // The menu of one game (right click, X on the pad or the menu key): its index in
         // the filtered list, the item chosen with the pad or the keys, and a request to open it.
-        // Jugar, Trucos, Opciones de este juego, Buscar en ScreenScraper por nombre, Carátula desde imagen,
-        // Medios de ScreenScraper
-        static constexpr int kItems = 7;
+        // Jugar, Añadir a / Quitar de favoritos, (Quitar del histórico,) Trucos, Opciones de este juego,
+        // Editor de instrumentos, Buscar en ScreenScraper por nombre, Carátula desde imagen, Medios de
+        // ScreenScraper: how many it had, as last drawn.
+        int menuItems = 8;
         int menuGame = -1;
         int menuItem = 0;
         bool openMenu = false;

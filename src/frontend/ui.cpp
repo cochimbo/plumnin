@@ -114,6 +114,28 @@ void drawCheatIcon(ImDrawList* draw, ImVec2 at, float size, ImU32 colour) {
 }
 constexpr ImU32 kCheatColour = IM_COL32(110, 230, 150, 255);
 
+// A five-pointed star in a `size` square at `at`, the mark of a favourite: a fan of
+// triangles from its centre (the star is not convex).
+void drawStar(ImDrawList* draw, ImVec2 at, float size, ImU32 colour) {
+    const ImVec2 c(at.x + size * 0.5f, at.y + size * 0.53f);
+    ImVec2 p[10];
+    for (int i = 0; i < 10; ++i) {
+        const float r = size * (i % 2 ? 0.21f : 0.5f);
+        const float a = -1.5707963f + static_cast<float>(i) * 0.62831853f;
+        p[i] = ImVec2(c.x + std::cos(a) * r, c.y + std::sin(a) * r);
+    }
+    for (int i = 0; i < 10; ++i) draw->AddTriangleFilled(c, p[i], p[(i + 1) % 10], colour);
+}
+constexpr ImU32 kFavoriteColour = IM_COL32(255, 196, 60, 255);
+
+// The library's tabs, in order: every game, the ones played lately, the favourites and
+// then each console.
+std::vector<int> libraryTabs() {
+    std::vector<int> tabs = {Settings::kTabAll, Settings::kTabHistory, Settings::kTabFavorites};
+    for (int i = 0; i < kSystemCount; ++i) tabs.push_back(i);
+    return tabs;
+}
+
 // Back to the default look of the pseudo-3D (the effect itself stays on or off).
 void reset3D(RenderOptions& r) {
     const RenderOptions defaults;
@@ -2056,9 +2078,22 @@ std::vector<size_t> Ui::visibleGames() {
     const std::string filter = searchKey(libraryView_.search);
     std::vector<size_t> out;
     const auto& games = library_.games();
+    auto matches = [&](size_t i) { return filter.empty() || games[i].key.find(filter) != std::string::npos; };
+    // The history goes the last game played first, whatever the order chosen; only the
+    // games in the library's folders.
+    if (settings_.librarySystem == Settings::kTabHistory) {
+        std::map<std::string, size_t> byPath;
+        for (size_t i = 0; i < games.size(); ++i) byPath.emplace(Settings::pathKey(games[i].path), i);
+        for (const auto& h : settings_.history)
+            if (const auto it = byPath.find(Settings::pathKey(h)); it != byPath.end() && matches(it->second))
+                out.push_back(it->second);
+        return out;
+    }
+    const bool favorites = settings_.librarySystem == Settings::kTabFavorites;
     for (size_t i = 0; i < games.size(); ++i) {
         if (settings_.librarySystem >= 0 && static_cast<int>(games[i].system) != settings_.librarySystem) continue;
-        if (filter.empty() || games[i].key.find(filter) != std::string::npos) out.push_back(i);
+        if (favorites && !isFavorite(games[i])) continue;
+        if (matches(i)) out.push_back(i);
     }
     // The library is in title order; the other orders keep it among equals, and games
     // with nothing to sort by go last.
@@ -2114,6 +2149,25 @@ void Ui::setLibraryView(int view) {
 // goes back to the game if one is running (Esc closes it always), Y (or Ctrl+F) goes to the search
 // box, Back changes the view, and the shoulder buttons (or Page Up and Page Down) change
 // the console tab.
+bool Ui::isFavorite(const Library::Game& g) {
+    // Looked at again once a frame: the favourites only change between frames.
+    if (favoriteFrame_ != ImGui::GetFrameCount() && (favoriteFrame_ = ImGui::GetFrameCount(), favoriteKeysFor_ != settings_.favorites)) {
+        favoriteKeysFor_ = settings_.favorites;
+        favoriteKeys_.clear();
+        for (const auto& f : settings_.favorites) favoriteKeys_.insert(Settings::pathKey(f));
+    }
+    return !favoriteKeys_.empty() && favoriteKeys_.count(Settings::pathKey(g.path)) > 0;
+}
+
+void Ui::setLibraryTab(int tab) {
+    if (settings_.librarySystem == tab) return;
+    settings_.librarySystem = tab;
+    libraryView_.selected = 0;
+    libraryView_.scroll = true;
+    pendingSave_ = true;
+    if (shelf_) shelf_->reset();
+}
+
 bool Ui::handleLibrary(const SDL_Event& e) {
     if (e.type != SDL_KEYDOWN && e.type != SDL_CONTROLLERBUTTONDOWN && e.type != SDL_KEYUP &&
         e.type != SDL_CONTROLLERBUTTONUP && e.type != SDL_TEXTINPUT)
@@ -2176,8 +2230,8 @@ bool Ui::handleLibrary(const SDL_Event& e) {
     // With a game's menu open the arrows move through it, A picks and B closes it.
     if (libraryView_.menuGame >= 0) {
         switch (action) {
-            case Up: libraryView_.menuItem = (libraryView_.menuItem + LibraryView::kItems - 1) % LibraryView::kItems; break;
-            case Down: libraryView_.menuItem = (libraryView_.menuItem + 1) % LibraryView::kItems; break;
+            case Up: libraryView_.menuItem = (libraryView_.menuItem + libraryView_.menuItems - 1) % libraryView_.menuItems; break;
+            case Down: libraryView_.menuItem = (libraryView_.menuItem + 1) % libraryView_.menuItems; break;
             case Play: libraryView_.menuAction = libraryView_.menuItem; break;
             case Close: case Menu: libraryView_.menuGame = -1; break;
             default: break;
@@ -2185,15 +2239,13 @@ bool Ui::handleLibrary(const SDL_Event& e) {
         return true;
     }
     if (action == PrevTab || action == NextTab) {
-        // Tabs: -1 (all), then each console; wraps around.
-        int tab = settings_.librarySystem + 1 + (action == NextTab ? 1 : -1);
-        tab = (tab + kSystemCount + 1) % (kSystemCount + 1);
-        settings_.librarySystem = tab - 1;
-        libraryView_.selected = 0;
-        libraryView_.scroll = true;
+        // Tabs: all, history, favourites, then each console; wraps around.
+        const std::vector<int> tabs = libraryTabs();
+        const int count = static_cast<int>(tabs.size());
+        const auto at = std::find(tabs.begin(), tabs.end(), settings_.librarySystem);
+        const int now = at == tabs.end() ? 0 : static_cast<int>(at - tabs.begin());
+        setLibraryTab(tabs[static_cast<size_t>((now + (action == NextTab ? 1 : -1) + count) % count)]);
         libraryView_.tabChanged = true;
-        pendingSave_ = true;
-        if (shelf_) shelf_->reset();
         return true;
     }
     if (action == View) {
@@ -2318,26 +2370,44 @@ void Ui::drawLibrary(UiActions& out) {
     if (ImGui::Checkbox(tr("Abrir la biblioteca al empezar"), &settings_.libraryAtStart)) out.settingsChanged = true;
 
     // One tab per console, with how many games each has.
+    // History and favourites too, with the games of theirs in the library.
     int counts[kSystemCount] = {};
-    for (const auto& g : games) ++counts[static_cast<int>(g.system)];
+    int favorites = 0;
+    for (const auto& g : games) {
+        ++counts[static_cast<int>(g.system)];
+        favorites += isFavorite(g);
+    }
+    int played = 0;
+    {
+        std::set<std::string> inLibrary;
+        for (const auto& g : games) inLibrary.insert(Settings::pathKey(g.path));
+        for (const auto& h : settings_.history) played += inLibrary.count(Settings::pathKey(h)) > 0;
+    }
     if (ImGui::BeginTabBar("sistemas")) {
-        for (int tab = -1; tab < kSystemCount; ++tab) {
-            const int n = tab < 0 ? static_cast<int>(games.size()) : counts[tab];
-            const std::string label = std::string(tab < 0 ? tr("Todos") : systemName(static_cast<ConsoleSystem>(tab))) +
-                                      " (" + std::to_string(n) + ")###tab" + std::to_string(tab);
+        for (const int tab : libraryTabs()) {
+            const int n = tab == Settings::kTabAll         ? static_cast<int>(games.size())
+                          : tab == Settings::kTabHistory   ? played
+                          : tab == Settings::kTabFavorites ? favorites
+                                                           : counts[tab];
+            const char* name = tab == Settings::kTabAll         ? tr("Todos")
+                               : tab == Settings::kTabHistory   ? tr("Histórico")
+                               : tab == Settings::kTabFavorites ? tr("Favoritos")
+                                                                : systemName(static_cast<ConsoleSystem>(tab));
+            const std::string label = std::string(name) + " (" + std::to_string(n) + ")###tab" + std::to_string(tab);
             // Tabs changed with the pad or the keyboard are selected by hand.
+            // So is the tab plumnin.ini remembers, the first time (else ImGui picks the first one).
             const ImGuiTabItemFlags f =
-                libraryView_.tabChanged && settings_.librarySystem == tab ? ImGuiTabItemFlags_SetSelected : 0;
+                (libraryView_.tabChanged || !libraryView_.tabsDrawn) && settings_.librarySystem == tab ? ImGuiTabItemFlags_SetSelected : 0;
             if (ImGui::BeginTabItem(label.c_str(), nullptr, f)) {
-                if (!libraryView_.tabChanged && settings_.librarySystem != tab) {
-                    settings_.librarySystem = tab;
-                    libraryView_.selected = 0;
-                    out.settingsChanged = true;
+                if (!libraryView_.tabChanged && libraryView_.tabsDrawn && settings_.librarySystem != tab) {
+                    setLibraryTab(tab);
+                    libraryView_.scroll = false;
                 }
                 ImGui::EndTabItem();
             }
         }
         libraryView_.tabChanged = false;
+        libraryView_.tabsDrawn = true;
         ImGui::EndTabBar();
     }
 
@@ -2361,7 +2431,8 @@ void Ui::drawLibrary(UiActions& out) {
         ImGui::SetTooltip("%s", tr("Las cajas de los juegos en 3D: ábrelas y lleva el cartucho a la consola para jugar."));
     ImGui::SameLine();
     ImGui::SetNextItemWidth(170);
-    ImGui::BeginDisabled(settings_.libraryBoxes);  // the shelf goes by console, then title
+    const bool historyTab = settings_.librarySystem == Settings::kTabHistory;
+    ImGui::BeginDisabled(settings_.libraryBoxes || historyTab);  // the shelf goes by console, then title; the history by date
     static const char* const sorts[Settings::kLibrarySorts] = {N_("Por título"), N_("Por consola"), N_("Por año"),
                                                                N_("Por género"), N_("Por desarrolladora")};
     if (ImGui::BeginCombo("##orden", tr(sorts[std::clamp(settings_.librarySort, 0, Settings::kLibrarySorts - 1)]))) {
@@ -2375,7 +2446,9 @@ void Ui::drawLibrary(UiActions& out) {
         ImGui::EndCombo();
     }
     ImGui::EndDisabled();
-    if (settings_.libraryBoxes && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+    if (historyTab && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("%s", tr("El histórico va del último juego al que has jugado al primero."));
+    else if (settings_.libraryBoxes && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
         ImGui::SetTooltip("%s", tr("En las cajas 3D los juegos van por consola y, en cada una, por título."));
     ImGui::SameLine();
     if (ImGui::Checkbox(tr("Detalles"), &settings_.libraryDetails)) out.settingsChanged = true;
@@ -2383,7 +2456,8 @@ void Ui::drawLibrary(UiActions& out) {
         ImGui::SetTooltip("%s", tr("Un panel a la derecha con la carátula, los datos y la descripción del juego elegido."));
     const std::vector<size_t> visible = visibleGames();
     // A new order (or the data to sort by arriving) keeps the same game chosen.
-    const unsigned order = settings_.libraryBoxes ? 1u
+    const unsigned order = historyTab              ? 0u
+                           : settings_.libraryBoxes ? 1u
                                                   : static_cast<unsigned>(settings_.librarySort) * 2 + libraryView_.descending + 2 +
                                                         (settings_.librarySort ? gameInfo_.detailsVersion() * 16 : 0);
     if (order != libraryView_.order) {
@@ -2446,6 +2520,10 @@ void Ui::drawLibrary(UiActions& out) {
 
     if (games.empty()) ImGui::TextDisabled("%s", tr("No hay juegos (.gb, .gbc, .nes, .sfc, .smc, .zip) en estas carpetas."));
     else if (visible.empty() && libraryView_.search[0]) ImGui::TextDisabled("%s", tr("Ningún juego coincide con la búsqueda."));
+    else if (visible.empty() && historyTab)
+        ImGui::TextDisabled("%s", tr("Aún no has jugado a ningún juego de la biblioteca: los que abras aparecerán aquí, el último el primero."));
+    else if (visible.empty() && settings_.librarySystem == Settings::kTabFavorites)
+        ImGui::TextDisabled("%s", tr("Aún no tienes favoritos: pulsa con el botón derecho sobre un juego y elige «Añadir a favoritos»."));
     else if (visible.empty()) ImGui::TextDisabled("%s", tr("No hay juegos de esta consola en tus carpetas."));
 
     // The games on the left (a grid of covers or a list), the chosen one's data on the right.
@@ -2493,14 +2571,42 @@ void Ui::drawLibrary(UiActions& out) {
             const Library::Game& g = games[visible[static_cast<size_t>(n)]];
             ImGui::TextDisabled("%s", g.title.c_str());
             ImGui::Separator();
-            static const char* items[LibraryView::kItems] = {N_("Jugar"), N_("Trucos..."), N_("Opciones de este juego..."),
-                                                             N_("Editor de instrumentos..."),
-                                                             N_("Buscar en ScreenScraper por nombre..."),
-                                                             N_("Carátula desde imagen..."), N_("Medios de ScreenScraper...")};
-            int picked = libraryView_.menuAction;
-            for (int i = 0; i < LibraryView::kItems; ++i)
-                if (ImGui::Selectable(tr(items[i]), libraryView_.menuItem == i, ImGuiSelectableFlags_NoAutoClosePopups)) picked = i;
+            // What each item does: the place in `items`, then the favourite and the history.
+            enum { Favorite = 100, Unplayed };
+            static const char* items[] = {N_("Jugar"), N_("Trucos..."), N_("Opciones de este juego..."),
+                                          N_("Editor de instrumentos..."), N_("Buscar en ScreenScraper por nombre..."),
+                                          N_("Carátula desde imagen..."), N_("Medios de ScreenScraper...")};
+            const bool favorite = isFavorite(g);
+            std::vector<std::pair<int, const char*>> entries = {{0, tr(items[0])},
+                                                                {Favorite, favorite ? tr("Quitar de favoritos") : tr("Añadir a favoritos")}};
+            if (historyTab) entries.push_back({Unplayed, tr("Quitar del histórico")});
+            for (int i = 1; i < static_cast<int>(std::size(items)); ++i) entries.push_back({i, tr(items[i])});
+            libraryView_.menuItems = static_cast<int>(entries.size());
+            int picked = libraryView_.menuAction >= 0 && libraryView_.menuAction < libraryView_.menuItems
+                             ? entries[static_cast<size_t>(libraryView_.menuAction)].first
+                             : -1;
+            for (int i = 0; i < libraryView_.menuItems; ++i) {
+                const auto& [action, label] = entries[static_cast<size_t>(i)];
+                const ImVec2 at = ImGui::GetCursorScreenPos();
+                const float star = action == Favorite ? ImGui::GetTextLineHeight() + 4 : 0.0f;
+                if (star > 0) ImGui::Indent(star);
+                if (ImGui::Selectable(label, libraryView_.menuItem == i, ImGuiSelectableFlags_NoAutoClosePopups)) picked = action;
+                if (star > 0) {
+                    ImGui::Unindent(star);
+                    drawStar(ImGui::GetWindowDrawList(), ImVec2(at.x, at.y + 1), ImGui::GetTextLineHeight() - 2,
+                             favorite ? kFavoriteColour : IM_COL32(150, 150, 160, 255));
+                }
+            }
             switch (picked) {
+                case Favorite:
+                    settings_.setFavorite(g.path, !favorite);
+                    out.settingsChanged = true;
+                    notify(favorite ? trf("%s ya no está en favoritos", g.title.c_str()) : trf("%s, en favoritos", g.title.c_str()));
+                    break;
+                case Unplayed:
+                    settings_.removeHistory(g.path);
+                    out.settingsChanged = true;
+                    break;
                 case 0: libraryView_.load = n; break;
                 case 1: out.cheatsFor = g.path; showCheats_ = true; break;
                 case 2: out.optionsFor = g.path; showGameOptions_ = true; break;
@@ -2629,7 +2735,15 @@ void Ui::drawLibraryGrid(const std::vector<size_t>& visible) {
             if (ImGui::IsMouseHoveringRect(b0, ImVec2(b0.x + s, b0.y + s)))
                 ImGui::SetTooltip("%s", trf(c->second == 1 ? N_("%d truco activo") : N_("%d trucos activos"), c->second).c_str());
         }
-        // On the "Todos" tab, a badge on each cover says which console.
+        // A star in the cover's bottom right corner: one of the favourites.
+        if (isFavorite(g)) {
+            const float s = std::clamp(coverW * 0.18f, 18.0f, 30.0f);
+            const ImVec2 b0(box.x + coverW - s - 4, box.y + coverH - s - 4);
+            draw->AddRectFilled(b0, ImVec2(b0.x + s, b0.y + s), IM_COL32(20, 20, 24, 210), 4.0f);
+            drawStar(draw, ImVec2(b0.x + s * 0.1f, b0.y + s * 0.08f), s * 0.8f, kFavoriteColour);
+            if (ImGui::IsMouseHoveringRect(b0, ImVec2(b0.x + s, b0.y + s))) ImGui::SetTooltip("%s", tr("En favoritos"));
+        }
+        // On the "Todos", history and favourites tabs, a badge on each cover says which console.
         if (settings_.librarySystem < 0) {
             const char* badge = systemName(g.system);
             const ImVec2 size = ImGui::CalcTextSize(badge);
@@ -2807,12 +2921,16 @@ void Ui::drawLibraryList(const std::vector<size_t>& visible) {
                     tip += "\n" + trf(cheats->second == 1 ? N_("%d truco activo") : N_("%d trucos activos"), cheats->second);
                 ImGui::SetTooltip("%s", tip.c_str());
             }
-            // A bolt after the title: the game has cheats on.
-            if (cheats != withCheats.end()) {
+            // After the title, a star (a favourite) and a bolt (cheats on).
+            {
                 const float s = ImGui::GetTextLineHeight();
-                const ImVec2 at(ImGui::GetItemRectMin().x + ImGui::CalcTextSize(g.title.c_str()).x + 6,
-                                ImGui::GetItemRectMin().y + (ImGui::GetItemRectSize().y - s) * 0.5f);
-                drawCheatIcon(ImGui::GetWindowDrawList(), at, s, kCheatColour);
+                ImVec2 at(ImGui::GetItemRectMin().x + ImGui::CalcTextSize(g.title.c_str()).x + 6,
+                          ImGui::GetItemRectMin().y + (ImGui::GetItemRectSize().y - s) * 0.5f);
+                if (isFavorite(g)) {
+                    drawStar(ImGui::GetWindowDrawList(), at, s, kFavoriteColour);
+                    at.x += s + 4;
+                }
+                if (cheats != withCheats.end()) drawCheatIcon(ImGui::GetWindowDrawList(), at, s, kCheatColour);
             }
             if (selected && libraryView_.scroll) {
                 ImGui::SetScrollHereY(0.5f);
@@ -2889,7 +3007,24 @@ void Ui::drawLibraryDetails(const std::vector<size_t>& visible) {
         ImGui::Dummy(ImVec2(width, h));
     }
     ImGui::Spacing();
-    if (theme::primaryButton(tr("Jugar"))) libraryView_.load = n;
+    // The button to play it and, next to it, the star that marks it as a favourite or
+    // takes it out of them.
+    const float starW = ImGui::GetFrameHeight() * 1.6f;
+    if (theme::primaryButton(tr("Jugar"), std::max(40.0f, width - starW - ImGui::GetStyle().ItemSpacing.x))) libraryView_.load = n;
+    {
+        ImGui::SameLine();
+        const bool favorite = isFavorite(g);
+        const float h = ImGui::GetItemRectSize().y;
+        const ImVec2 at = ImGui::GetCursorScreenPos();
+        if (ImGui::Button("##favorito", ImVec2(starW, h))) {
+            settings_.setFavorite(g.path, !favorite);
+            pendingSave_ = true;
+        }
+        const float s = h * 0.62f;
+        drawStar(draw, ImVec2(at.x + (starW - s) * 0.5f, at.y + (h - s) * 0.5f), s,
+                 favorite ? kFavoriteColour : IM_COL32(120, 120, 130, 255));
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", favorite ? tr("Quitar de favoritos") : tr("Añadir a favoritos"));
+    }
     if (const auto c = gamesWithCheats().find(g.stem); c != gamesWithCheats().end()) {
         // Under the button, a bolt and how many.
         const float s = ImGui::GetTextLineHeight();

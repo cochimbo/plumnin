@@ -15,7 +15,8 @@ namespace plumnin {
 
 // Everything the menus change apart from the controls. Lives in plumnin.ini next to
 // the [keyboard] / [gamepad] sections, under [interface], [video], [audio], [console],
-// [speed], [states], [library], [network], [achievements], [screenscraper] and [recent].
+// [speed], [states], [library], [network], [achievements], [screenscraper], [recent], [history]
+// and [favorites].
 // Ready-made widths for the widescreen: the columns on each side (at 256 pixels a line,
 // wideColumnsFor) that make the picture that aspect, and its name.
 struct Widescreen {
@@ -27,6 +28,10 @@ constexpr int kWidescreenCount = 3;
 
 struct Settings {
     static constexpr size_t kMaxRecent = 10;
+    static constexpr size_t kMaxHistory = 200;
+    // The library's tabs besides the consoles' (librarySystem): every game, the ones
+    // played lately and the favourites.
+    static constexpr int kTabAll = -1, kTabFavorites = -2, kTabHistory = -3;
     static constexpr int kMaxRewindSeconds = 60;
 
     std::string language;  // "es", "en", "fr" or "pt"; empty: the system's, decided at start
@@ -78,10 +83,14 @@ struct Settings {
     bool fpsCounter = false;
     int fpsCorner = 3;
     std::vector<std::string> recent;  // most recent first
+    // Every game played (up to kMaxHistory), the last one first: the library's Histórico tab.
+    std::vector<std::string> history;
+    // The games marked as favourites in the library (its game menu), in the order marked.
+    std::vector<std::string> favorites;
     std::string lastFolder;
     std::vector<std::string> libraryFolders;  // where the game library looks for games
     bool libraryAtStart = true;   // open the library when plumnin starts without a ROM
-    int librarySystem = -1;       // the library's tab: -1 every console, else a ConsoleSystem
+    int librarySystem = -1;       // the library's tab: kTabAll, kTabHistory, kTabFavorites or a ConsoleSystem
     bool libraryList = false;     // the library as a list (title, console, year...) instead of a grid of covers
     bool libraryBoxes = false;    // the library as a row of 3D boxes that open (wins over libraryList)
     bool libraryDetails = true;   // the panel on the right with the chosen game's cover, data and description
@@ -112,6 +121,16 @@ struct Settings {
 
     void addRecent(const std::string& path);
     void removeRecent(const std::string& path);
+    // Puts `path` first in the history.
+    void addHistory(const std::string& path);
+    void removeHistory(const std::string& path);
+    bool isFavorite(const std::string& path) const;
+    // Marks `path` as a favourite, or takes it out of them.
+    void setFavorite(const std::string& path, bool favorite);
+    // The same game's path however it was written: slashes either way and, on Windows,
+    // letters in either case.
+    static bool samePath(const std::string& a, const std::string& b);
+    static std::string pathKey(const std::string& path);
 
     // Reads the sections it knows from `path`, ignoring the rest.
     static Settings load(const std::string& path);

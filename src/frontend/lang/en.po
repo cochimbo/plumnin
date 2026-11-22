@@ -48,8 +48,14 @@ msgstr "%d cheats on"
 msgid "%s no es una imagen PNG o JPEG"
 msgstr "%s is not a PNG or JPEG image"
 
+msgid "%s ya no está en favoritos"
+msgstr "%s is no longer a favourite"
+
 msgid "%s, %u puntos"
 msgstr "%s, %u points"
+
+msgid "%s, en favoritos"
+msgstr "%s added to favourites"
 
 msgid "%s: %d %s, de %s a %s. Sugerencia: %s."
 msgstr "%s: %d %s, from %s to %s. Suggestion: %s."
@@ -300,6 +306,12 @@ msgstr "Drag a ROM here, use File > Open ROM or open the library (F10 or A on th
 msgid "Arrastra una ROM aquí, usa Archivo > Abrir ROM o abre la biblioteca (F10)"
 msgstr "Drag a ROM here, use File > Open ROM or open the library (F10)"
 
+msgid "Arrastrar o stick izquierdo: girarla   Rueda o stick derecho: zoom   Clic en la caja o A: sacar el cartucho   Clic fuera o B: devolverla"
+msgstr "Drag or left stick: turn it   Wheel or right stick: zoom   Click the box or A: take the cartridge out   Click elsewhere or B: put it back"
+
+msgid "Arrastrar o stick izquierdo: girarlo   Rueda o stick derecho: zoom   Clic en el cartucho o A: jugar   Clic fuera o B: guardarlo"
+msgstr "Drag or left stick: turn it   Wheel or right stick: zoom   Click the cartridge or A: play   Click elsewhere or B: put it away"
+
 msgid "Arriba"
 msgstr "Up"
 
@@ -348,6 +360,9 @@ msgstr "Its master code was added too: the game would not start without it"
 msgid "Añadir"
 msgstr "Add"
 
+msgid "Añadir a favoritos"
+msgstr "Add to favourites"
+
 msgid "Añadir carpeta..."
 msgstr "Add folder..."
 
@@ -357,8 +372,14 @@ msgstr "Only add what is missing (quick: the game is not asked for again)"
 msgid "Año"
 msgstr "Year"
 
+msgid "Aún no has jugado a ningún juego de la biblioteca: los que abras aparecerán aquí, el último el primero."
+msgstr "You have not played any game from the library yet: the ones you open will show up here, the last one first."
+
 msgid "Aún no se ha descargado nada de este juego: pulsa Descargar de ScreenScraper."
 msgstr "Nothing has been downloaded for this game yet: press Download from ScreenScraper."
+
+msgid "Aún no tienes favoritos: pulsa con el botón derecho sobre un juego y elige «Añadir a favoritos»."
+msgstr "No favourites yet: right-click a game and choose “Add to favourites”."
 
 msgid "Bajo acústico"
 msgstr "Acoustic bass"
@@ -503,6 +524,9 @@ msgstr "Electric snare"
 msgid "Caja en 3D"
 msgstr "3D box"
 
+msgid "Cajas 3D"
+msgstr "3D boxes"
+
 msgid "Cambia de vista con V o con Select en el mando."
 msgstr "Switch views with V or with Select on the pad."
 
@@ -611,6 +635,9 @@ msgstr "Claves"
 
 msgid "Clavinet"
 msgstr "Clavinet"
+
+msgid "Clic o A: sacar la caja   Rueda o stick derecho: zoom   Arrastrar o flechas: moverse"
+msgstr "Click or A: take the box out   Wheel or right stick: zoom   Drag or arrows: move"
 
 msgid ""
 "Como si no hubiera nada enchufado en el segundo puerto. En una partida en red el mando 2\n"
@@ -970,6 +997,9 @@ msgstr "The host does not answer. Check the address and that it has the UDP port
 msgid "El anfitrión usa otra versión de plumnin: tenéis que usar la misma."
 msgstr "The host uses another version of plumnin: you both need the same one."
 
+msgid "El histórico va del último juego al que has jugado al primero."
+msgstr "The history goes from the last game you played to the first."
+
 msgid "El juego abierto tiene sus propios botones (en Opciones de este juego); aquí cambias los generales."
 msgstr "The open game has its own buttons (in This game's options); here you change the general ones."
 
@@ -1035,6 +1065,12 @@ msgstr "At home, your friend joins %s:%d."
 
 msgid "En esta pista no suena música."
 msgstr "No music plays in this track."
+
+msgid "En favoritos"
+msgstr "In favourites"
+
+msgid "En las cajas 3D los juegos van por consola y, en cada una, por título."
+msgstr "In the 3D boxes the games go by console and, within each one, by title."
 
 msgid "En modo hardcore no se pueden cargar estados"
 msgstr "States cannot be loaded in hardcore mode"
@@ -1186,6 +1222,9 @@ msgstr "Bassoon"
 
 msgid "Falta la función %s"
 msgstr "The function %s is missing"
+
+msgid "Favoritos"
+msgstr "Favourites"
 
 msgid "Fecha"
 msgstr "Date"
@@ -1422,6 +1461,9 @@ msgstr "I got 1 song out of the ROM: it is in the track list."
 msgid "Helicóptero"
 msgstr "Helicopter"
 
+msgid "Histórico"
+msgstr "History"
+
 msgid "Huella"
 msgstr "Fingerprint"
 
@@ -1614,6 +1656,9 @@ msgstr "The session has expired: type the password again."
 
 msgid "La#"
 msgstr "A#"
+
+msgid "Las cajas de los juegos en 3D: ábrelas y lleva el cartucho a la consola para jugar."
+msgstr "The games' boxes in 3D: open one and take the cartridge to the console to play."
 
 msgid ""
 "Las canciones del juego y sus instrumentos, con lo que suena en el sintetizador:\n"
@@ -2269,6 +2314,12 @@ msgstr ""
 
 msgid "Quitar"
 msgstr "Remove"
+
+msgid "Quitar de favoritos"
+msgstr "Remove from favourites"
+
+msgid "Quitar del histórico"
+msgstr "Remove from history"
 
 msgid "Quitar la cuenta"
 msgstr "Remove the account"
@@ -3191,21 +3242,3 @@ msgstr "Rock organ"
 
 msgid "Órganos"
 msgstr "Organ"
-
-msgid "Cajas 3D"
-msgstr "3D boxes"
-
-msgid "Las cajas de los juegos en 3D: ábrelas y lleva el cartucho a la consola para jugar."
-msgstr "The games' boxes in 3D: open one and take the cartridge to the console to play."
-
-msgid "En las cajas 3D los juegos van por consola y, en cada una, por título."
-msgstr "In the 3D boxes the games go by console and, within each one, by title."
-
-msgid "Clic o A: sacar la caja   Rueda o stick derecho: zoom   Arrastrar o flechas: moverse"
-msgstr "Click or A: take the box out   Wheel or right stick: zoom   Drag or arrows: move"
-
-msgid "Arrastrar o stick izquierdo: girarla   Rueda o stick derecho: zoom   Clic en la caja o A: sacar el cartucho   Clic fuera o B: devolverla"
-msgstr "Drag or left stick: turn it   Wheel or right stick: zoom   Click the box or A: take the cartridge out   Click elsewhere or B: put it back"
-
-msgid "Arrastrar o stick izquierdo: girarlo   Rueda o stick derecho: zoom   Clic en el cartucho o A: jugar   Clic fuera o B: guardarlo"
-msgstr "Drag or left stick: turn it   Wheel or right stick: zoom   Click the cartridge or A: play   Click elsewhere or B: put it away"
