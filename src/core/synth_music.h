@@ -161,6 +161,16 @@ public:
     void setAssignments(Assignments assigned);
     const Assignments& assignments() const { return assigned_; }
     Assignment assignmentFor(uint32_t fingerprint) const;
+    // The game's songs, each with its instruments and what was chosen for it alone (over
+    // what was chosen for the whole game): as the game plays, the song it is playing is
+    // told by the instruments heard in the last seconds, and its choices are the ones heard.
+    struct Song {
+        std::set<uint32_t> instruments;
+        Assignments assigned;
+    };
+    void setSongs(std::vector<Song> songs);
+    // Which of them it is playing now (-1 for none it can tell).
+    int currentSong() const { return song_; }
     // What it plays when not chosen by hand: the rules', or its own sound for an effect.
     Assignment suggestionFor(uint32_t fingerprint) const;
     // The game's sound effects (instruments, as Sacar canciones found them), and whether
@@ -292,6 +302,12 @@ private:
     int volume_ = 100;
     double clockHz_ = 1e6;
     std::vector<std::string>* log_ = nullptr;
+    // The songs, and the instruments heard lately (each with its last note), to tell them.
+    std::vector<Song> songs_;
+    int song_ = -1;
+    std::map<uint32_t, uint64_t> recent_;
+    uint64_t guessedAt_ = 0;
+    void guessSong(uint64_t clock);
 };
 
 }  // namespace plumnin

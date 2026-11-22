@@ -466,6 +466,10 @@ SynthMusic::Assignment SynthMusic::suggest(const Traits& t, const Heard& heard) 
 }
 
 SynthMusic::Assignment SynthMusic::assignmentFor(uint32_t fingerprint) const {
+    if (song_ >= 0 && static_cast<size_t>(song_) < songs_.size()) {
+        const Assignments& own = songs_[static_cast<size_t>(song_)].assigned;
+        if (auto a = own.find(fingerprint); a != own.end()) return a->second;
+    }
     if (auto a = assigned_.find(fingerprint); a != assigned_.end()) return a->second;
     return suggestionFor(fingerprint);
 }
@@ -496,6 +500,56 @@ SynthMusic::Assignment SynthMusic::ruled(uint32_t fingerprint) const {
     if (r->second.lead)
         if (auto l = rules_.find(r->second.lead); l != rules_.end()) return suggest(l->second.traits, l->second.heard);
     return suggest(r->second.traits, r->second.heard);
+}
+
+void SynthMusic::setSongs(std::vector<Song> songs) {
+    songs_ = std::move(songs);
+    song_ = -1;
+    guessedAt_ = 0;
+    guessSong(guessedAt_);
+    updateChipVoices();
+}
+
+// The song whose instruments are the ones heard in the last seconds: the one with most of
+// them (at least most of them all), and of those, the one they are most of. A song the
+// heard ones fit as well as the one before stays.
+void SynthMusic::guessSong(uint64_t clock) {
+    guessedAt_ = clock;
+    if (songs_.empty()) {
+        song_ = -1;
+        return;
+    }
+    const uint64_t window = static_cast<uint64_t>(6 * clockHz_);
+    std::set<uint32_t> heard;
+    for (auto it = recent_.begin(); it != recent_.end();) {
+        if (clock > it->second && clock - it->second > window) {
+            it = recent_.erase(it);
+            continue;
+        }
+        if (!effects_.count(it->first)) heard.insert(it->first);
+        ++it;
+    }
+    if (heard.empty()) return;  // a silence: the song it was, until another is heard
+    int best = -1;
+    double bestScore = 0;
+    double currentScore = -1;
+    for (size_t i = 0; i < songs_.size(); ++i) {
+        const std::set<uint32_t>& in = songs_[i].instruments;
+        if (in.empty()) continue;
+        size_t both = 0;
+        for (uint32_t fp : heard) both += in.count(fp);
+        const double ofHeard = static_cast<double>(both) / static_cast<double>(heard.size());
+        if (ofHeard < 0.6) continue;
+        const double score = ofHeard * 2 + static_cast<double>(both) / static_cast<double>(in.size());
+        if (static_cast<int>(i) == song_) currentScore = score;
+        if (score > bestScore + 1e-9) {
+            bestScore = score;
+            best = static_cast<int>(i);
+        }
+    }
+    const int was = song_;
+    song_ = currentScore >= bestScore - 1e-9 && currentScore > 0 ? song_ : best;
+    if (song_ != was) updateChipVoices();
 }
 
 void SynthMusic::setAssignments(Assignments assigned) {
@@ -617,6 +671,8 @@ void SynthMusic::allNotesOff() {
 
 void SynthMusic::forget() {
     allNotesOff();
+    recent_.clear();
+    song_ = -1;
     voices_ = {};
     rules_.clear();
     seen_.clear();
@@ -666,6 +722,12 @@ void SynthMusic::noteOn(int voice, const VoiceState& s, uint64_t clock) {
         else if (fresh && lead.fingerprint != fp)
             rule.lead = lead.fingerprint;
         lead.last = clock;
+    }
+    // Which song it is, by its instruments: before choosing this one's sound.
+    if (!songs_.empty()) {
+        const bool fresh = !recent_.count(fp);
+        recent_[fp] = clock;
+        if (fresh || clock < guessedAt_ || static_cast<double>(clock - guessedAt_) > 0.25 * clockHz_) guessSong(clock);
     }
     const int pitch = static_cast<int>(std::lround(s.note));
     if (rule.traits.kind != Kind::Noise) rule.heard.add(pitch);

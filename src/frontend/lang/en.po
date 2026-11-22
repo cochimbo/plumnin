@@ -72,6 +72,12 @@ msgstr "(shortcut in Options > Controls)"
 msgid "(efecto)"
 msgstr "(effect)"
 
+msgid "(elegido para esta canción)"
+msgstr "(chosen for this song)"
+
+msgid "(elegido para todo el juego)"
+msgstr "(chosen for the whole game)"
+
 msgid "(ninguna)"
 msgstr "(none)"
 
@@ -535,6 +541,9 @@ msgstr "Switch views with V or with Select on the pad."
 
 msgid "Cambia el nombre si no sale el juego: sin región ni número de versión suele ir mejor."
 msgstr "Change the name if the game does not show up: without region or version number usually works better."
+
+msgid "Cambiar en:"
+msgstr "Change in:"
 
 msgid "Campana del ride"
 msgstr "Ride bell"
@@ -1703,6 +1712,20 @@ msgstr "List: %s"
 msgid "Listas de libretro-database, la base de trucos de RetroArch (licencia CC BY-SA 4.0). Los nombres vienen en inglés; los añadidos quedan activados en la lista de arriba, con el código maestro (Master Code) del juego cuando lo pide."
 msgstr "Lists from libretro-database, RetroArch's cheat database (CC BY-SA 4.0 licence). The names are in English; the ones added are turned on in the list above, with the game's Master Code when it needs one."
 
+msgid ""
+"Lo que cambies suena en todas las canciones del juego que no tengan algo\n"
+"elegido para ellas solas."
+msgstr ""
+"What you change sounds in every song of the game that has nothing\n"
+"chosen for it alone."
+
+msgid ""
+"Lo que cambies suena solo en esta canción: en el juego, cuando suena ella\n"
+"(se reconoce por sus instrumentos)."
+msgstr ""
+"What you change sounds only in this song: in the game, when it plays\n"
+"(it is told by its instruments)."
+
 msgid "Lo que se descarga de cada juego. Los vídeos y los manuales ocupan mucho, así que no se descargan si no los marcas (cada juego los puede descargar aparte)."
 msgstr "What is downloaded for each game. Videos and manuals take a lot of space, so they are not downloaded unless you tick them (each game can download them separately)."
 
@@ -1756,6 +1779,9 @@ msgid ""
 msgstr ""
 "The game's frames per second and how long each one takes to emulate,\n"
 "with a graph of the last 10 seconds."
+
+msgid "Los instrumentos de la canción, para saber cuándo suena en el juego."
+msgstr "The song's instruments, to tell when the game plays it."
 
 msgid ""
 "Los lados de arriba se guardan para %s y se recuperan al abrirlo.\n"
@@ -2324,11 +2350,18 @@ msgstr ""
 "and goes back. 1 is usually enough; more ask more of the computer and may stutter."
 
 msgid ""
-"Quita todo lo elegido a mano para este juego: cada instrumento vuelve a sonar\n"
-"como sugieren las reglas."
+"Quita todo lo elegido a mano para esta canción: cada instrumento vuelve a sonar\n"
+"como en todo el juego."
 msgstr ""
-"Drops everything chosen by hand for this game: every instrument sounds again\n"
-"as the rules suggest."
+"Removes everything chosen by hand for this song: each instrument sounds again\n"
+"as in the whole game."
+
+msgid ""
+"Quita todo lo elegido a mano para todo el juego: cada instrumento vuelve a sonar\n"
+"como sugieren las reglas (salvo en las canciones con algo elegido para ellas)."
+msgstr ""
+"Removes everything chosen by hand for the whole game: each instrument sounds again\n"
+"as the rules suggest (but in the songs with something chosen for them)."
 
 msgid "Quitar"
 msgstr "Remove"
@@ -2694,6 +2727,9 @@ msgstr "Synth lead"
 msgid "Solo"
 msgstr "Solo"
 
+msgid "Solo esta canción"
+msgstr "This song only"
+
 msgid "Sombra de los sprites"
 msgstr "Sprite shadows"
 
@@ -2783,6 +2819,9 @@ msgstr "Play"
 
 msgid "Todo a las sugerencias..."
 msgstr "All back to suggestions..."
+
+msgid "Todo el juego"
+msgstr "The whole game"
 
 msgid "Todos"
 msgstr "All"
@@ -2978,6 +3017,9 @@ msgstr "Try again"
 
 msgid "Volver a la sugerencia"
 msgstr "Back to the suggestion"
+
+msgid "Volver a lo del juego"
+msgstr "Back to the game's"
 
 msgid "Volver a los generales"
 msgstr "Back to the general ones"

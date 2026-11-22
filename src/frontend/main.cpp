@@ -709,6 +709,7 @@ int main(int argc, char** argv) {
             synthGame = app->romPath;
             synth->forget();
             synth->setAssignments(InstrumentEditor::load(soundDir, app->romPath));
+            synth->setSongs(InstrumentEditor::songsFor(soundDir, app->romPath));
             synth->setSoundEffects(InstrumentEditor::effectsFor(soundDir, app->romPath), settings.effectsOriginal);
         }
         if (synth->soundEffectsOriginal() != settings.effectsOriginal)
@@ -910,6 +911,7 @@ int main(int argc, char** argv) {
         // canciones may have found others since the game was opened.
         if (loaded && app->console && app->console->synth()) {
             synth->setAssignments(InstrumentEditor::load(soundDir, app->romPath));
+            synth->setSongs(InstrumentEditor::songsFor(soundDir, app->romPath));
             synth->setSoundEffects(InstrumentEditor::effectsFor(soundDir, app->romPath), settings.effectsOriginal);
         }
         std::vector<uint8_t> progress;

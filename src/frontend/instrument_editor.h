@@ -43,8 +43,9 @@ struct EditorRequests {
 // drum kit or its own sound, comparing with the original as it plays. With no song open
 // and the game running through the synthesizer, the instruments heard so far.
 //
-// What is chosen is kept per game in sound/<game>.ini, in plumsg's format, and heard at
-// once in the game. Its songs are in sound/tracks/<game>/; the instruments of its sound
+// What is chosen is kept for the song alone (sound/tracks/<game>/<song>.ini), or for the
+// whole game in sound/<game>.ini, in plumsg's format, and heard at once in the game: a
+// song's choices while the game plays that song, told by its instruments. Its songs are in sound/tracks/<game>/; the instruments of its sound
 // effects (Sacar canciones finds them), in sound/<game>.effects.
 class InstrumentEditor {
 public:
@@ -61,6 +62,9 @@ public:
     // What a game (its path) has chosen, from its file; none if it has none.
     static SynthMusic::Assignments load(const std::string& folder, const std::string& game);
     static std::string fileFor(const std::string& folder, const std::string& game);
+    // A game's songs: what was chosen for each one alone, and its instruments (for telling
+    // which one the game plays). In sound/tracks/<game>/<song>.ini, next to each song.
+    static std::vector<SynthMusic::Song> songsFor(const std::string& folder, const std::string& game);
     // A game's sound effects, as Sacar canciones found them (none if it was not run).
     static std::set<uint32_t> effectsFor(const std::string& folder, const std::string& game);
 
@@ -101,6 +105,14 @@ private:
     void addTracks(const std::string& path);
     bool loadTrack(const Track& track);
     void stop();
+    static std::string songFile(const Track& track);  // what was chosen for it alone
+    // A song's file: its choices, and the instruments in it.
+    static void writeSong(const std::string& path, const SynthMusic::Assignments& assigned,
+                          const std::set<uint32_t>& instruments);
+    bool songOpen() const { return !live_ && player_.loaded() && !track_.path.empty(); }
+    bool editingSong() const { return songOpen() && forSong_; }  // changes go to the song alone
+    SynthMusic::Assignments chosen() const;  // the game's choices, and over them the song's
+    SynthMusic::Assignments& target() { return editingSong() ? songOwn_ : own_; }
     std::vector<Instrument> instruments(const SynthMusic& synth) const;
     SynthMusic& listened(const EditorView& view);  // the synthesizer the lists are of
     void applyListening(const EditorView& view);
@@ -135,7 +147,9 @@ private:
     bool loop_ = true;
     float seekTo_ = -1;
     int chipPercent_ = 0;
-    SynthMusic::Assignments own_;
+    SynthMusic::Assignments own_;      // for the whole game
+    SynthMusic::Assignments songOwn_;  // for the song open alone
+    bool forSong_ = true;              // what is changed goes to the song open, not the game
     uint32_t selected_ = 0;
     uint32_t mutedVoices_ = 0, soloVoices_ = 0;
     uint32_t soloInstrument_ = 0;
@@ -156,6 +170,7 @@ private:
     std::atomic<bool> ripDone_{false};
     bool ripOk_ = false;
     std::vector<SongRipper::Song> ripSongs_;
+    std::vector<std::set<uint32_t>> ripInstruments_;  // each song's
     std::set<uint32_t> ripEffects_;
     std::string ripError_, ripGame_;
 };

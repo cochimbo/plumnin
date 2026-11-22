@@ -2537,6 +2537,58 @@ void testSynth() {
         check(logHas(log, "2 program 33"), "synth: on a bass guitar");
         check(logHas(log, "9 on 38") || logHas(log, "9 on 42") || logHas(log, "9 on 36"), "synth: the noise on the drums");
     }
+
+    // What is chosen for a song alone sounds when the game plays that song, told by its
+    // instruments; the game's choices in the rest.
+    {
+        SynthMusic synth;
+        std::vector<std::string> log;
+        synth.setLog(&log);
+        synth.setClock(1000);
+        const uint32_t leadA = SynthMusic::fingerprint(Kind::Pulse, 1), leadB = SynthMusic::fingerprint(Kind::Pulse, 2);
+        const uint32_t leadC = SynthMusic::fingerprint(Kind::Pulse, 4);
+        const uint32_t bass = SynthMusic::fingerprint(Kind::Triangle, 3);  // in every song
+        SynthMusic::Assignments game;
+        game[bass].program = 30;
+        synth.setAssignments(game);
+        std::vector<SynthMusic::Song> songs(3);
+        songs[0].instruments = {leadA, bass};
+        songs[0].assigned[bass].program = 10;
+        songs[1].instruments = {leadB, bass};
+        songs[1].assigned[bass].program = 20;
+        songs[2].instruments = {leadC, bass};  // nothing chosen for it alone
+        synth.setSongs(songs);
+        uint32_t triggers = 0;
+        uint64_t clock = 0;
+        auto play = [&](uint32_t lead) {
+            for (int n = 0; n < 4; ++n, clock += 250) {
+                synth.beginFrame(clock);
+                SynthMusic::VoiceState s;
+                s.sounding = true;
+                s.amplitude = 0.8;
+                s.note = 60 + n;
+                s.triggers = ++triggers;
+                s.keyed = true;
+                s.fingerprint = lead;
+                synth.update(0, s, clock);
+                s.note = 36 + n;
+                s.fingerprint = bass;
+                synth.update(2, s, clock);
+                std::vector<int16_t> out;
+                synth.endFrame(clock + 250, out, 0, 8000);
+            }
+        };
+        play(leadA);
+        check(synth.currentSong() == 0 && logHas(log, "2 program 10"), "synth: the first song's bass, chosen for it alone");
+        log.clear();
+        clock += 10000;  // the next song, a while later
+        play(leadB);
+        check(synth.currentSong() == 1 && logHas(log, "2 program 20"), "synth: the second song's, chosen for it");
+        log.clear();
+        clock += 10000;
+        play(leadC);
+        check(synth.currentSong() == 2 && logHas(log, "2 program 30"), "synth: a song with nothing of its own, the game's");
+    }
 }
 
 // The SNES's synthesizer: a looped sine of 32 samples a cycle (1000 Hz at 32 kHz) in BRR,

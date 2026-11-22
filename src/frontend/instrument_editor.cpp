@@ -190,6 +190,71 @@ std::set<uint32_t> InstrumentEditor::effectsFor(const std::string& folder, const
     return out;
 }
 
+// A song's instruments, in its file: "instrumentos = huella huella...".
+static std::set<uint32_t> songInstruments(const std::string& text) {
+    std::set<uint32_t> out;
+    size_t pos = 0;
+    while (pos < text.size()) {
+        size_t end = text.find('\n', pos);
+        if (end == std::string::npos) end = text.size();
+        const std::string line = text.substr(pos, end - pos);
+        pos = end + 1;
+        const size_t eq = line.find('=');
+        if (eq == std::string::npos || line.compare(0, 12, "instrumentos") != 0) continue;
+        const char* p = line.c_str() + eq + 1;
+        for (;;) {
+            char* stop = nullptr;
+            const unsigned long fp = std::strtoul(p, &stop, 16);
+            if (stop == p) break;
+            if (fp) out.insert(static_cast<uint32_t>(fp));
+            p = stop;
+        }
+    }
+    return out;
+}
+
+std::string InstrumentEditor::songFile(const Track& track) {
+    if (track.path.empty()) return {};
+    const fs::path p = fs::u8path(track.path);
+    const std::string dir = p.parent_path().u8string() + "/";
+    if (track.member.empty()) return dir + p.stem().u8string() + ".ini";
+    return dir + p.stem().u8string() + " - " + stem(track.member) + ".ini";
+}
+
+void InstrumentEditor::writeSong(const std::string& path, const SynthMusic::Assignments& assigned,
+                                 const std::set<uint32_t>& instruments) {
+    std::string text = SynthMusic::formatAssignments(assigned);
+    text += "\n; " + std::string(tr("Los instrumentos de la canción, para saber cuándo suena en el juego.")) +
+            "\n[cancion]\ninstrumentos =";
+    char word[16];
+    for (uint32_t fp : instruments) {
+        std::snprintf(word, sizeof word, " %08x", fp);
+        text += word;
+    }
+    text += "\n";
+    writeBytes(path, text.data(), text.size());
+}
+
+std::vector<SynthMusic::Song> InstrumentEditor::songsFor(const std::string& folder, const std::string& game) {
+    std::vector<SynthMusic::Song> out;
+    if (game.empty()) return out;
+    std::vector<std::string> files;
+    std::error_code ec;
+    for (fs::directory_iterator it(fs::u8path(tracksFor(folder, game)), ec), end; !ec && it != end; it.increment(ec)) {
+        const std::string p = it->path().u8string();
+        if (endsWith(p, ".ini")) files.push_back(p);
+    }
+    std::sort(files.begin(), files.end());
+    for (const std::string& f : files) {
+        const std::string text = readText(f);
+        SynthMusic::Song song;
+        song.instruments = songInstruments(text);
+        song.assigned = SynthMusic::parseAssignments(text);
+        if (!song.instruments.empty()) out.push_back(std::move(song));
+    }
+    return out;
+}
+
 std::string InstrumentEditor::tracksFor(const std::string& folder, const std::string& game) {
     if (game.empty()) return {};
     return folder + "tracks/" + stem(game) + "/";
@@ -229,6 +294,7 @@ void InstrumentEditor::setGame(const EditorView& view) {
     mutedVoices_ = soloVoices_ = 0;
     silencedInstruments_.clear();
     own_ = load(folder_, game_);
+    songOwn_.clear();
     synth_.setAssignments(own_);
     synth_.setSoundEffects(effectsFor(folder_, game_), view.effectsOriginal);
     listTracks();
@@ -309,6 +375,17 @@ bool InstrumentEditor::loadTrack(const Track& track) {
     message_.clear();
     track_ = track;
     trackSeen_ = VgmPlayer::instruments(file);  // every instrument in it, before playing
+    // What was chosen for this song alone; its file knows its instruments, for the game to
+    // tell when it plays it.
+    {
+        const std::string path = songFile(track_);
+        const std::string text = readText(path);
+        songOwn_ = SynthMusic::parseAssignments(text);
+        std::set<uint32_t> in;
+        for (const auto& [fp, seen] : trackSeen_) in.insert(fp);
+        if (!in.empty() && songInstruments(text) != in) writeSong(path, songOwn_, in);
+    }
+    synth_.setAssignments(chosen());
     // The rules by this song alone, as heard whole: from its first note, and not by how
     // other songs played its samples.
     synth_.forget();
@@ -359,26 +436,41 @@ void InstrumentEditor::applyListening(const EditorView& view) {
     synth.setListening(muted, std::move(silenced));
 }
 
+SynthMusic::Assignments InstrumentEditor::chosen() const {
+    SynthMusic::Assignments all = own_;
+    if (songOpen())
+        for (const auto& [fp, a] : songOwn_) all[fp] = a;
+    return all;
+}
+
 void InstrumentEditor::save(const EditorView& view) {
     const std::string path = fileFor(folder_, game_);
     if (!path.empty()) {
         const std::string text = SynthMusic::formatAssignments(own_);
         message_ = writeBytes(path, text.data(), text.size()) ? std::string() : trf("No se pudo guardar %s", path.c_str());
     }
-    synth_.setAssignments(own_);
+    if (songOpen()) {
+        std::set<uint32_t> in;
+        for (const auto& [fp, seen] : trackSeen_) in.insert(fp);
+        writeSong(songFile(track_), songOwn_, in);
+    }
+    synth_.setAssignments(chosen());
     // Heard at once in the game, when it is the one running.
-    if (view.console && view.gameSynth) view.gameSynth->setAssignments(own_);
+    if (view.console && view.gameSynth) {
+        view.gameSynth->setAssignments(own_);
+        view.gameSynth->setSongs(songsFor(folder_, game_));
+    }
     applyListening(view);
 }
 
 void InstrumentEditor::assign(const EditorView& view, uint32_t fingerprint, const SynthMusic::Assignment* a) {
-    if (a) own_[fingerprint] = *a;
-    else own_.erase(fingerprint);
+    if (a) target()[fingerprint] = *a;
+    else target().erase(fingerprint);
     save(view);
 }
 
 void InstrumentEditor::resetAll(const EditorView& view) {
-    own_.clear();
+    target().clear();
     save(view);
 }
 
@@ -671,7 +763,7 @@ void InstrumentEditor::drawInstruments(const EditorView& view, const std::vector
         ImGui::PushID(static_cast<int>(i.fingerprint));
         ImGui::TableNextRow(ImGuiTableRowFlags_None, row);
         const SynthMusic::Assignment a = synth.assignmentFor(i.fingerprint);
-        const bool byHand = own_.count(i.fingerprint) != 0;
+        const bool byHand = own_.count(i.fingerprint) != 0 || (songOpen() && songOwn_.count(i.fingerprint) != 0);
         const bool on = sounding && now.count(i.fingerprint);
         if (on) ImGui::PushStyleColor(ImGuiCol_Text, kPlaying);
         ImGui::TableSetColumnIndex(0);
@@ -793,6 +885,29 @@ void InstrumentEditor::drawAssignment(const EditorView& view, const std::vector<
         ImGui::TextDisabled("%s", tr("Es un efecto de sonido del juego."));
     }
 
+    // Where the change goes: the song open alone, or the whole game.
+    if (songOpen()) {
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(tr("Cambiar en:"));
+        ImGui::SameLine();
+        if (ImGui::RadioButton(tr("Solo esta canción"), forSong_)) forSong_ = true;
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s", tr("Lo que cambies suena solo en esta canción: en el juego, cuando suena ella\n"
+                                       "(se reconoce por sus instrumentos)."));
+        ImGui::SameLine();
+        if (ImGui::RadioButton(tr("Todo el juego"), !forSong_)) forSong_ = false;
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s", tr("Lo que cambies suena en todas las canciones del juego que no tengan algo\n"
+                                       "elegido para ellas solas."));
+        if (songOwn_.count(inst.fingerprint)) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", tr("(elegido para esta canción)"));
+        } else if (own_.count(inst.fingerprint)) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", tr("(elegido para todo el juego)"));
+        }
+    }
+
     int kind = a.original ? 2 : a.drum >= 0 ? 1 : 0;
     if (!noise) {
         if (ImGui::RadioButton(tr("Instrumento"), kind == 0)) kind = 0;
@@ -850,23 +965,28 @@ void InstrumentEditor::drawAssignment(const EditorView& view, const std::vector<
         applyListening(view);
     }
     ImGui::SameLine();
-    ImGui::BeginDisabled(!own_.count(inst.fingerprint));
-    if (ImGui::Button(tr("Volver a la sugerencia"))) {
+    ImGui::BeginDisabled(!target().count(inst.fingerprint));
+    if (ImGui::Button(editingSong() && own_.count(inst.fingerprint) ? tr("Volver a lo del juego")
+                                                                     : tr("Volver a la sugerencia"))) {
         assign(view, inst.fingerprint, nullptr);
         ImGui::EndDisabled();
         return;
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    ImGui::BeginDisabled(own_.empty());
+    ImGui::BeginDisabled(target().empty());
     if (ImGui::Button(tr("Todo a las sugerencias..."))) ImGui::OpenPopup("todo");
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-        ImGui::SetTooltip("%s", tr("Quita todo lo elegido a mano para este juego: cada instrumento vuelve a sonar\n"
-                                   "como sugieren las reglas."));
+        ImGui::SetTooltip("%s", editingSong()
+                                    ? tr("Quita todo lo elegido a mano para esta canción: cada instrumento vuelve a sonar\n"
+                                         "como en todo el juego.")
+                                    : tr("Quita todo lo elegido a mano para todo el juego: cada instrumento vuelve a sonar\n"
+                                         "como sugieren las reglas (salvo en las canciones con algo elegido para ellas)."));
     if (ImGui::BeginPopup("todo")) {
-        ImGui::TextUnformatted(game_.empty() ? tr("¿Quitar todo lo elegido a mano?")
-                                             : trf("¿Quitar todo lo elegido a mano en %s?", gameName_.c_str()).c_str());
+        ImGui::TextUnformatted(editingSong() ? trf("¿Quitar todo lo elegido a mano en %s?", track_.title.c_str()).c_str()
+                               : game_.empty() ? tr("¿Quitar todo lo elegido a mano?")
+                                               : trf("¿Quitar todo lo elegido a mano en %s?", gameName_.c_str()).c_str());
         if (ImGui::Button(tr("Sí, todo a las sugerencias"))) {
             resetAll(view);
             ImGui::CloseCurrentPopup();
@@ -881,7 +1001,7 @@ void InstrumentEditor::drawAssignment(const EditorView& view, const std::vector<
     if (a != before || (!sliding && pendingSlide_)) {
         if (sliding) {
             // Heard at once, saved when the slider is let go.
-            SynthMusic::Assignments all = own_;
+            SynthMusic::Assignments all = chosen();
             all[inst.fingerprint] = a;
             synth.setAssignments(std::move(all));
             pendingSlide_ = true;
@@ -959,6 +1079,13 @@ void InstrumentEditor::startRip() {
         std::string e;
         ripOk_ = SongRipper::run(rom, {}, progress, &ripSongs_, &e, nullptr, &ripEffects_);
         ripError_ = e;
+        // Each song's instruments, for the game to tell which it plays.
+        ripInstruments_.assign(ripSongs_.size(), {});
+        for (size_t i = 0; ripOk_ && i < ripSongs_.size() && !progress->cancel; ++i) {
+            VgmFile file;
+            if (!file.parse(ripSongs_[i].vgz, nullptr)) continue;
+            for (const auto& [fp, seen] : VgmPlayer::instruments(file)) ripInstruments_[i].insert(fp);
+        }
         ripDone_ = true;
     });
 }
@@ -1004,8 +1131,15 @@ void InstrumentEditor::finishRip() {
             dir + trf("Canción %02d", static_cast<int>(i + 1)) + (ripSongs_[i].spc ? ".spc" : ".vgz");
         const auto& v = ripSongs_[i].vgz;
         if (writeBytes(path, v.data(), v.size())) ++saved;
+        // What was chosen for it stays (the same game gives the same songs); its
+        // instruments are the ones now.
+        if (i < ripInstruments_.size() && !ripInstruments_[i].empty()) {
+            const std::string ini = songFile(Track{path, {}, {}});
+            writeSong(ini, SynthMusic::parseAssignments(readText(ini)), ripInstruments_[i]);
+        }
     }
     ripSongs_.clear();
+    ripInstruments_.clear();
     // The sound effects' instruments: they keep the chip's sound. (None found: the old
     // list goes, it was of other instruments.)
     if (ripEffects_.empty()) {
