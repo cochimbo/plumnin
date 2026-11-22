@@ -507,9 +507,29 @@ public:
     std::vector<uint32_t> started;  // the notes started (channel and pitch) since it was last cleared
     std::map<uint32_t, int> lateNotes;  // how many of each after `late` was set
 
-    void instruction(uint16_t, uint16_t) override {}
+    // All the memory a driver may keep its state in, as one number kept up as it is
+    // written (from trackMemory() on): the same whenever every byte is.
+    uint64_t memoryHash = 0;
+    void trackMemory() {
+        memory_.resize(kRam);
+        memoryHash = 0;
+        for (int i = 0; i < kRam; ++i) {
+            memory_[static_cast<size_t>(i)] = m_.peek(m_.ramAddress(i));
+            memoryHash += mix(i, memory_[static_cast<size_t>(i)]);
+        }
+    }
+
+    void instruction(uint16_t, uint16_t sp) override { sp_ = sp; }
     void call(uint16_t, uint16_t, bool) override {}
     void access(uint16_t a, uint8_t v, bool write) override {
+        if (write && !memory_.empty() && !m_.chip(a)) {
+            const int i = m_.ramIndex(a);
+            if (i < 0 || m_.onStack(a, sp_)) return;
+            uint8_t& was = memory_[static_cast<size_t>(i)];
+            memoryHash += mix(i, v) - mix(i, was);
+            was = v;
+            return;
+        }
         if (!write || !m_.chip(a)) return;
         ++writes;
         writeHash = (writeHash ^ (static_cast<uint64_t>(a) << 8 | v)) * 1099511628211ull;
@@ -534,8 +554,16 @@ public:
     }
 
 private:
+    static uint64_t mix(int i, uint8_t v) {
+        uint64_t x = (static_cast<uint64_t>(i) << 8 | v) * 0x9E3779B97F4A7C15ull;
+        x ^= x >> 29;
+        x *= 0xBF58476D1CE4E5B9ull;
+        return x ^ x >> 32;
+    }
     const Machine& m_;
     std::unique_ptr<NoteSpotter> spotter_;
+    std::vector<uint8_t> memory_;
+    uint16_t sp_ = 0xFFFE;
 };
 
 // The driver run by itself: its routine called as often as the game calls it, with the
@@ -853,6 +881,7 @@ bool Ripper::record(Machine& gb, const Way& way, int number, Take* take) {
     std::vector<VgmWriter::Mark> marks;
     std::unordered_map<uint64_t, int> seen;
     Listener l(gb);
+    l.trackMemory();
     gb.setTracer(&l);
     int lastSound = 0, loopFrom = -1, end = -1;
     uint64_t triggers = 0;
@@ -862,7 +891,10 @@ bool Ripper::record(Machine& gb, const Way& way, int number, Take* take) {
     for (int t = 0; t < maxTicks; ++t) {
         marks.push_back(vgm.mark(gb.soundClock()));
         notes.push_back(l.triggers);
-        const uint64_t h = driver_.stateHash(gb);
+        // Back where it was: all of its memory, not only what it was seen to keep its
+        // state in while the game was watched (a counter of the times a part repeats,
+        // say, that the songs played then never used: Castlevania's).
+        const uint64_t h = driver_.stateHash(gb) ^ l.memoryHash;
         if (auto it = seen.find(h); it != seen.end() && t - it->second >= minLoop) {
             loopFrom = it->second;
             end = t;
