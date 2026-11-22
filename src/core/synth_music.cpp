@@ -824,7 +824,9 @@ double SynthMusic::analyzeSample(const int16_t* pcm, size_t count, size_t loopSt
     double energy = 0;
     for (double v : x) energy += v * v;
     double hz = 0;
-    if (energy > 1e3 && count >= 64) {
+    // (A looped one however short: a single cycle of a wave, Jungle Hijinxs' whistle of 48
+    // samples, has its note all the same, and with none it was a hi-hat.)
+    if (energy > 1e3 && (count >= 64 || t.looped)) {
         const size_t window = kLength - kMaxLag;
         std::vector<double> d(kMaxLag + 1, 0.0);
         double running = 0;

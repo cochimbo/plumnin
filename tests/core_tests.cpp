@@ -2690,6 +2690,15 @@ void testSnesSynth() {
         SynthMusic::analyzeSample(hat.data(), hat.size(), 0, false, 32000, &b);
         check(a.strike > 0 && a.strike * 100 < b.strike, "snes rules: a click holds far less sound than a drum");
     }
+    {
+        // A single cycle of 48 samples, looped: Jungle Hijinxs' whistle, at 666 Hz.
+        std::vector<int16_t> cycle(48);
+        for (size_t i = 0; i < cycle.size(); ++i)
+            cycle[i] = static_cast<int16_t>(8000 * std::sin(2 * 3.14159265358979 * i / 48.0) + 3000 * std::sin(6 * 3.14159265358979 * i / 48.0));
+        SynthMusic::Traits w;
+        const double hz = SynthMusic::analyzeSample(cycle.data(), cycle.size(), 0, true, 32000, &w);
+        check(w.pitched && std::abs(hz - 32000.0 / 48) < 5, "snes rules: a looped single cycle has its note (Jungle Hijinxs' whistle)");
+    }
     SynthMusic::Heard hit;
     for (int n = 0; n < 40; ++n) hit.add(60 + n % 3);
     check(SynthMusic::suggest(rough, hit).drum >= 35, "snes rules: on two or three notes, a drum");
