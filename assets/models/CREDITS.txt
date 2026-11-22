@@ -6,16 +6,17 @@ authors published: only the meshes the shelf shows are kept (each cartridge in a
 its own), the textures are shrunk to 1024 pixels and saved as JPEG (PNG where they have
 transparency), and the metallic/roughness, occlusion and emission textures are left out.
 
-gameboy.glb, gameboy-cartridge.glb
+gameboy.glb, gameboy-cartridge.glb, gameboycolor-cartridge.glb
   "Nintendo Game Boy (Original 1989)" by lokeig (https://sketchfab.com/lokeig).
   Source: https://sketchfab.com/3d-models/nintendo-game-boy-original-1989-ad2f6be906e948f793fe722bbae5d29c
   License: Creative Commons Attribution-NonCommercial 4.0 (CC BY-NC 4.0),
   https://creativecommons.org/licenses/by-nc/4.0/
-  NonCommercial: these two files may not be used for commercial purposes. plumnin is
+  NonCommercial: these three files may not be used for commercial purposes. plumnin is
   free; whoever wants to sell it has to leave them out (plumnin then draws a simple Game
   Boy of its own) or put other models in their place.
   Changes: the console and the cartridge in its slot split in two files; the cartridge
-  wears the look of the Tetris one lying beside it. plumnin prints each game's label (or
+  wears the look of the Tetris one lying beside it, and for the Game Boy Color's games
+  the same in black. plumnin prints each game's label (or
   its cover) over the cartridge's own.
 
 gameboycolor.glb
@@ -23,7 +24,8 @@ gameboycolor.glb
   Source: https://sketchfab.com/3d-models/game-boy-color-03c6fe28d45244d2acd55486e3cfee19
   License: Creative Commons Attribution 4.0 (CC BY 4.0),
   https://creativecommons.org/licenses/by/4.0/
-  Changes: textures reduced from 4096x4096 to 1024x1024.
+  Changes: textures reduced from 4096x4096 to 1024x1024; the top of a cartridge in its
+  slot (only that half is modelled) cut out, leaving the slot empty for the game's.
 
 nes.glb, nes-cartridge.glb
   "NES_OG-85" by RadioactiveAG (https://sketchfab.com/RadioactiveAG).

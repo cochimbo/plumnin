@@ -448,7 +448,8 @@ const CartridgeFile kCartridgeFiles[] = {
     // back), with the look of the Tetris one beside it. Its label fills the lower part.
     {ConsoleSystem::GameBoy, "gameboy-cartridge.glb", 0, 0, {0.005f, 0.532f, 0.325f, 0.84f}, {0.005f, 0.532f, 0.325f, 0.84f}, 0,
      1.04f, 0.45f, 180.0f},
-    {ConsoleSystem::GameBoyColor, "gameboy-cartridge.glb", 0, 0, {0.005f, 0.532f, 0.325f, 0.84f}, {0.005f, 0.532f, 0.325f, 0.84f},
+    // A Game Boy Color game's, the same in black (the Color's model has only the top of one).
+    {ConsoleSystem::GameBoyColor, "gameboycolor-cartridge.glb", 0, 0, {0.005f, 0.532f, 0.325f, 0.84f}, {0.005f, 0.532f, 0.325f, 0.84f},
      0, 1.04f, 0.45f, 180.0f},
     // The NES's, from RadioactiveAG's: lying on its back, its top end to -z. Its label (Punch-
     // Out!!'s) is a texture of its own, the third the model reads (after the shell's normal

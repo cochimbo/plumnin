@@ -20,13 +20,24 @@ import sys
 from PIL import Image
 
 # output file: (source file, meshes kept (regular expressions on the node names, None: all),
-# meshes dropped, largest texture side[, material swapped in: {material: the one to use}])
+# meshes dropped, largest texture side[, options]). The options:
+#   swap: {material: the one to use instead}
+#   cut: {material: ((x0, y0, z0), (x1, y1, z1))}, the triangles of the material in that box
+#        (the mesh's own coordinates, by their middles) left out
+#   tint: {material: [r, g, b, a]}, its base colour factor
 RECIPES = {
     "gameboy.glb": ("game_boy_original_1989.glb", None, [r"^cartridge_", r"^chip_"], 1024),
     # The cartridge in the slot, straight, with the grey Tetris one's look lying beside it
     # (the one in the slot is dark blue).
-    "gameboy-cartridge.glb": ("game_boy_original_1989.glb", [r"^cartridge_low_Cartridge_0$"], [], 1024, {"Cartridge": "Cartridge_2"}),
-    "gameboycolor.glb": ("game_boy_color.glb", None, [], 1024),
+    "gameboy-cartridge.glb": ("game_boy_original_1989.glb", [r"^cartridge_low_Cartridge_0$"], [], 1024,
+                              {"swap": {"Cartridge": "Cartridge_2"}}),
+    # A Game Boy Color game's: the same cartridge in black, as theirs are. The Game Boy
+    # Color model has one in its slot, but only the half that shows (the top, sticking out),
+    # so that one is cut out of it, leaving the slot empty for the game's.
+    "gameboycolor-cartridge.glb": ("game_boy_original_1989.glb", [r"^cartridge_low_Cartridge_0$"], [], 1024,
+                                   {"swap": {"Cartridge": "Cartridge_2"}, "tint": {"Cartridge_2": [0.3, 0.3, 0.32, 1]}}),
+    "gameboycolor.glb": ("game_boy_color.glb", None, [], 1024,
+                         {"cut": {"Plastic": ((-0.46, -0.2, 0.32), (0.57, -0.04, 0.9))}}),
     # The NES with its pad and cable; the cartridge lying beside it (its shell and labels,
     # not the board inside) on its own; the sleeve left out.
     "nes.glb": ("nes_og-85.glb", None, [r"^Object_(7|9|10|11|12|13|14)$"], 1024),
@@ -77,13 +88,54 @@ def shrink(image_bytes, largest):
     return out.getvalue(), "image/jpeg"
 
 
-def make(source, keep, drop, largest, target, swap):
+def read_accessor(doc, binary, index):
+    a = doc["accessors"][index]
+    view = doc["bufferViews"][a["bufferView"]]
+    n = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}[a["type"]]
+    fmt = {5126: "f", 5125: "I", 5123: "H", 5121: "B"}[a["componentType"]]
+    size = struct.calcsize(fmt) * n
+    stride = view.get("byteStride", size)
+    start = view.get("byteOffset", 0) + a.get("byteOffset", 0)
+    return [struct.unpack_from("<" + fmt * n, binary, start + i * stride) for i in range(a["count"])]
+
+
+def cut(doc, binary, material, low, high):
+    """Leaves out the material's triangles whose middles are in the box low..high: new
+    indices for them, at the end of the binary (returned)."""
+    names = [m.get("name") for m in doc.get("materials", [])]
+    for mesh in doc["meshes"]:
+        for p in mesh["primitives"]:
+            if "material" not in p or names[p["material"]] != material:
+                continue
+            positions = read_accessor(doc, binary, p["attributes"]["POSITION"])
+            indices = [i[0] for i in read_accessor(doc, binary, p["indices"])] if "indices" in p else list(range(len(positions)))
+            kept = []
+            for t in range(0, len(indices) - 2, 3):
+                tri = indices[t:t + 3]
+                mid = [sum(positions[v][k] for v in tri) / 3 for k in range(3)]
+                if not all(low[k] <= mid[k] <= high[k] for k in range(3)):
+                    kept += tri
+            binary += b"\0" * (-len(binary) % 4)
+            data = struct.pack("<%dI" % len(kept), *kept)
+            doc["bufferViews"].append({"buffer": 0, "byteOffset": len(binary), "byteLength": len(data)})
+            doc["accessors"].append({"bufferView": len(doc["bufferViews"]) - 1, "componentType": 5125, "count": len(kept), "type": "SCALAR"})
+            p["indices"] = len(doc["accessors"]) - 1
+            binary += data
+    return binary
+
+
+def make(source, keep, drop, largest, target, options):
     doc, binary = read_glb(source)
     names = [m.get("name") for m in doc.get("materials", [])]
+    swap = options.get("swap", {})
     for mesh in doc["meshes"]:
         for p in mesh["primitives"]:
             if "material" in p and names[p["material"]] in swap:
                 p["material"] = names.index(swap[names[p["material"]]])
+    for material, (low, high) in options.get("cut", {}).items():
+        binary = cut(doc, binary, material, low, high)
+    for material, factor in options.get("tint", {}).items():
+        doc["materials"][names.index(material)].setdefault("pbrMetallicRoughness", {})["baseColorFactor"] = factor
     wanted = lambda name: (keep is None or any(re.search(k, name) for k in keep)) and not any(re.search(d, name) for d in drop)
     # Meshes off the nodes not kept (the nodes themselves stay, for their children's places).
     for node in doc["nodes"]:
@@ -196,8 +248,8 @@ def main():
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     source, target = sys.argv[1].rstrip("/\\"), sys.argv[2].rstrip("/\\")
-    for name, (file, keep, drop, largest, *swap) in RECIPES.items():
-        make(f"{source}/{file}", keep, drop, largest, f"{target}/{name}", swap[0] if swap else {})
+    for name, (file, keep, drop, largest, *options) in RECIPES.items():
+        make(f"{source}/{file}", keep, drop, largest, f"{target}/{name}", options[0] if options else {})
         print(name)
 
 
